@@ -1,5 +1,7 @@
 const Category = require('../modals/category');
 const Intro = require('../modals/intro')
+const Banner =require('../modals/banner');
+const { options } = require('../routes/route');
 exports.addSub=async (req,res) => {
     try {
     const{name,price,size,discount,category,city,zone}=req.body
@@ -31,5 +33,35 @@ exports.getIntro=async (req,res) => {
     } catch (error) {
            console.error(error);
         return res.status(500).json({message:'An Error Occured'})
+    }
+}
+
+
+exports.banner=async (req,res) => {
+    try{
+    const{title,description,location}=req.body
+const image = req.file?.filename
+const newBanner=await Banner.create({title,description,location,image})
+ return res.status(200).json({message:'Banner Added Succesfully'})
+ } catch (error) {
+           console.error(error);
+        return res.status(500).json({message:'An Error Occured'})
+    }
+}
+
+exports.getBanner=async (req,res) => {
+    const{location}=req.querry
+
+    const filters ={}
+    if(location){
+        filters.location={$regex:location,$options:'i'}
+    }
+
+    try {
+        const data = await Banner.find(filters)
+        res.json(data)
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({message:'An Error Occured'}) 
     }
 }

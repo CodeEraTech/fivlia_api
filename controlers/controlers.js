@@ -50,14 +50,14 @@ const newBanner=await Banner.create({title,description,location,image})
 }
 
 exports.getBanner=async (req,res) => {
-    const{location}=req.querry
+     try {
+    const{location}=req.query
 
     const filters ={}
     if(location){
         filters.location={$regex:location,$options:'i'}
     }
 
-    try {
         const data = await Banner.find(filters)
         res.json(data)
     } catch (error) {

@@ -17,8 +17,9 @@ exports.addSub=async (req,res) => {
 exports.intro=async (req,res) => {
     try{
         const{title,description}=req.body
-     const image = req.file.path;
-     const newItem =await Intro.create({title,description,image})
+const imageFile = req.files?.image?.[0]; 
+    const imageUrl = imageFile?.path;
+     const newItem =await Intro.create({title,description,image:imageUrl})
     return res.status(200).json({message:'intro Added Sucessfully',data:newItem})
     } catch (error) {
         console.error('error=>',error);

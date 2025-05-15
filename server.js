@@ -9,9 +9,11 @@ connectDb();
 const app = express()
 app.use(cors())
 app.use(express.json())
-const authRoutes = require('./routes/route')
+const authRoutes = require('./routes/route');
+const zonesRoute = require('./routes/route');
 app.get('/',(req,res)=>{
     res.send('social media api is running ...')
 })
 app.use('/fivlia',authRoutes);
+app.use('/',zonesRoute);
 app.listen(5000,()=> console.log('Server Running On 5000'))

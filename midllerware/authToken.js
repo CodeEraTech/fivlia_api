@@ -11,17 +11,16 @@ const verifyToken = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.jwtSecretKey);
 
-    // Fetch user by ID
-    const user = await User.findById(decoded.id);
+    const userId = decoded.data; // ✅ Correct key
+    const user = await User.findById(userId);
 
     if (!user) {
-        console.log(user,token);
-        
+      console.log("User not found:", userId);
       return res.status(401).json({ message: "User not found" });
     }
 
     req.user = user;
-    console.log("Token verified successfully");
+    console.log("Token verified successfully for user:", userId);
 
     next();
   } catch (error) {

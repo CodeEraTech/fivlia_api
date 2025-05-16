@@ -4,8 +4,8 @@ const router = express.Router()
 const verifyToken = require('../midllerware/authToken');
 
 const{users,addUser}=require('../controlers/authControler');
-const {addSub,intro,banner,getIntro,getBanner}=require('../controlers/controlers')
-const{update}=require('../controlers/categorycontroler');
+const {addSub,intro,getIntro}=require('../controlers/controlers')
+const{update,banner,getBanner}=require('../controlers/categorycontroler');
 const cityZone = require('../modals/cityZone');
 const { addCity,updateCityZones,deleteCity,deleteZoneFromCity,addState,getCity,getState,getCityData,location,addCityData } = require('../controlers/areaControler');
 

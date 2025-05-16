@@ -1,8 +1,9 @@
 const mongoose = require('mongoose');
-const bannerSchemma=new mongoose.Schema({
-    title:String,
-    description:String,
-    location:[String],
-    image:String
+
+const bannerSchema = new mongoose.Schema({
+    bannerId:{type:String,unique:true,required:true},
+    image:String,
+    title:{type:String,required:true},
+
 },{timestamps:true})
-module.exports=mongoose.model('Banner',bannerSchemma)
+module.exports=mongoose.model('Banner',bannerSchema)

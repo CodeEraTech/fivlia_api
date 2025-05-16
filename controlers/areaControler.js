@@ -1,5 +1,6 @@
 const {CityData,CityData2} = require('../modals/cityZone');
 const StateData = require('../modals/state')
+const Location = require('../modals/location');
 exports.addCity = async (req, res) => {
   try {
     const { city, zone } = req.body;
@@ -142,11 +143,16 @@ res.json(city)
 
 exports.location=async (req, res) => {
   try {
-  const { Longitude, Latitiude, Auth } = req.body;
-  if (!Longitude || !Latitiude || !Auth) {
+  const { longitude, latitude } = req.body;
+  if (!longitude || !latitude ) {
+    console.log(req.body);
+    
     return res.status(400).json({message: "Missing parameters"});
   }
-  return res.status(200).json({message: "Location update successfully!"});
+  const newLocation = await Location.create({longitude, latitude })
+  console.log(newLocation);
+  
+  return res.status(200).json({message: "Location update successfully!"},newLocation);
    } catch (error) {
     console.error(error);
      return res.status(500).json({ResponseMsg: "An Error Occured"

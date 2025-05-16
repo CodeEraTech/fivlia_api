@@ -24,3 +24,33 @@ exports.users = async (req,res) => {
         res.status(500).json({message:"Error"})
     }
 }
+
+
+exports.addUser = async (req, res) => {
+  try {
+    const { name, password, mobileNumber, email, state, city, zone } = req.body;
+    const image = req.files?.image[0].path
+    const newUser = await User.create({
+      name,
+      password,
+      mobileNumber,
+      email,
+      state,
+      image,
+      city,
+      zone
+    });
+
+    return res.status(200).json({
+      message: 'User added successfully',
+      data: newUser
+    });
+
+  } catch (error) {
+    console.error('Add User Error =>', error);
+    return res.status(500).json({
+      message: 'An error occurred while adding the user',
+      error: error.message
+    });
+  }
+};

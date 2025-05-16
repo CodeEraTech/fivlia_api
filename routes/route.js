@@ -1,12 +1,13 @@
 const express = require('express');
 const upload = require('../midllerware/multer');
 const router = express.Router()
+const verifyToken = require('../midllerware/authToken');
 
 const{users,addUser}=require('../controlers/authControler');
 const {addSub,intro,banner,getIntro,getBanner}=require('../controlers/controlers')
 const{update}=require('../controlers/categorycontroler');
 const cityZone = require('../modals/cityZone');
-const { addCity,updateCityZones,deleteCity,deleteZoneFromCity,addState,getCity,getState,getCityData,addCityData } = require('../controlers/areaControler');
+const { addCity,updateCityZones,deleteCity,deleteZoneFromCity,addState,getCity,getState,getCityData,location,addCityData } = require('../controlers/areaControler');
 
 router.post('/Product',upload,addSub)
 router.post('/intro',upload,intro)
@@ -15,6 +16,7 @@ router.post('/banner',upload,banner)
 router.post('/addCity',addCity)
 router.post('/addCityData',addCityData)
 router.post('/addState',addState)
+router.post('/location',verifyToken, location)
 
 router.get('/getIntro',getIntro)
 router.get('/getBanner',getBanner)

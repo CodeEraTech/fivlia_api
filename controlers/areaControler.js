@@ -139,3 +139,17 @@ exports.getCityData=async (req,res) => {
   const city = await CityData2.find()
 res.json(city)
 }
+
+exports.location=async (req, res) => {
+  try {
+  const { Longitude, Latitiude, Auth } = req.body;
+  if (!Longitude || !Latitiude || !Auth) {
+    return res.status(400).json({message: "Missing parameters"});
+  }
+  return res.status(200).json({message: "Location update successfully!"});
+   } catch (error) {
+    console.error(error);
+     return res.status(500).json({ResponseMsg: "An Error Occured"
+  });
+  }
+};

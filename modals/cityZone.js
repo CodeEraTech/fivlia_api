@@ -47,4 +47,16 @@ const citySchemma=new mongoose.Schema({
     default: [],
   },
 },{timestamps:true})
-module.exports=mongoose.model('CityData1',citySchemma)
+
+const citySchemma1=new mongoose.Schema({
+     city: {
+    type: String,
+    required: true,
+    unique: true,
+  },
+},{timestamps:true})
+
+module.exports = {
+  CityData1: mongoose.model('CityData1', citySchemma),
+  CityData2: mongoose.model('CityData2', citySchemma1)
+};

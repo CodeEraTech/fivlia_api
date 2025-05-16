@@ -1,4 +1,4 @@
-const CityData = require('../modals/cityZone');
+const {CityData,CityData2} = require('../modals/cityZone');
 const StateData = require('../modals/state')
 exports.addCity = async (req, res) => {
   try {
@@ -122,4 +122,20 @@ exports.getCity=async (req,res) => {
 exports.getState=async (req,res) => {
     const state =await StateData.find()
     res.json(state);
+}
+
+exports.addCityData=async (req,res) => {
+  try {
+  const{city}=req.body
+  const newCity = await CityData2.create({city})
+   return res.status(200).json({ message: 'City added succesfuly',newCity });
+ } catch (error) {
+  console.error(error);
+  
+     return res.status(500).json({ message: 'An error occurred', error: error.message });
+  }
+}
+exports.getCityData=async (req,res) => {
+  const city = await CityData2.find()
+res.json(city)
 }

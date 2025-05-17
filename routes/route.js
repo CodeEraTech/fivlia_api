@@ -16,7 +16,7 @@ router.post('/banner',upload,banner)
 router.post('/addCity',addCity)
 router.post('/addCityData',addCityData)
 router.post('/addState',addState)
-router.post('/location',verifyToken, location)
+router.post('/location', location)
 
 router.get('/getIntro',getIntro)
 router.get('/getBanner',getBanner)

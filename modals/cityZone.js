@@ -50,7 +50,7 @@ const citySchemma=new mongoose.Schema({
 
 const citySchemma1=new mongoose.Schema({
      city: {
-    type: String,
+    type: [String],
     required: true,
     unique: true,
   },

@@ -92,99 +92,91 @@ exports.getBanner = async (req, res) => {
   }
 };
 
+
 exports.addCategory = async (req, res) => {
   try {
-    const {Selection,CategoryHeading,ItemsNo,id,MainCategory,SubCategory,} = req.body;
+    const {
+      id,
+      CategoryHeading,
+      Selection,
+      ItemsNo,
+      MainCategory,
+      SubCategory,
+      Products = []
+    } = req.body;
 
-    const image = req.files?.image?.[0]?.path;
+    const image = req.files.image?.[0].path
+    if (!image) return res.status(400).json({ error: "Image is required" });
 
-    if (!Selection || !CategoryHeading) {
-      return res.status(400).json({ message: "Selection and CategoryHeading are required!" });
-    }
+    const categoryData = {
+      id: Number(id),
+      CategoryHeading,
+      Selection,
+      image,
+      ItemsNo: Number(ItemsNo),
+      Products: []
+    };
 
-      if (!image || !ItemsNo || !id) {
-        return res.status(400).json({ message: "For Main category, image, ItemsNo, and id are required." });
-      }
- if (Selection === "Main") {
-      const existingMain = await Category.findOne({ CategoryHeading });
-      if (existingMain) {
-        return res.status(400).json({ message: "Main category already exists." });
-      }
-
-      const newCategory = new Category({image,CategoryHeading,ItemsNo,id,Selection});
-
-      await newCategory.save();
-      return res.status(200).json({ message: "Main category added successfully!" });
+    if (Selection === "Main") {
+      const newMain = new Category({
+        ...categoryData,
+        subCategory: new Map()
+      });
+      await newMain.save();
+  
+      return res.status(201).json({ message: "Main category saved", data: newMain });
     }
 
     if (Selection === "Sub") {
-      if (!MainCategory) {
-        return res.status(400).json({ message: "MainCategory is required for Sub category." });
-      }
+      const mainCategory = await Category.findOne({ CategoryHeading: MainCategory, Selection: "Main" });
+      if (!mainCategory) return res.status(404).json({ error: "Main Category not found" });
 
-      const mainDoc = await Category.findOne({ CategoryHeading: MainCategory, Selection: "Main" });
-      if (!mainDoc) {
-        return res.status(404).json({ message: "Main category not found." });
-      }
+      mainCategory.subCategory.set(CategoryHeading, {
+        ...categoryData,
+        subSubCategory: new Map()
+      });
 
-      if (!mainDoc.subCategory) {
-        mainDoc.subCategory = new Map();
-      }
-
-      if (mainDoc.subCategory.has(CategoryHeading)) {
-        return res.status(400).json({ message: "Sub category already exists under this main category." });
-      }
-
-      mainDoc.subCategory.set(CategoryHeading, new Map());
-      await mainDoc.save();
-      return res.status(200).json({ message: "Sub category added successfully!" });
+      await mainCategory.save();
+      return res.status(201).json({ message: "Sub category added", data: mainCategory.subCategory.get(CategoryHeading) });
     }
 
-   if (Selection === "Sub-Sub") {
-  if (!SubCategory) {
-    return res.status(400).json({ message: "SubCategory is required for Sub-Sub category." });
-  }
+     if (Selection === "Sub-Sub") {
+      const allMainCats = await Category.find({ Selection: "Main" });
 
-  const mainDoc = await Category.findOne({ [`subCategory.${SubCategory}`]: { $exists: true }, Selection: "Main"});
-  if (!mainDoc) return res.status(404).json({ message: "Main category not found." });
+      let subInserted = false;
 
-  // Get the subCategory object for the SubCategory key
-  const subCatObj = mainDoc.subCategory.get(SubCategory);
+      for (const mainCat of allMainCats) {
+        if (mainCat.subCategory && mainCat.subCategory.has(SubCategory)) {
+          const subCat = mainCat.subCategory.get(SubCategory);
+          if (!subCat.subSubCategory) subCat.subSubCategory = new Map();
 
-  if (!subCatObj) {
-    return res.status(404).json({ message: "Sub category not found under main category." });
-  }
+          subCat.subSubCategory.set(CategoryHeading, categoryData);
+          mainCat.subCategory.set(SubCategory, subCat);
 
-  // Initialize subSubCategory object if not present
-  if (!subCatObj.subSubCategory) {
-    subCatObj.subSubCategory = {};
-  }
+          await mainCat.save();
+          subInserted = true;
 
-  if (subCatObj.subSubCategory[CategoryHeading]) {
-    return res.status(400).json({ message: "Sub-Sub category already exists." });
-  }
+          return res.status(201).json({
+            message: "Sub-Sub category added",
+            data: subCat.subSubCategory.get(CategoryHeading)
+          });
+        }
+      }
 
-  // Add new Sub-Sub category as empty array for products
-  subCatObj.subSubCategory[CategoryHeading] = [];
+      if (!subInserted) {
+        return res.status(404).json({ error: "Sub category not found under any Main Category" });
+      }
+    }
 
-  // Update the subCategory map with updated subCatObj
-  mainDoc.subCategory.set(SubCategory, subCatObj);
-
-  // Mark subCategory as modified so Mongoose saves changes
-  mainDoc.markModified('subCategory');
-
-  await mainDoc.save();
-
-  return res.status(200).json({ message: "Sub-Sub category added successfully!" });
-}
-
-
-    return res.status(400).json({ message: "Invalid Selection value." });
+    return res.status(400).json({ error: "Invalid Selection value" });
 
   } catch (err) {
-    return res.status(500).json({ message: "Server error!", error: err.message });
+    console.error("Add Category Error:", err);
+    res.status(500).json({ error: "Internal server error" });
   }
 };
+
+
 
 exports.getCategories = async (req, res) => {
   try {
@@ -193,7 +185,6 @@ exports.getCategories = async (req, res) => {
     const formattedCategories = mainCategories.map((main) => {
       const subCategories = [];
 
-      // Convert Map to object and loop
       if (main.subCategory instanceof Map) {
         for (const [subCatName, subCatValue] of main.subCategory.entries()) {
           const subSubCategories = [];

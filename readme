@@ -1,0 +1,37 @@
+{
+  "_id": "6828695d9606468dba06e689",
+  "CategoryHeading": "Books",
+  "Selection": "Main",
+  "image": "url",
+  "ItemsNo": 50,
+  "id": 4,
+  "subCategory": {
+    "Fiction": {
+      "CategoryHeading": "Fiction",
+      "Selection": "Sub",
+      "image": "url",
+      "ItemsNo": 20,
+      "Products":[],
+      "id": 1, 
+      "subSubCategory": {
+        "Murder Mystery": {
+          "CategoryHeading": "Murder Mystery",
+          "Selection": "Sub-Sub",
+          "image": "url",
+          "ItemsNo": 10,
+          "Products":[],
+          "id": 6
+        }
+      }
+    },
+    "Drama": {
+      "CategoryHeading": "Fiction",
+      "Selection": "Sub",
+      "image": "url",
+      "ItemsNo": 20,
+      "Products":[],
+      "id": 2
+    },
+    "Products":[]
+  }
+}

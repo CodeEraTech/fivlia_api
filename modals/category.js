@@ -1,24 +1,38 @@
-// models/Category.js
 const mongoose = require('mongoose');
 
-const categorySchema = new mongoose.Schema({
-  image: { type: String, required: true },
-  CategoryHeading: { type: String, required: true },
-  Selection: { type: String, enum: ["Main", "Sub", "Sub-Sub"], required: true },
+const subSubCategorySchema = new mongoose.Schema({
+  id: Number,
+  CategoryHeading: String,
+  Selection: String,
+  image: String,
+  ItemsNo: Number,
+  Products: Array
+}, { _id: false });
 
+const subCategorySchema = new mongoose.Schema({
+  id: Number,
+  CategoryHeading: String,
+  Selection: String,
+  image: String,
+  ItemsNo: Number,
+  Products: Array,
+  subSubCategory: {
+    type: Map,
+    of: subSubCategorySchema
+  }
+}, { _id: false });
+
+const categorySchema = new mongoose.Schema({
+  id: Number,
+  CategoryHeading: String,
+  Selection: String,
+  image: String,
+  ItemsNo: Number,
+  Products: Array,
   subCategory: {
     type: Map,
-    of: new mongoose.Schema({
-      subSubCategory: {
-        type:Object,
-        default: {}
-      }
-    }),
-    default: {}
-  },
-
-  ItemsNo: { type: Number, required: true },
-  id: { type: Number, required: true, unique: true }
+    of: subCategorySchema
+  }
 });
 
 module.exports = mongoose.model('Category', categorySchema);

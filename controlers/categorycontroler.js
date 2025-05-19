@@ -188,47 +188,93 @@ exports.addCategory = async (req, res) => {
 
 exports.getCategories = async (req, res) => {
   try {
-    const mainCategories = await Category.find({ Selection: "Main" }).lean();
+    const { id } = req.query;
 
-    const formattedCategories = mainCategories.map((main) => {
-      const subCategories = [];
+    if (id) {
+      // Try to find as top-level category
+      const singleCategory = await Category.findById(id).lean();
 
-      if (main.subCategory && typeof main.subCategory === 'object') {
-        for (const [subCatName, subCatValue] of Object.entries(main.subCategory)) {
-          const subSubCategories = [];
+      if (singleCategory) {
+        const formatted = {
+          id: singleCategory._id,
+          name: singleCategory.name,
+          description: singleCategory.description,
+          image: singleCategory.image,
+          subCategories: (singleCategory.subcat || []).map(sub => ({
+            id: sub._id,
+            name: sub.name,
+            description: sub.description,
+            image: sub.image,
+            subSubCategories: (sub.subsubcat || []).map(subsub => ({
+              id: subsub._id,
+              name: subsub.name,
+              description: subsub.description,
+              image: subsub.image
+            }))
+          }))
+        };
 
-          if (subCatValue?.subSubCategory && typeof subCatValue.subSubCategory === 'object') {
-            for (const [subSubName, products] of Object.entries(subCatValue.subSubCategory)) {
-              // Ensure "products" is an array
-              subSubCategories.push({
-                name: subSubName,
-                products: Array.isArray(products) ? products : []
-              });
-            }
-          }
+        return res.status(200).json({ category: formatted });
+      }
 
-          subCategories.push({
-            name: subCatName,
-            subSubCategories
-          });
+      const allCategories = await Category.find().lean();
+
+      for (const category of allCategories) {
+        const subCategory = (category.subcat || []).find(
+          sub => sub._id.toString() === id
+        );
+
+        if (subCategory) {
+          const formatted = {
+            id: subCategory._id,
+            name: subCategory.name,
+            description: subCategory.description,
+            image: subCategory.image,
+            subSubCategories: (subCategory.subsubcat || []).map(subsub => ({
+              id: subsub._id,
+              name: subsub.name,
+              description: subsub.description,
+              image: subsub.image
+            }))
+          };
+
+          return res.status(200).json({ subCategory: formatted });
         }
       }
 
-      return {
-        id: main.id,
-        heading: main.CategoryHeading,
-        itemsNo: main.ItemsNo,
-        image: main.image,
-        subCategories
-      };
-    });
+      return res.status(404).json({ message: "Category or sub-category not found" });
+    }
 
-    return res.status(200).json({ categories: formattedCategories });
+    const allCategories = await Category.find().lean();
+
+    const formatted = allCategories.map(cat => ({
+      id: cat._id,
+      name: cat.name,
+      description: cat.description,
+      image: cat.image,
+      subCategories: (cat.subcat || []).map(sub => ({
+        id: sub._id,
+        name: sub.name,
+        description: sub.description,
+        image: sub.image,
+        subSubCategories: (sub.subsubcat || []).map(subsub => ({
+          id: subsub._id,
+          name: subsub.name,
+          description: subsub.description,
+          image: subsub.image
+        }))
+      }))
+    }));
+
+    return res.status(200).json({ categories: formatted });
 
   } catch (err) {
-    return res.status(500).json({ message: "Server error!", error: err.message });
+    console.error(err);
+    return res.status(500).json({ message: "Server error", error: err.message });
   }
 };
+
+
 exports.addProduct = async (req, res) => {
   try {
     const{productName,description,category,subCategory,subSubCategory,sku,ribbon,mrp,brand_Name,sold_by,type,size,color,location,online_visible,discountMode,inventory,discountValue,
@@ -236,7 +282,7 @@ exports.addProduct = async (req, res) => {
 
 const image = req.files.image?.[0].path
 
-    const newProduct = await Products.create({productName,description,productImage:image,category,subCategory,subSubCategory,sku,ribbon,mrp,brand_Name,sold_by,type,size,color,location,online_visible,discountMode,inventory,discountValue,
+    const newProduct = await Products.create({productName,description,productImageUrl:image,category,subCategory,subSubCategory,sku,ribbon,mrp,brand_Name,sold_by,type,size,color,location,online_visible,discountMode,inventory,discountValue,
     });
 
     console.log("✅ Product Added");
@@ -248,7 +294,10 @@ if(subCategory && !category){
 if(subSubCategory && !subCategory){
   return res.status(400).json({ message: `Please provide parent category not found` });
 }
-    const mainCategory = await Category.findOne({ name: category });
+    const mainCategory = await Category.findOne({ CategoryHeading: category,Selection:
+"Main"});
+    console.log("subCategory type:", typeof mainCategory.subCategory);
+console.log("subCategory value:", mainCategory.subCategory);
     if (!mainCategory) {
       return res.status(404).json({ message: `${category} category not found` });
     }

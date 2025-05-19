@@ -6,7 +6,7 @@ const subSubCategorySchema = new mongoose.Schema({
   Selection: String,
   image: String,
   ItemsNo: Number,
-  Products: Array
+  Products: [{type: mongoose.Schema.Types.ObjectId, ref: "Product"}]
 }, { _id: false });
 
 const subCategorySchema = new mongoose.Schema({
@@ -15,7 +15,7 @@ const subCategorySchema = new mongoose.Schema({
   Selection: String,
   image: String,
   ItemsNo: Number,
-  Products: Array,
+  Products: [{type: mongoose.Schema.Types.ObjectId, ref: "Product"}],
   subSubCategory: {
     type: Map,
     of: subSubCategorySchema
@@ -28,11 +28,11 @@ const categorySchema = new mongoose.Schema({
   Selection: String,
   image: String,
   ItemsNo: Number,
-  Products: Array,
+  Products: [{type: mongoose.Schema.Types.ObjectId, ref: "Product"}] ,
   subCategory: {
     type: Map,
     of: subCategorySchema
   }
 });
-
-module.exports = mongoose.model('Category', categorySchema,'Categories');
+const Category=mongoose.model('Category', categorySchema,'Categories');
+module.exports = Category

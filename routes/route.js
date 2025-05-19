@@ -5,12 +5,12 @@ const router = express.Router()
 
 const{users,addUser}=require('../controlers/authControler');
 const {intro,getIntro}=require('../controlers/controlers')
-const{update,banner,getBanner,addCategory,getCategories,products,brand,getBrand}=require('../controlers/categorycontroler');
+const{update,banner,getBanner,addCategory,getCategories,addProduct,brand,getBrand}=require('../controlers/categorycontroler');
 const cityZone = require('../modals/cityZone');
 const { addCity,updateCityZones,deleteCity,deleteZoneFromCity,addState,getCity,getState,location } = require('../controlers/areaControler');
 
 router.post('/add-category',upload,addCategory)
-router.post('/products',products)
+router.post('/products',upload,addProduct)
 router.post('/intro',upload,intro)
 router.post('/banner',upload,banner)
 router.post('/brand',upload,brand)

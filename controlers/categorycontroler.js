@@ -229,17 +229,14 @@ exports.getCategories = async (req, res) => {
     return res.status(500).json({ message: "Server error!", error: err.message });
   }
 };
-exports.products = async (req, res) => {
+exports.addProduct = async (req, res) => {
   try {
-    
-    console.log(req.body);
-
     const{productName,description,category,subCategory,subSubCategory,sku,ribbon,mrp,brand_Name,sold_by,type,size,color,location,online_visible,discountMode,inventory,discountValue,
     } = req.body;
 
 const productImage = req.files.image?.[0].path
 
-    const newProduct = await Product.create({productName,description,productImage,category,subCategory,subSubCategory,sku,ribbon,mrp,brand_Name,sold_by,type,size,color,location,online_visible,discountMode,inventory,discountValue,
+    const newProduct = await Products.create({productName,description,productImage,category,subCategory,subSubCategory,sku,ribbon,mrp,brand_Name,sold_by,type,size,color,location,online_visible,discountMode,inventory,discountValue,
     });
 
     console.log("✅ Product Added");
@@ -299,8 +296,8 @@ if(subSubCategory && !subCategory){
 exports.brand = async (req,res) => {
   try {
   const{brandName,description}=req.body
-  const brandLogo=req.files.image?.[0].path
-  const newBrand = await brand.create({brandName,brandLogo,description})
+  const image=req.files.image?.[0].path
+  const newBrand = await brand.create({brandName,brandLogo:image,description})
     return res.status(200).json({ message: "sucess",newBrand});
     } catch (error) {
     console.error(error);

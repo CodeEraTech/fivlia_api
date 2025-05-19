@@ -180,20 +180,21 @@ exports.addCategory = async (req, res) => {
 
 exports.getCategories = async (req, res) => {
   try {
-    const mainCategories = await Category.find({ Selection: "Main" });
+    const mainCategories = await Category.find({ Selection: "Main" }).lean();
 
     const formattedCategories = mainCategories.map((main) => {
       const subCategories = [];
 
-      if (main.subCategory instanceof Map) {
-        for (const [subCatName, subCatValue] of main.subCategory.entries()) {
+      if (main.subCategory && typeof main.subCategory === 'object') {
+        for (const [subCatName, subCatValue] of Object.entries(main.subCategory)) {
           const subSubCategories = [];
 
-          if (subCatValue?.subSubCategory) {
+          if (subCatValue?.subSubCategory && typeof subCatValue.subSubCategory === 'object') {
             for (const [subSubName, products] of Object.entries(subCatValue.subSubCategory)) {
+              // Ensure "products" is an array
               subSubCategories.push({
                 name: subSubName,
-                products: products || []
+                products: Array.isArray(products) ? products : []
               });
             }
           }

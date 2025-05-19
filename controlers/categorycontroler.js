@@ -234,9 +234,9 @@ exports.addProduct = async (req, res) => {
     const{productName,description,category,subCategory,subSubCategory,sku,ribbon,mrp,brand_Name,sold_by,type,size,color,location,online_visible,discountMode,inventory,discountValue,
     } = req.body;
 
-const productImage = req.files.image?.[0].path
+const image = req.files.image?.[0].path
 
-    const newProduct = await Products.create({productName,description,productImage,category,subCategory,subSubCategory,sku,ribbon,mrp,brand_Name,sold_by,type,size,color,location,online_visible,discountMode,inventory,discountValue,
+    const newProduct = await Products.create({productName,description,productImage:image,category,subCategory,subSubCategory,sku,ribbon,mrp,brand_Name,sold_by,type,size,color,location,online_visible,discountMode,inventory,discountValue,
     });
 
     console.log("✅ Product Added");
@@ -297,6 +297,11 @@ exports.brand = async (req,res) => {
   try {
   const{brandName,description}=req.body
   const image=req.files.image?.[0].path
+    if (!image) {
+      console.log(image);
+      
+      return res.status(400).json({ message: "Image is required" });
+    }
   const newBrand = await brand.create({brandName,brandLogo:image,description})
     return res.status(200).json({ message: "sucess",newBrand});
     } catch (error) {

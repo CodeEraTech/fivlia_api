@@ -31,7 +31,7 @@ console.log("updateData:", updatedCategory);
 
 exports.banner = async (req,res) => {
   try {  
-   const {bannerId, title,type}=req.body
+   const {bannerId, title,type,zone,mainCategory,subCategory,subSubCategory}=req.body
    const image = req.files.image?.[0].path;
 
   if (!bannerId || !title || !image) {
@@ -43,17 +43,23 @@ exports.banner = async (req,res) => {
     const validTypes = ['normal', 'offer'];
     const bannerType = validTypes.includes(type) ? type : 'normal';
 
-    if (!bannerType) {
-      return res.status(400).json({ message: 'Invalid banner type. Must be "normal" or "offer".' });
-    }
+if(subCategory && !mainCategory){
+    return res.status(401).json({ message: 'Please select parent category' });
+}
+if(subSubCategory && !subCategory){
+    return res.status(401).json({ message: 'Please select parent category' });
+}
 
+    if (!bannerType) {
+      return res.status(402).json({ message: 'Invalid banner type. Must be "normal" or "offer".' });
+    }
     const existingBanner = await Banner.findOne({ bannerId });
     if (existingBanner) {
       return res.status(409).json({ message: 'Banner with this ID already exists.' });
     }
 
-   const newBanner = await Banner.create({bannerId,image,title,type:bannerType})
-   return res.status(200).json({message:'Banner Added Succesfully',newBanner})
+   const newBanner = await Banner.create({bannerId,image,title,type:bannerType,mainCategory,subCategory,subSubCategory})
+   return res.status(200).json({message:'Banner Added Successfully',newBanner})
 } catch (error) {
   console.error(error);
   

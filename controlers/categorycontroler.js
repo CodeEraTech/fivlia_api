@@ -1,5 +1,7 @@
 const Category = require('../modals/category');
 const Banner = require('../modals/banner');
+const Products = require('../modals/Product');
+const brand = require('../modals/brand')
 exports.update = async (req, res) => {
   try {
     const { name, description, subcat } = req.body;
@@ -227,10 +229,94 @@ exports.getCategories = async (req, res) => {
     return res.status(500).json({ message: "Server error!", error: err.message });
   }
 };
+exports.products = async (req, res) => {
+  try {
+    
+    console.log(req.body);
 
+    const{productName,description,category,subCategory,subSubCategory,sku,ribbon,mrp,brand_Name,sold_by,type,size,color,location,online_visible,discountMode,inventory,discountValue,
+    } = req.body;
 
+const productImage = req.files.image?.[0].path
 
+    const newProduct = await Product.create({productName,description,productImage,category,subCategory,subSubCategory,sku,ribbon,mrp,brand_Name,sold_by,type,size,color,location,online_visible,discountMode,inventory,discountValue,
+    });
 
+    console.log("✅ Product Added");
+
+if(subCategory && !category){
+  return res.status(400).json({ message: `Please provide parent category not found` });
+}
+
+if(subSubCategory && !subCategory){
+  return res.status(400).json({ message: `Please provide parent category not found` });
+}
+    const mainCategory = await Category.findOne({ name: category });
+    if (!mainCategory) {
+      return res.status(404).json({ message: `${category} category not found` });
+    }
+
+    if (subSubCategory && subCategory) {
+      const subCat = mainCategory.subCategory.get(subCategory);
+      if (!subCat) {
+        return res.status(404).json({ message: `${subCategory} sub-category not found` });
+      }
+
+      const subSubCat = subCat.subSubCategory?.get(subSubCategory);
+      if (!subSubCat) {
+        return res.status(404).json({ message: `${subSubCategory} sub-sub-category not found` });
+      }
+
+      subSubCat.Products.push(newProduct._id);
+      subCat.subSubCategory.set(subSubCategory, subSubCat);
+      mainCategory.subCategory.set(subCategory, subCat);
+    }
+
+    else if (subCategory) {
+      const subCat = mainCategory.subCategory.get(subCategory);
+      if (!subCat) {
+        return res.status(404).json({ message: `${subCategory} sub-category not found` });
+      }
+
+      subCat.Products.push(newProduct._id);
+      mainCategory.subCategory.set(subCategory, subCat);
+    }
+
+    else {
+      mainCategory.Products.push(newProduct._id);
+    }
+
+    await mainCategory.save();
+
+    return res.status(200).json({ message: "✅ Product added and categorized successfully." });
+
+  } catch (error) {
+    console.error("Server error:", error);
+    return res.status(500).json({ message: "An error occured!", error: error.message });
+  }
+};
+
+exports.brand = async (req,res) => {
+  try {
+  const{brandName,description}=req.body
+  const brandLogo=req.files.image?.[0].path
+  const newBrand = await brand.create({brandName,brandLogo,description})
+    return res.status(200).json({ message: "sucess",newBrand});
+    } catch (error) {
+    console.error(error);
+  return res.status(500).json({ message: "An error occured!", error: error.message });
+    }
+}
+
+exports.getBrand = async (req,res) => {
+  try {
+ const brands = await brand.find({})
+    res.json(brands)
+    } catch (error) {
+    console.error(error);
+  return res.status(500).json({ message: "An error occured!", error: error.message });
+    }
+}
 
 
 // if (req.file && req.file.path) {

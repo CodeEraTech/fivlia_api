@@ -5,13 +5,15 @@ const router = express.Router()
 
 const{users,addUser}=require('../controlers/authControler');
 const {intro,getIntro}=require('../controlers/controlers')
-const{update,banner,getBanner,addCategory,getCategories}=require('../controlers/categorycontroler');
+const{update,banner,getBanner,addCategory,getCategories,products,brand,getBrand}=require('../controlers/categorycontroler');
 const cityZone = require('../modals/cityZone');
 const { addCity,updateCityZones,deleteCity,deleteZoneFromCity,addState,getCity,getState,location } = require('../controlers/areaControler');
 
 router.post('/add-category',upload,addCategory)
+router.post('/products',products)
 router.post('/intro',upload,intro)
 router.post('/banner',upload,banner)
+router.post('/brand',upload,brand)
 
 router.post('/addCity',addCity)
 router.post('/addState',addState)
@@ -23,7 +25,7 @@ router.get('/users',users)
 router.get('/getCity',getCity)
 router.get('/getState',getState)
 router.get("/categories", getCategories);
-
+router.get("/getBrand", getBrand);
 
 router.post('/addUser',upload,addUser)
 router.patch('/edit/:id',upload,update)

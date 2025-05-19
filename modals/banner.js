@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-const category = require('./category');
 
 const bannerSchema = new mongoose.Schema({
     bannerId:{type:String,unique:true,required:true},

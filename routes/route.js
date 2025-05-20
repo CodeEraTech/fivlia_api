@@ -5,7 +5,8 @@ const router = express.Router()
 
 const{users,addUser}=require('../controlers/authControler');
 const {intro,getIntro}=require('../controlers/controlers')
-const{update,banner,getBanner,addCategory,getCategories,addProduct,brand,getBrand}=require('../controlers/categorycontroler');
+const{update,banner,getBanner,addCategory,getCategories,brand,getBrand}=require('../controlers/categorycontroler');
+const {addProduct,addAtribute,getAttributes}=require('../controlers/ProductControler')
 const cityZone = require('../modals/cityZone');
 const { addCity,updateCityZones,deleteCity,deleteZoneFromCity,addState,getCity,getState,location } = require('../controlers/areaControler');
 
@@ -14,6 +15,7 @@ router.post('/products',upload,addProduct)
 router.post('/intro',upload,intro)
 router.post('/banner',upload,banner)
 router.post('/brand',upload,brand)
+router.post('/addAtribute',addAtribute)
 
 router.post('/addCity',addCity)
 router.post('/addState',addState)
@@ -26,6 +28,7 @@ router.get('/getCity',getCity)
 router.get('/getState',getState)
 router.get("/categories", getCategories);
 router.get("/getBrand", getBrand);
+router.get('/getAttributes',getAttributes)
 
 router.post('/addUser',upload,addUser)
 router.patch('/edit/:id',upload,update)

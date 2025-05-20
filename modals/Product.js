@@ -9,7 +9,9 @@ const productSchema = new mongoose.Schema({
     subSubCategory:String,
     sku: { type: String,unique:true },
     ribbon:{type:String},
-    mrp:String,
+    mrp:Number,
+    sell_price:Number,
+    discountValue:Number,
     brand_Name:String,
     sold_by:String,
     type:String,
@@ -17,10 +19,11 @@ const productSchema = new mongoose.Schema({
     color:[String],
     location:[String],
     pack:[String],
-    online_visible:{type:String,default:true},
-    discountMode:String,
+    tax:Number,
+    online_visible:{type:Boolean,default:true},
+    feature_product:{type:Boolean,default:false},
+    fulfilled_by:String,
     inventory:{type:String,required:true,enum:['InStock','OutOfStock']},
-    discountValue:String,
     
 },{timestamps:true})
 module.exports=mongoose.model('Products',productSchema)

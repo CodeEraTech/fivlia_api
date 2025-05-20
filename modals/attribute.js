@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const attributeScheema = new mongoose.Schema({
-        name:String
+        name:{type:String,unique:true}
     })
 
 module.exports=mongoose.model('Attribute',attributeScheema)

@@ -23,12 +23,12 @@ exports.getAttributes=async (req,res) => {
 
 exports.addProduct = async (req, res) => {
   try {
-    const{productName,description,category,subCategory,subSubCategory,sku,ribbon,mrp,brand_Name,sold_by,type,size,color,location,online_visible,discountMode,inventory,discountValue,
+    const{productName,description,category,subCategory,subSubCategory,sku,ribbon,mrp,brand_Name,sold_by,type,size,color,location,online_visible,inventory,discountValue,tax,sell_price,pack
     } = req.body;
 
 const image = req.files.image?.[0].path
 
-    const newProduct = await Products.create({productName,description,productImageUrl:image,category,subCategory,subSubCategory,sku,ribbon,mrp,brand_Name,sold_by,type,size,color,location,online_visible,discountMode,inventory,discountValue,
+    const newProduct = await Products.create({productName,description,productImageUrl:image,category,subCategory,subSubCategory,sku,ribbon,mrp,brand_Name,sold_by,type,size,color,location,online_visible,inventory,discountValue,tax,pack,sell_price
     });
 
     console.log("✅ Product Added");

@@ -49,9 +49,19 @@ const parsedVariants = JSON.parse(variants); // coming as string from frontend/P
 exports.getProduct=async (req,res) => {
   try {
   const product=await Products.find()
-  res.json(product)
+   return res.status(200).json({ message: 'Product fetched successfully.', product });
 } catch (error) {
     console.error("Server error:", error);
+    return res.status(500).json({ message: "An error occured!", error: error.message });
+  }
+}
+
+exports.getFeatureProduct=async (req,res) => {
+  try {
+     const product=await Products.find({feature_product:true})
+   return res.status(200).json({ message: 'It is feature product.', product });
+  } catch (error) {
+      console.error("Server error:", error);
     return res.status(500).json({ message: "An error occured!", error: error.message });
   }
 }

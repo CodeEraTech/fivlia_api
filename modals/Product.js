@@ -16,6 +16,7 @@ const productSchema = new mongoose.Schema({
     size:[String],
     color:[String],
     location:[String],
+    pack:[String],
     online_visible:{type:String,default:true},
     discountMode:String,
     inventory:{type:String,required:true,enum:['InStock','OutOfStock']},

@@ -38,7 +38,7 @@
 
 
 
-,Product name =Milton Kool Seal 7 Insulated Water Jug Purple - 6 L
+Product name =Milton Kool Seal 7 Insulated Water Jug Purple - 6 L
 description = Insulated water jug in unique square-round shape.
 productImageUrl = ce8349_4fd06ed9aee3424785bdd50bb3773195~mv2.jpg
 category=Kitchenware
@@ -68,3 +68,21 @@ Product name	description	productImageUrl	category	Sub-category	sku	ribbon	Mrp..	
 															
 Cello Kool Star Plastic Insulated Water Jug - 5 L	Double wall Insulated Water Carrier	ce8349_b7d7baf943c84d39aa04310a525ee62e~mv2.jpg	Kitchenware	Pots & Jugs	FDC004	10% Off	499	Cello	JS Hisar	Jug	Large	Grey	Hisar;Rohtak	TRUE	PERCENT	0	InStock
 Nivia Storm Football Rubber  White - Size 5	Designed for casual and training use.	ce8349_644e11f01266415090616297218abb25~mv2.jpg	Sports & Fitness	Football	FSK001	Trending	649	Nivea	RR Sales	Football	Medium;XL	Red	Hisar;Hansi	TRUE	AMOUNT	320	InStock
+
+
+
+
+Product Title (Name)..
+Product Description (Details)..
+Brand-
+SKU-
+MRP - Price
+Sell Price (% Discount also)
+Category..(list from existing only added by admin)
+Sub Category..(list from existing only added by admin)
+Filter - Type,Colors,Size,Pack ( of 2,3,4..) & Location Filter
+Status - Instock/Out of Stock
+Shipping Weight-in Gram/Kg
+Product Tax Group - 5%,12%,18%,28% or Tax Free (====>apke hisar t daale ga)
+Fulfilled by - Fivlia Plus or Seller Name (Approved only)
+feature  =>[]

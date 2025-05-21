@@ -32,10 +32,10 @@ console.log("updateData:", updatedCategory);
 
 exports.banner = async (req,res) => {
   try {  
-   const {title,type,zone,mainCategory,subCategory,subSubCategory}=req.body
+   const {title,type,zone,mainCategory,subCategory,subSubCategory,status}=req.body
    const image = req.files.image?.[0].path;
 
-  if (!bannerId || !title || !image) {
+  if (!bannerId || !title || !image || !status) {
     console.log('banner=>',bannerId,'title=>',title,'image=>',image);
     
       return res.status(400).json({ message: 'All Fields are required.' });
@@ -59,7 +59,7 @@ if(subSubCategory && !subCategory){
       return res.status(409).json({ message: 'Banner with this ID already exists.' });
     }
 
-   const newBanner = await Banner.create({bannerId,image,title,type:bannerType,mainCategory,subCategory,subSubCategory,zone})
+   const newBanner = await Banner.create({bannerId,image,title,type:bannerType,mainCategory,subCategory,subSubCategory,status,zone})
    return res.status(200).json({message:'Banner Added Successfully',newBanner})
 } catch (error) {
   console.error(error);
@@ -71,7 +71,7 @@ exports.getBanner = async (req, res) => {
   try {
     const {type } = req.query;
 
-    const filters = {};
+    const filters = {status:'Active'};
 
     // if (bannerId) {
     //   filters.bannerId = { $regex: bannerId, $options: 'i' };

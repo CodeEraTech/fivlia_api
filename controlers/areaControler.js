@@ -31,20 +31,13 @@ exports.addCity = async (req, res) => {
   }
 };
 
-exports.updateCityZones = async (req, res) => {
+exports.updateCityStatus = async (req, res) => {
   try {
-    const { city, zones } = req.body;
+    const {id} = req.params
+    const { status } = req.body;
 
-    if (!city || !Array.isArray(zones)) {
-      return res.status(400).json({ message: 'City and zones array are required' });
-    }
-
-    const cityDoc = await CityData.findOneAndUpdate(
-      { city },
-      { zones },
-      { upsert:true,new: true }
-    );
-    return res.status(200).json({ message: 'Zones updated successfully', data: cityDoc });
+    const cityDoc = await CityData.findByIdAndUpdate(id,{ status },{new: true });
+    return res.status(200).json({ message: 'Status updated successfully', data: cityDoc });
 
   } catch (error) {
     console.error(error);

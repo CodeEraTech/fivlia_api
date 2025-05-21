@@ -8,7 +8,7 @@ const {intro,getIntro}=require('../controlers/controlers')
 const{update,banner,getBanner,getAllBanner,updateBannerStatus,addCategory,getCategories,brand,getBrand}=require('../controlers/categorycontroler');
 const {addProduct,addAtribute,getAttributes,getProduct,getFeatureProduct,searchProduct}=require('../controlers/ProductControler')
 const cityZone = require('../modals/cityZone');
-const { addCity,updateCityZones,deleteCity,deleteZoneFromCity,addState,getCity,getState,location } = require('../controlers/areaControler');
+const { addCity,updateCityStatus,deleteCity,deleteZoneFromCity,addState,getCity,getState,location } = require('../controlers/areaControler');
 
 router.post('/add-category',upload,addCategory)
 router.post('/products',upload,addProduct)
@@ -36,7 +36,7 @@ router.get('/search',searchProduct)
 
 router.post('/addUser',upload,addUser)
 router.patch('/edit/:id',upload,update)
-router.put('/updateCityZone', updateCityZones);
+router.put('/updateCityStatus/:id', updateCityStatus);
 router.delete('/delete/:city', deleteCity);
 router.put('/zone/delete', deleteZoneFromCity);
 router.patch('/admin/banner/:id/status', updateBannerStatus);

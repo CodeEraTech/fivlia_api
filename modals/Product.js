@@ -2,6 +2,7 @@
 const mongoose = require('mongoose');
 
 const variantSchema = new mongoose.Schema({
+  id: Number,
   mrp: { type: Number, required: true },
   sell_price: { type: Number, required: true },
   size: { type: String },
@@ -18,7 +19,7 @@ const variantSchema = new mongoose.Schema({
       return 0;
     },
   }
-}, { _id: false });
+});
 
 const productSchema = new mongoose.Schema({
   productName: { type: String, required: true },
@@ -33,7 +34,7 @@ const productSchema = new mongoose.Schema({
    name:String
   },
   subSubCategory: String,
-  stock:String,
+  // stock:String,
   addVarient:[String],
   selectVarientValue:[String],
   ribbon: String,

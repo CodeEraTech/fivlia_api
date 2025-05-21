@@ -42,6 +42,7 @@ const citySchemma=new mongoose.Schema({
     required: true,
     unique: true,
   },
+  status:{type:String,enum:['Active','UnActive']},
   zones: {
     type: [String],
     default: [],

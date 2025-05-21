@@ -32,7 +32,7 @@ console.log("updateData:", updatedCategory);
 
 exports.banner = async (req,res) => {
   try {  
-   const {bannerId, title,type,zone,mainCategory,subCategory,subSubCategory}=req.body
+   const {title,type,zone,mainCategory,subCategory,subSubCategory}=req.body
    const image = req.files.image?.[0].path;
 
   if (!bannerId || !title || !image) {

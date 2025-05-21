@@ -23,8 +23,14 @@ const productSchema = new mongoose.Schema({
   productName: { type: String, required: true },
   description: String,
   productImageUrl: [{ type: String, required: true }],
-  category: String,
-  subCategory: String,
+  category: {
+    id:{type:mongoose.Schema.Types.ObjectId},
+    name:String
+  },
+  subCategory:{
+    id:{type:mongoose.Schema.Types.ObjectId},
+   name:String
+  },
   subSubCategory: String,
   sku: { type: String, unique: true },
   ribbon: String,

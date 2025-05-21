@@ -4,7 +4,7 @@ const bannerSchema = new mongoose.Schema({
     bannerId:{type:String,unique:true,required:true},
     image:String,
     title:{type:String,required:true},
-    zone:String,
+    zone:[String],
     mainCategory: { type: String },
     subCategory: { type: String },
     subSubCategory: { type: String },

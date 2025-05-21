@@ -1,5 +1,6 @@
 const Products = require('../modals/Product');
 const Attribute = require('../modals/attribute');
+const Category = require('../modals/category');
 
 exports.addAtribute=async (req,res) => {
     try {
@@ -27,7 +28,28 @@ exports.addProduct = async (req, res) => {
     } = req.body;
 
 const image = req.files.image?.[0].path
-const parsedVariants = JSON.parse(variants); // coming as string from frontend/Postman
+const parsedVariants = JSON.parse(variants);
+
+    const foundCategory = await Category.findOne({ name: category }).lean();
+    if (!foundCategory) return res.status(404).json({ message: `Category ${category} not found` });
+
+ let foundSubCategory = null;
+    let foundSubSubCategory = null;
+
+    if (subCategory && subCategory.trim() !== "") {
+      foundSubCategory = foundCategory.subcat.find(sub => sub.name === subCategory);
+      if (!foundSubCategory) return res.status(404).json({ message: `SubCategory ${subCategory} not found` });
+
+      if (subSubCategory && subSubCategory.trim() !== "") {
+        foundSubSubCategory = foundSubCategory.subsubcat.find(subsub => subsub.name === subSubCategory);
+        if (!foundSubSubCategory) return res.status(404).json({ message: `SubSubCategory ${subSubCategory} not found` });
+      }
+    } else {
+      if (subSubCategory && subSubCategory.trim() !== "") {
+        return res.status(400).json({ message: "Cannot provide subSubCategory without subCategory" });
+      }
+    }
+
     const finalVariants = parsedVariants.map(variant => {
       const discount = variant.mrp && variant.sell_price
         ? Math.round(((variant.mrp - variant.sell_price) / variant.mrp) * 100)
@@ -35,7 +57,12 @@ const parsedVariants = JSON.parse(variants); // coming as string from frontend/P
       return { ...variant, discountValue: discount };
     });
 
-    const newProduct = await Products.create({productName,description,productImageUrl:image,category,subCategory,subSubCategory,sku,ribbon,brand_Name,sold_by,type,location,online_visible,inventory,tax,feature_product,fulfilled_by,variants:finalVariants,
+    const newProduct = await Products.create({productName,description,productImageUrl:image,category:{id:foundCategory._id,name:foundCategory.name},
+
+      subCategory:foundSubCategory?{id:foundSubCategory._id,name:foundSubCategory.name}:null,
+
+      subSubCategory:foundSubSubCategory?{id:foundSubSubCategory._id,name:foundSubSubCategory.name}:null,
+      sku,ribbon,brand_Name,sold_by,type,location,online_visible,inventory,tax,feature_product,fulfilled_by,variants:finalVariants,
     });
 
     console.log("✅ Product Added");
@@ -52,6 +79,23 @@ exports.getProduct=async (req,res) => {
    return res.status(200).json({ message: 'Product fetched successfully.', product });
 } catch (error) {
     console.error("Server error:", error);
+    return res.status(500).json({ message: "An error occured!", error: error.message });
+  }
+}
+
+exports.searchProduct=async (req,res) => {
+  try {
+    const {name}=req.query
+    const filter = {}
+    if(name){
+      filter.productName = {$regex:name,$options:'i'}
+    }
+const product=await Products.find(filter)
+
+res.json(product)
+
+  } catch (error) {
+      console.error("Server error:", error);
     return res.status(500).json({ message: "An error occured!", error: error.message });
   }
 }

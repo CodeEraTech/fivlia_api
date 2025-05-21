@@ -99,6 +99,31 @@ exports.getBanner = async (req, res) => {
   }
 };
 
+exports.updateBannerStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const updatedBanner = await Banner.findByIdAndUpdate(
+      id,
+      { status },
+    );
+
+    if (!updatedBanner) {
+      return res.status(404).json({ message: 'Banner not found.' });
+    }
+
+    return res.status(200).json({ message: 'Banner status updated.', banner: updatedBanner });
+  } catch (err) {
+    return res.status(500).json({ message: 'Error updating banner status.', error: err.message });
+  }
+};
+
+exports.getAllBanner=async (req,res) => {
+  const allBanner = await Banner.find()
+  res.json(allBanner)
+}
+
 
 exports.addCategory = async (req, res) => {
   try {

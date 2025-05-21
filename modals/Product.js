@@ -6,6 +6,7 @@ const variantSchema = new mongoose.Schema({
   sell_price: { type: Number, required: true },
   size: { type: String },
   color: { type: String },
+  sku: { type: String, unique: true },
   pack: { type: String },
   discountValue: {
     type: Number,
@@ -32,7 +33,9 @@ const productSchema = new mongoose.Schema({
    name:String
   },
   subSubCategory: String,
-  sku: { type: String, unique: true },
+  stock:String,
+  addVarient:[String],
+  selectVarientValue:[String],
   ribbon: String,
   brand_Name: String,
   sold_by: String,
@@ -40,11 +43,39 @@ const productSchema = new mongoose.Schema({
   location: [String],
   ratings: {avg: Number,count: Number},
   tax: String,
+  minQuantity:Number,
+  maxQuantity:Number,
   online_visible: { type: Boolean, default: true },
   feature_product: { type: Boolean, default: false },
   fulfilled_by: String,
   inventory: { type: String, required: true, enum: ['InStock', 'OutOfStock'] },
   variants: [variantSchema]
 }, { timestamps: true });
+
+productSchema.pre('save', function (next) {
+  const taxPercent = parseFloat(this.tax) || 0;
+
+  // Handle MRP & Dynamic Fields
+  this.variants = this.variants.map(variant => {
+    // Calculate MRP
+    variant.mrp = Math.round((variant.sell_price + (variant.sell_price * taxPercent / 100)) * 100) / 100;
+
+    // Dynamically assign variant fields
+    if (this.addVarient && this.selectVarientValue) {
+      this.selectVarientValue.forEach(entry => {
+        const [key, value] = entry.split(':');
+        if (this.addVarient.includes(key)) {
+          variant[key] = value;
+        }
+      });
+    }
+
+    return variant;
+  });
+
+  next();
+});
+
+
 
 module.exports = mongoose.model('Product', productSchema);

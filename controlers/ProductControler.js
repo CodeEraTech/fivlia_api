@@ -24,7 +24,8 @@ exports.getAttributes=async (req,res) => {
 
 exports.addProduct = async (req, res) => {
   try {
-    const{productName,description,category,subCategory,subSubCategory,sku,ribbon,brand_Name,sold_by,type,location,online_visible,inventory,tax,feature_product,fulfilled_by,variants
+    const{productName,description,category,subCategory,subSubCategory,sku,ribbon,brand_Name,sold_by,type,location,online_visible,inventory,tax,feature_product,fulfilled_by,variants,minQuantity,maxQuantity
+
     } = req.body;
 
 const image = req.files.image?.[0].path
@@ -62,7 +63,7 @@ const parsedVariants = JSON.parse(variants);
       subCategory:foundSubCategory?{id:foundSubCategory._id,name:foundSubCategory.name}:null,
 
       subSubCategory:foundSubSubCategory?{id:foundSubSubCategory._id,name:foundSubSubCategory.name}:null,
-      sku,ribbon,brand_Name,sold_by,type,location,online_visible,inventory,tax,feature_product,fulfilled_by,variants:finalVariants,
+      sku,ribbon,brand_Name,sold_by,type,location,online_visible,inventory,tax,feature_product,minQuantity,maxQuantity,fulfilled_by,variants:finalVariants,
     });
 
     console.log("✅ Product Added");

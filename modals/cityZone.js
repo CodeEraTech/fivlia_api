@@ -57,6 +57,6 @@ const citySchemma1=new mongoose.Schema({
 },{timestamps:true})
 
 module.exports = {
-  CityData: mongoose.model('CityData1', citySchemma),
+  CityData: mongoose.model('CityData1', citySchemma,'Locations'),
   CityData2: mongoose.model('CityData2', citySchemma1)
 };

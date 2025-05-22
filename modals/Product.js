@@ -25,15 +25,15 @@ const productSchema = new mongoose.Schema({
   productName: { type: String, required: true },
   description: String,
   productImageUrl: [{ type: String, required: true }],
-  category: {
+  category: [{
     id:{type:mongoose.Schema.Types.ObjectId},
     name:String
-  },
-  subCategory:{
+  }],
+  subCategory:[{
     id:{type:mongoose.Schema.Types.ObjectId},
    name:String
-  },
-  subSubCategory: String,
+  }],
+  subSubCategory: [String],
   // stock:String,
   addVarient:[String],
   selectVarientValue:[String],

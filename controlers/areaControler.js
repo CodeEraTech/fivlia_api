@@ -1,4 +1,4 @@
-const {CityData,CityData2} = require('../modals/cityZone');
+const {ZoneData,CityData2} = require('../modals/cityZone');
 const StateData = require('../modals/state')
 const Location = require('../modals/location');
 exports.addCity = async (req, res) => {
@@ -9,7 +9,7 @@ exports.addCity = async (req, res) => {
       return res.status(400).json({ message: 'City and zone array are required' });
     }
 
-    let cityDoc = await CityData.findOne({ city });
+    let cityDoc = await ZoneData.findOne({ city });
 
     if (!cityDoc) {
       const newDoc = new CityData({
@@ -31,12 +31,12 @@ exports.addCity = async (req, res) => {
   }
 };
 
-exports.updateCityStatus = async (req, res) => {
+exports.updateZoneStatus = async (req, res) => {
   try {
     const {id} = req.params
     const { status } = req.body;
 
-    const cityDoc = await CityData.findByIdAndUpdate(id,{ status },{new: true });
+    const cityDoc = await ZoneData.findByIdAndUpdate(id,{ status },{new: true });
     return res.status(200).json({ message: 'Status updated successfully', data: cityDoc });
 
   } catch (error) {
@@ -49,7 +49,7 @@ exports.deleteCity = async (req, res) => {
   try {
     const { city } = req.params;
 
-    const deleted = await CityData.findOneAndDelete({ city });
+    const deleted = await ZoneData.findOneAndDelete({ city });
 
     if (!deleted) return res.status(404).json({ message: 'City not found' });
 
@@ -64,7 +64,7 @@ exports.deleteZoneFromCity = async (req, res) => {
   try {
     const { city, zone } = req.body;
 
-    const cityDoc = await CityData.findOne({ city });
+    const cityDoc = await ZoneData.findOne({ city });
 
     if (!cityDoc) return res.status(404).json({ message: 'City not found' });
     const zonesToRemove = Array.isArray(zone) ? zone : [zone];
@@ -78,45 +78,21 @@ exports.deleteZoneFromCity = async (req, res) => {
   }
 };
 
-exports.addState=async (req,res) => {
-    try{
-    const{state,city}=req.body
-     if (!state || !Array.isArray(city)) {
-      return res.status(400).json({ message: 'State and City array are required' });
-    }
-
-    let stateDoc = await StateData.findOne({ state });
-
-    if (!stateDoc) {
-      const newDoc = new StateData({
-        state,
-        city,
-      });
-      await newDoc.save();
-    } else {
-      // Merge zones without duplicates
-      const mergedZones = Array.from(new Set([...stateDoc.city, ...city]));
-      stateDoc.zones = mergedZones;
-      await stateDoc.save();
-    }
-
-    return res.status(200).json({ message: 'State/City merged successfully' });
-
+exports.getAviableZone=async (req,res) => {
+  try {
+  const status=await ZoneData.find({status:'Active'})
+  res.json(status)
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: 'An error occurred', error: error.message });
   }
 }
 
-exports.getCity=async (req,res) => {
-    const city =await CityData.find()
+exports.getZone=async (req,res) => {
+    const city =await ZoneData.find()
     res.json(city);
 }
 
-exports.getState=async (req,res) => {
-    const state =await StateData.find()
-    res.json(state);
-}
 
 exports.location=async (req, res) => {
   try {

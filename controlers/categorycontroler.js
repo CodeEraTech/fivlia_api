@@ -32,10 +32,10 @@ console.log("updateData:", updatedCategory);
 
 exports.banner = async (req,res) => {
   try {  
-   const {title,type,zone,mainCategory,subCategory,subSubCategory,status}=req.body
+   const {title,type,city,zone,mainCategory,subCategory,subSubCategory,status}=req.body
    const image = req.files.image?.[0].path;
 
-  if (!bannerId || !title || !image || !status) {
+  if (!bannerId || !title || !image || !status || !city) {
     console.log('banner=>',bannerId,'title=>',title,'image=>',image);
     
       return res.status(400).json({ message: 'All Fields are required.' });

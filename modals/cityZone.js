@@ -15,11 +15,6 @@ const citySchemma=new mongoose.Schema({
 },{timestamps:true})
 
 const zoneSchemma=new mongoose.Schema({
-     city: {
-    type: [String],
-    required: true,
-    unique: true,
-  },
   cashOnDelivery:{type:boolean,default:true},
   status:{type:boolean,default:true},
 },{timestamps:true})

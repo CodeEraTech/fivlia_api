@@ -20,6 +20,7 @@ const zoneSchemma=new mongoose.Schema({
     required: true,
     unique: true,
   },
+  cashOnDelivery:{type:boolean,default:true},
   status:{type:boolean,default:true},
 },{timestamps:true})
 

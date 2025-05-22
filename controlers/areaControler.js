@@ -142,9 +142,9 @@ exports.getZone=async (req,res) => {
 exports.updateZoneStatus = async (req, res) => {
   try {
     const {id} = req.params
-    const { status } = req.body;
+    const { status,cashOnDelivery } = req.body;
 
-    const zone = await ZoneData.findByIdAndUpdate(id,{ status },{new: true });
+    const zone = await ZoneData.findByIdAndUpdate(id,{ status,cashOnDelivery },{new: true });
     return res.status(200).json({ message: 'Status updated successfully', data: zone });
 
   } catch (error) {

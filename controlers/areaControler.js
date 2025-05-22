@@ -1,4 +1,4 @@
-const {CityData,CityData2} = require('../modals/cityZone');
+const {CityData,ZoneData} = require('../modals/cityZone');
 const StateData = require('../modals/state')
 const Location = require('../modals/location');
 exports.addCity = async (req, res) => {
@@ -109,7 +109,7 @@ exports.addState=async (req,res) => {
 }
 exports.getAviableCity=async (req,res) => {
   try {
-  const status=await CityData.find({status:'Active'})
+  const status=await CityData.find({status:true})
   res.json(status)
   } catch (error) {
     console.error(error);

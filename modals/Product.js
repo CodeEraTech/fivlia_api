@@ -2,7 +2,6 @@
 const mongoose = require('mongoose');
 
 const variantSchema = new mongoose.Schema({
-  id: Number,
   mrp: { type: Number, required: true },
   sell_price: { type: Number, required: true },
   size: { type: String },

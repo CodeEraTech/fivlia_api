@@ -36,7 +36,7 @@ module.exports = {
 
 const mongoose = require('mongoose');
 
-const zoneSchemma=new mongoose.Schema({
+const citySchemma=new mongoose.Schema({
      city: {
     type: String,
     required: true,
@@ -58,6 +58,6 @@ const citySchemma1=new mongoose.Schema({
 },{timestamps:true})
 
 module.exports = {
-  ZoneData: mongoose.model('CityData1', zoneSchemma,'Locations'),
+  CityData: mongoose.model('CityData1', citySchemma,'AviableCity'),
   CityData2: mongoose.model('CityData2', citySchemma1)
 };

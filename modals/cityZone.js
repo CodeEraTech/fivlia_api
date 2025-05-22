@@ -20,6 +20,7 @@ const zoneSchemma=new mongoose.Schema({
     required: true,
     unique: true,
   },
+  status:{type:boolean,default:true},
 },{timestamps:true})
 
 module.exports = {

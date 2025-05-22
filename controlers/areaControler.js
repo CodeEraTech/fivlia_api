@@ -78,35 +78,6 @@ exports.deleteZoneFromCity = async (req, res) => {
   }
 };
 
-exports.addState=async (req,res) => {
-    try{
-    const{state,city}=req.body
-     if (!state || !Array.isArray(city)) {
-      return res.status(400).json({ message: 'State and City array are required' });
-    }
-
-    let stateDoc = await StateData.findOne({ state });
-
-    if (!stateDoc) {
-      const newDoc = new StateData({
-        state,
-        city,
-      });
-      await newDoc.save();
-    } else {
-      // Merge zones without duplicates
-      const mergedZones = Array.from(new Set([...stateDoc.city, ...city]));
-      stateDoc.zones = mergedZones;
-      await stateDoc.save();
-    }
-
-    return res.status(200).json({ message: 'State/City merged successfully' });
-
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: 'An error occurred', error: error.message });
-  }
-}
 exports.getAviableCity=async (req,res) => {
   try {
   const status=await CityData.find({status:true})
@@ -120,11 +91,6 @@ exports.getAviableCity=async (req,res) => {
 exports.getCity=async (req,res) => {
     const city =await CityData.find()
     res.json(city);
-}
-
-exports.getState=async (req,res) => {
-    const state =await StateData.find()
-    res.json(state);
 }
 
 exports.location=async (req, res) => {
@@ -141,7 +107,40 @@ exports.location=async (req, res) => {
   return res.status(200).json({message: "Location update successfully!"},newLocation);
    } catch (error) {
     console.error(error);
-     return res.status(500).json({ResponseMsg: "An Error Occured"
-  });
+     return res.status(500).json({ResponseMsg: "An Error Occured"});
+  }
+};
+
+exports.getAllZone=async (req,res) => {
+  try {
+    const zones =await ZoneData.find()
+    res.json(zones);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ResponseMsg: "An Error Occured"});
+  }
+}
+
+exports.getZone=async (req,res) => {
+  try {
+    const zones =await ZoneData.find({status:true})
+    res.json(zones);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ResponseMsg: "An Error Occured"});
+  }
+}
+
+exports.updateZoneStatus = async (req, res) => {
+  try {
+    const {id} = req.params
+    const { status } = req.body;
+
+    const zone = await ZoneData.findByIdAndUpdate(id,{ status },{new: true });
+    return res.status(200).json({ message: 'Status updated successfully', data: zone });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'An error occurred', error: error.message });
   }
 };

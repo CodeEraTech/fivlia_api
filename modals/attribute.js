@@ -1,7 +1,12 @@
 const mongoose = require('mongoose');
 
 const attributeScheema = new mongoose.Schema({
-        name:[{type:String,unique:true}]
+    Attribute_name:{type:String,unique:true},
+    varient:[{
+       name: { type: String, required: true }
+    }]
+
     })
 
 module.exports=mongoose.model('Attribute',attributeScheema)
+

@@ -5,12 +5,12 @@ const Category = require('../modals/category');
 
 exports.addAtribute=async (req,res) => {
     try {
-    const {name}=req.body
-    const newAttribute = await Attribute.create({name})
-     return res.json(200).json({message:"Attribute Created",newAttribute})   
+    const {Attribute_name,varient}=req.body
+    const newAttribute = await Attribute.create({Attribute_name,varient})
+     return res.status(200).json({message:"Attribute Created",newAttribute})   
     } catch (error) {
       console.error(error);
-      return res.json(500).json({message:"An error occured"})   
+      return res.status(500).json({message:"An error occured"})   
     }
 }
 exports.getAttributes=async (req,res) => {
@@ -19,7 +19,7 @@ exports.getAttributes=async (req,res) => {
   res.json(Attributes)
 } catch (error) {
   console.error(error);
-  return res.json(500).json({message:"An error occured"})   
+  return res.status(500).json({message:"An error occured"})   
   }
 }
 
@@ -66,9 +66,8 @@ const parsedVariants = JSON.parse(variants);
       subSubCategory:foundSubSubCategory?{id:foundSubSubCategory._id,name:foundSubSubCategory.name}:null,
       sku,ribbon,brand_Name,sold_by,type,location,online_visible,inventory,tax,feature_product,minQuantity,maxQuantity,fulfilled_by,variants:finalVariants,
     });
-
     console.log("✅ Product Added");
-
+return res.status(200).json({message:"Product Added"})
   } catch (error) {
     console.error("Server error:", error);
     return res.status(500).json({ message: "An error occured!", error: error.message });

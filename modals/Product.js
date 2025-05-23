@@ -1,5 +1,6 @@
 // models/Product.js
 const mongoose = require('mongoose');
+const { required } = require('zod/v4-mini');
 
 const variantSchema = new mongoose.Schema({
   mrp: { type: Number, required: true },
@@ -21,12 +22,11 @@ const productSchema = new mongoose.Schema({
   productName: { type: String, required: true },
   description: String,
   productImageUrl: [{ type: String, required: true }],
+  productThumbnailUrl:{type:String, required:true},
   category: [{
-    id:{type:mongoose.Schema.Types.ObjectId},
     name:String
   }],
   subCategory:[{
-    id:{type:mongoose.Schema.Types.ObjectId},
    name:String
   }],
   subSubCategory: [String],
@@ -36,7 +36,6 @@ const productSchema = new mongoose.Schema({
   ribbon: String,
   brand_Name: String,
   purchases:Number,
-  sold_by: String,
   type: String,
   location: [String],
   ratings: {avg: Number,count: Number},
@@ -53,11 +52,11 @@ const productSchema = new mongoose.Schema({
 productSchema.pre('save', function (next) {
   const taxPercent = parseFloat(this.tax) || 0;
 
-  // Handle MRP & Dynamic Fields
   this.variants = this.variants.map(variant => {
-    // Calculate MRP
-    variant.mrp = Math.round((variant.sell_price + (variant.sell_price * taxPercent / 100)) * 100) / 100;
-
+    if (variant.sell_price) {
+      const taxedPrice = variant.sell_price + (variant.sell_price * taxPercent / 100);
+      variant.sell_price = Math.round(taxedPrice * 100) / 100; // round to 2 decimal places
+    }
     // Dynamically assign variant fields
     if (this.addVarient && this.selectVarientValue) {
       this.selectVarientValue.forEach(entry => {

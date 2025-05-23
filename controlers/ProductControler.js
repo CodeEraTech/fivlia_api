@@ -1,4 +1,4 @@
-const Product = require('../modals/Product');
+const mongoose = require('mongoose');
 const Products = require('../modals/Product');
 const Attribute = require('../modals/attribute');
 const Category = require('../modals/category');
@@ -13,6 +13,38 @@ exports.addAtribute=async (req,res) => {
       return res.status(500).json({message:"An error occured"})   
     }
 }
+exports.editAttributes = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { Attribute_name, varient } = req.body;
+
+    const attribute = await Attribute.findById(id);
+    if (!attribute) {
+      return res.status(404).json({ message: "Attribute not found" });
+    }
+
+    if (Attribute_name) {
+      attribute.Attribute_name = Attribute_name;
+    }
+
+    if (Array.isArray(varient)) {
+      varient.forEach(newVar => {
+        const exists = attribute.varient.some(v => v.name === newVar.name);
+        if (!exists) {
+          attribute.varient.push({ _id: new mongoose.Types.ObjectId(), ...newVar });
+        }
+      });
+    }
+
+    const updated = await attribute.save();
+    return res.status(200).json({ message: "Attributes Updated", updated });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "An error occurred" });
+  }
+};
+
+
 exports.getAttributes=async (req,res) => {
   try {
   const Attributes=await Attribute.find()
@@ -25,10 +57,11 @@ exports.getAttributes=async (req,res) => {
 
 exports.addProduct = async (req, res) => {
   try {
-    const{productName,description,category,subCategory,subSubCategory,sku,ribbon,brand_Name,sold_by,type,location,online_visible,inventory,tax,feature_product,fulfilled_by,variants,minQuantity,maxQuantity
+    const{productName,description,category,subCategory,subSubCategory,sku,ribbon,brand_Name,sold_by,type,location,online_visible,inventory,tax,feature_product,fulfilled_by,variants,minQuantity,maxQuantity,addVarient,selectVarientValue
 
     } = req.body;
 
+const MultipleImage = req.files.MultipleImage?.[0].path
 const image = req.files.image?.[0].path
 const parsedVariants = JSON.parse(variants);
 
@@ -59,12 +92,12 @@ const parsedVariants = JSON.parse(variants);
       return { ...variant, discountValue: discount };
     });
 
-    const newProduct = await Products.create({productName,purchases,description,productImageUrl:image,category:{id:foundCategory._id,name:foundCategory.name},
+    const newProduct = await Products.create({productName,description,productThumbnailUrl:image,productImageUrl:MultipleImage,category:{id:foundCategory._id,name:foundCategory.name},
 
       subCategory:foundSubCategory?{id:foundSubCategory._id,name:foundSubCategory.name}:null,
 
       subSubCategory:foundSubSubCategory?{id:foundSubSubCategory._id,name:foundSubSubCategory.name}:null,
-      sku,ribbon,brand_Name,sold_by,type,location,online_visible,inventory,tax,feature_product,minQuantity,maxQuantity,fulfilled_by,variants:finalVariants,
+      sku,ribbon,brand_Name,sold_by,type,location,online_visible,inventory,tax,feature_product,minQuantity,maxQuantity,fulfilled_by,variants:finalVariants,addVarient,selectVarientValue
     });
     console.log("✅ Product Added");
 return res.status(200).json({message:"Product Added"})

@@ -15,5 +15,5 @@ const upload = multer({storage});
 module.exports = upload.fields([
 { name: 'image', maxCount: 1 },
   { name: 'file', maxCount: 1 },
-  { name: 'subImages', maxCount: 10 },
+  { name: 'MultipleImage', maxCount: 10 },
 ]);

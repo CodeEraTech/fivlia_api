@@ -14,9 +14,13 @@ const citySchemma=new mongoose.Schema({
   },
 },{timestamps:true})
 
+const mainSchema = new mongoose.Schema({
+  cashOnDelivery: { type: Boolean, default: true },
+  status: { type: Boolean, default: true },
+}, { _id: true });
+
 const zoneSchemma=new mongoose.Schema({
-  cashOnDelivery:{type:boolean,default:true},
-  status:{type:boolean,default:true},
+    zones: [mainSchema]
 },{timestamps:true})
 
 module.exports = {

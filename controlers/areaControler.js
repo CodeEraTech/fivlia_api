@@ -141,14 +141,27 @@ exports.getZone=async (req,res) => {
 
 exports.updateZoneStatus = async (req, res) => {
   try {
-    const {id} = req.params
-    const { status,cashOnDelivery } = req.body;
+    const { id } = req.params;
+    const { status, cashOnDelivery } = req.body;
 
-    const zone = await ZoneData.findByIdAndUpdate(id,{ status,cashOnDelivery },{new: true });
-    return res.status(200).json({ message: 'Status updated successfully', data: zone });
+    const updated = await ZoneData.updateOne(
+      { "zones._id": id },
+      {
+        $set: {
+          "zones.$.status": status,
+          "zones.$.cashOnDelivery": cashOnDelivery,
+        }
+      }
+    );
 
+    if (updated.modifiedCount === 0) {
+      return res.status(404).json({ message: "Zone not found" });
+    }
+
+    return res.status(200).json({ message: "Zone updated successfully" ,updated});
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: 'An error occurred', error: error.message });
+    console.error("Update error:", error);
+    return res.status(500).json({ message: "An error occurred", error: error.message });
   }
 };
+

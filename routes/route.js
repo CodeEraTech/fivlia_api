@@ -6,7 +6,7 @@ const router = express.Router()
 const{users,addUser}=require('../controlers/authControler');
 const {intro,getIntro}=require('../controlers/controlers')
 const{update,banner,getBanner,getAllBanner,updateBannerStatus,addCategory,getCategories,brand,getBrand}=require('../controlers/categorycontroler');
-const {addProduct,addAtribute,getAttributes,getProduct,getFeatureProduct,searchProduct}=require('../controlers/ProductControler')
+const {addProduct,addAtribute,getAttributes,getProduct,getFeatureProduct,searchProduct,bestSelling}=require('../controlers/ProductControler')
 const cityZone = require('../modals/cityZone');
 const { addCity,updateCityStatus,getAviableCity,getCity,deleteCity,deleteZoneFromCity,updateZoneStatus,getAllZone,getZone,location } = require('../controlers/areaControler');
 
@@ -33,6 +33,7 @@ router.get("/getBrand", getBrand);
 router.get('/getAttributes',getAttributes)
 router.get('/getProducts',getProduct)
 router.get('/getFeatureProduct',getFeatureProduct)
+router.get('/bestSelling',bestSelling)
 router.get('/search',searchProduct)
 
 router.post('/addUser',upload,addUser)

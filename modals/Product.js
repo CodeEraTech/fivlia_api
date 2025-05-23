@@ -38,6 +38,7 @@ const productSchema = new mongoose.Schema({
   selectVarientValue:[String],
   ribbon: String,
   brand_Name: String,
+  purchases:Number,
   sold_by: String,
   type: String,
   location: [String],

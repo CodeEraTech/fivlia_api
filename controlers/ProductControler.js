@@ -1,3 +1,4 @@
+const Product = require('../modals/Product');
 const Products = require('../modals/Product');
 const Attribute = require('../modals/attribute');
 const Category = require('../modals/category');
@@ -58,7 +59,7 @@ const parsedVariants = JSON.parse(variants);
       return { ...variant, discountValue: discount };
     });
 
-    const newProduct = await Products.create({productName,description,productImageUrl:image,category:{id:foundCategory._id,name:foundCategory.name},
+    const newProduct = await Products.create({productName,purchases,description,productImageUrl:image,category:{id:foundCategory._id,name:foundCategory.name},
 
       subCategory:foundSubCategory?{id:foundSubCategory._id,name:foundSubCategory.name}:null,
 
@@ -81,6 +82,16 @@ exports.getProduct=async (req,res) => {
 } catch (error) {
     console.error("Server error:", error);
     return res.status(500).json({ message: "An error occured!", error: error.message });
+  }
+}
+
+exports.bestSelling=async (req,res) => {
+  try {
+  const best = await Products.find().sort({purchases: -1}).limit(10);
+  res.json(best)
+   return res.status(200).json({ message: "Jai Baba ki", best });
+  } catch (error) {
+     return res.status(500).json({ message: "An error occured!", error: error.message });
   }
 }
 

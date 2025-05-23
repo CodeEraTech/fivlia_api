@@ -71,7 +71,7 @@ exports.getBanner = async (req, res) => {
   try {
     const {type } = req.query;
 
-    const filters = {status:'Active'};
+    const filters = {status:true};
 
     // if (bannerId) {
     //   filters.bannerId = { $regex: bannerId, $options: 'i' };

@@ -4,10 +4,7 @@ const mongoose = require('mongoose');
 const variantSchema = new mongoose.Schema({
   mrp: { type: Number, required: true },
   sell_price: { type: Number, required: true },
-  size: { type: String },
-  color: { type: String },
   sku: { type: String, unique: true },
-  pack: { type: String },
   discountValue: {
     type: Number,
     default: function () {
@@ -18,7 +15,7 @@ const variantSchema = new mongoose.Schema({
       return 0;
     },
   }
-});
+},{strict:false});
 
 const productSchema = new mongoose.Schema({
   productName: { type: String, required: true },

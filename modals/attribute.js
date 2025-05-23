@@ -1,9 +1,9 @@
 const mongoose = require('mongoose');
 
 const attributeScheema = new mongoose.Schema({
-    Attribute_name:{type:String,unique:true},
+    Attribute_name:{type:String},
     varient:[{
-       name: { type: String, required: true }
+       name: { type: String}
     }]
 
     })

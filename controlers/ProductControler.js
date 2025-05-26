@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const Products = require('../modals/Product');
 const Attribute = require('../modals/attribute');
 const Category = require('../modals/category');
-
+const Unit = require('../modals/unit');
 exports.addAtribute=async (req,res) => {
     try {
     const {Attribute_name,varient}=req.body
@@ -149,6 +149,26 @@ exports.getFeatureProduct=async (req,res) => {
    return res.status(200).json({ message: 'It is feature product.', product });
   } catch (error) {
       console.error("Server error:", error);
+    return res.status(500).json({ message: "An error occured!", error: error.message });
+  }
+}
+
+exports.unit=async (req,res) => {
+  try {
+  const {unitname}=req.body
+  const newUnit=await Unit.create({unitname})
+  return res.status(200).json({ message: 'Unit Created Successfully', newUnit });
+  } catch (error) {
+     console.error(error);
+     return res.status(500).json({ message: "An error occured!", error: error.message });
+  }
+}
+exports.getUnit=async (req,res) => {
+  try {
+  const Units=await Unit.find()
+    return res.status(200).json({Result:Units});
+  } catch (error) {
+    console.error(error);
     return res.status(500).json({ message: "An error occured!", error: error.message });
   }
 }

@@ -6,7 +6,7 @@ const router = express.Router()
 const { users, addUser } = require('../controlers/authControler');
 const { intro, getIntro } = require('../controlers/controlers')
 const { update, banner, getBanner, getAllBanner, updateBannerStatus, addCategory, getCategories, brand, getBrand } = require('../controlers/categorycontroler');
-const { addProduct, addAtribute, getAttributes, getProduct, getFeatureProduct, searchProduct, bestSelling,editAttributes } = require('../controlers/ProductControler')
+const { addProduct, addAtribute, getAttributes, getProduct, getFeatureProduct, searchProduct, bestSelling,editAttributes,unit,getUnit } = require('../controlers/ProductControler')
 const cityZone = require('../modals/cityZone');
 const { addCity, updateCityStatus, getAviableCity, getCity, deleteCity, deleteZoneFromCity, updateZoneStatus, getAllZone, getZone, location } = require('../controlers/areaControler');
 
@@ -16,6 +16,7 @@ router.post('/intro', upload, intro)
 router.post('/banner', upload, banner)
 router.post('/brand', upload, brand)
 router.post('/addAtribute', addAtribute)
+router.post('/unit', unit)
 
 router.post('/addCity', addCity)
 router.post('/location', location)
@@ -35,6 +36,7 @@ router.get('/getProducts', getProduct)
 router.get('/getFeatureProduct', getFeatureProduct)
 router.get('/bestSelling', bestSelling)
 router.get('/search', searchProduct)
+router.get('/getUnit', getUnit)
 
 router.post('/addUser', upload, addUser)
 router.patch('/edit/:id', upload, update)

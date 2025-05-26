@@ -45,7 +45,7 @@ const productSchema = new mongoose.Schema({
   online_visible: { type: Boolean, default: true },
   feature_product: { type: Boolean, default: false },
   fulfilled_by: String,
-  inventory: { type: String, required: true, enum: ['InStock', 'OutOfStock'] },
+  inventory: { type: String, required: true, enum: ['InStock', 'OutOfStock'],default:'OutOfStock' },
   variants: [variantSchema]
 }, { timestamps: true });
 

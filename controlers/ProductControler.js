@@ -107,15 +107,53 @@ return res.status(200).json({message:"Product Added"})
   }
 };
 
-exports.getProduct=async (req,res) => {
+exports.getProduct = async (req, res) => {
   try {
-  const product=await Products.find()
-   return res.status(200).json({ message: 'Product fetched successfully.', product });
-} catch (error) {
-    console.error("Server error:", error);
-    return res.status(500).json({ message: "An error occured!", error: error.message });
+    const { category, subCategory, subSubCategory } = req.query;
+
+    const filters = [];
+
+    if (category) {
+      if (mongoose.Types.ObjectId.isValid(category)) {
+        filters.push({ 'category._id': category });
+      } else {
+        filters.push({ 'category.name': { $regex: category, $options: 'i' } });
+      }
+    }
+
+    if (subCategory) {
+      if (mongoose.Types.ObjectId.isValid(subCategory)) {
+        filters.push({ 'subCategory._id': subCategory });
+      } else {
+        filters.push({ 'subCategory.name': { $regex: subCategory, $options: 'i' } });
+      }
+    }
+
+    if (subSubCategory) {
+      if (mongoose.Types.ObjectId.isValid(subSubCategory)) {
+        filters.push({ 'subSubCategory._id': subSubCategory });
+      } else {
+        filters.push({ 'subSubCategory.name': { $regex: subSubCategory, $options: 'i' } });
+      }
+    }
+
+    const query = filters.length > 0 ? { $and: filters } : {};
+
+    const products = await Products.find(query);
+
+    if (!products.length) {
+      return res.status(404).json({ message: 'No products found.' });
+    }
+
+    return res.status(200).json({ message: 'Products fetched successfully.', products });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Server error.', error: error.message });
   }
-}
+};
+
+
+
 
 exports.bestSelling=async (req,res) => {
   try {

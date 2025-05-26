@@ -3,6 +3,8 @@ const Products = require('../modals/Product');
 const Attribute = require('../modals/attribute');
 const Category = require('../modals/category');
 const Unit = require('../modals/unit');
+const {Cart,Discount} = require('../modals/cart');
+
 exports.addAtribute=async (req,res) => {
     try {
     const {Attribute_name,varient}=req.body
@@ -109,43 +111,27 @@ return res.status(200).json({message:"Product Added"})
 
 exports.getProduct = async (req, res) => {
   try {
-    const { category, subCategory, subSubCategory } = req.query;
+    const { id } = req.query;
 
-    const filters = [];
-
-    if (category) {
-      if (mongoose.Types.ObjectId.isValid(category)) {
-        filters.push({ 'category._id': category });
-      } else {
-        filters.push({ 'category.name': { $regex: category, $options: 'i' } });
-      }
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Invalid or missing ID.' });
     }
 
-    if (subCategory) {
-      if (mongoose.Types.ObjectId.isValid(subCategory)) {
-        filters.push({ 'subCategory._id': subCategory });
-      } else {
-        filters.push({ 'subCategory.name': { $regex: subCategory, $options: 'i' } });
-      }
-    }
-
-    if (subSubCategory) {
-      if (mongoose.Types.ObjectId.isValid(subSubCategory)) {
-        filters.push({ 'subSubCategory._id': subSubCategory });
-      } else {
-        filters.push({ 'subSubCategory.name': { $regex: subSubCategory, $options: 'i' } });
-      }
-    }
-
-    const query = filters.length > 0 ? { $and: filters } : {};
-
-    const products = await Products.find(query);
+    // Search for this ID in any of the 3 category levels
+    const products = await Products.find({
+      $or: [
+        { 'category._id': id },
+        { 'subCategory._id': id },
+        { 'subSubCategory._id': id }
+      ]
+    });
 
     if (!products.length) {
-      return res.status(404).json({ message: 'No products found.' });
+      return res.status(404).json({ message: 'No products found for this ID.' });
     }
 
     return res.status(200).json({ message: 'Products fetched successfully.', products });
+
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: 'Server error.', error: error.message });
@@ -205,6 +191,47 @@ exports.getUnit=async (req,res) => {
   try {
   const Units=await Unit.find()
     return res.status(200).json({Result:Units});
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "An error occured!", error: error.message });
+  }
+}
+exports.addCart=async (req,res) => {
+  try {
+  const{name,quantity,price}=req.body
+  const image = req.files.image?.[0].path
+  const items = await Cart.create({image,name,quantity,price})
+  return res.status(200).json({ message: 'Item Added To Database', items });
+} catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "An error occured!", error: error.message });
+  }
+}
+
+exports.getCart=async (req,res) => {
+  try {
+    const items = await Cart.find()
+    return res.status(200).json({ message: 'Cart Items:', items });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "An error occured!", error: error.message });
+  }
+}
+exports.discount=async (req,res) => {
+  try {
+ const{description,value,head}=req.body
+  const newDiscount=await Discount.create({description,value,head})
+   return res.status(200).json({ message: 'New Discount:', newDiscount });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "An error occured!", error: error.message });
+  }
+}
+
+exports.getDicount=async (req,res) => {
+  try {
+  const discount = await Discount.find()
+  return res.status(200).json({ message: 'New Discounts:', discount });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "An error occured!", error: error.message });

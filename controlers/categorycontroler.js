@@ -35,11 +35,6 @@ exports.banner = async (req,res) => {
    let {title,type,city,zones,mainCategory,subCategory,subSubCategory,status}=req.body
    const image = req.files.image?.[0].path;
 
-  if (!title || !image || !status || !city) {
-    console.log('title=>',title,'image=>',image,'status=>',status,'city=>',city);
-    return res.status(400).json({ message: 'All Fields are required.' });
-    }
-
    if (typeof zones === 'string') {
       try {
         zones = JSON.parse(zones);

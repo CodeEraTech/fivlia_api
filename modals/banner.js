@@ -1,15 +1,14 @@
 const mongoose = require('mongoose');
 
 const bannerSchema = new mongoose.Schema({
-    bannerId:{type:String,unique:true,required:true},
     image:String,
     title:{type:String,required:true},
     city:String,
   zones: [
     {
       address: { type: String, required: true },
-      latitude: { type: Number, required: true },
-      longitude: { type: Number, required: true }
+      latitude: { type: String, required: true },
+      longitude: { type: String, required: true }
     }
   ],
     mainCategory: { type: String },

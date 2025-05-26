@@ -31,14 +31,22 @@ console.log("updateData:", updatedCategory);
 };
 
 exports.banner = async (req,res) => {
-  try {  
-   const {bannerId,title,type,city,zone,mainCategory,subCategory,subSubCategory,status}=req.body
+  try {
+   let {title,type,city,zones,mainCategory,subCategory,subSubCategory,status}=req.body
    const image = req.files.image?.[0].path;
 
-  if (!bannerId || !title || !image || !status || !city) {
-    console.log('banner=>',bannerId,'title=>',title,'image=>',image);
-    
-      return res.status(400).json({ message: 'All Fields are required.' });
+  if (!title || !image || !status || !city) {
+    console.log('title=>',title,'image=>',image,'status=>',status,'city=>',city);
+    return res.status(400).json({ message: 'All Fields are required.' });
+    }
+
+   if (typeof zones === 'string') {
+      try {
+        zones = JSON.parse(zones);
+      } catch (err) {
+        console.error(err)
+        return res.status(400).json({ message: 'Invalid zones format' });
+      }
     }
 
     const validTypes = ['normal', 'offer'];
@@ -54,12 +62,8 @@ if(subSubCategory && !subCategory){
     if (!bannerType) {
       return res.status(402).json({ message: 'Invalid banner type. Must be "normal" or "offer".' });
     }
-    const existingBanner = await Banner.findOne({ bannerId });
-    if (existingBanner) {
-      return res.status(409).json({ message: 'Banner with this ID already exists.' });
-    }
 
-   const newBanner = await Banner.create({bannerId,image,city,title,type:bannerType,mainCategory,subCategory,subSubCategory,status,zone})
+   const newBanner = await Banner.create({image,city,title,type:bannerType,mainCategory,subCategory,subSubCategory,status,zones})
    return res.status(200).json({message:'Banner Added Successfully',newBanner})
 } catch (error) {
   console.error(error);

@@ -94,11 +94,13 @@ const parsedVariants = JSON.parse(variants);
       return { ...variant, discountValue: discount };
     });
 
-    const newProduct = await Products.create({productName,description,productThumbnailUrl:image,productImageUrl:MultipleImage,category:{id:foundCategory._id,name:foundCategory.name},
+    const newProduct = await Products.create({productName,description,productThumbnailUrl:image,productImageUrl:MultipleImage,
 
-      subCategory:foundSubCategory?{id:foundSubCategory._id,name:foundSubCategory.name}:null,
+category: {_id: foundCategory._id, name: foundCategory.name},
+subCategory:foundSubCategory? { _id: foundSubCategory._id, name: foundSubCategory.name }: null,
+subSubCategory: foundSubSubCategory? { _id: foundSubSubCategory._id, name: foundSubSubCategory.name }: null,
 
-      subSubCategory:foundSubSubCategory?{id:foundSubSubCategory._id,name:foundSubSubCategory.name}:null,
+      
       sku,ribbon,brand_Name,sold_by,type,location,online_visible,inventory,tax,feature_product,minQuantity,maxQuantity,fulfilled_by,variants:finalVariants,addVarient,selectVarientValue
     });
     console.log("✅ Product Added");
@@ -112,11 +114,6 @@ return res.status(200).json({message:"Product Added"})
 exports.getProduct = async (req, res) => {
   try {
     const { id } = req.query;
-
-    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: 'Invalid or missing ID.' });
-    }
-
     // Search for this ID in any of the 3 category levels
     const products = await Products.find({
       $or: [

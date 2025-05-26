@@ -24,12 +24,12 @@ const productSchema = new mongoose.Schema({
   productImageUrl: [{ type: String, required: true }],
   productThumbnailUrl:{type:String, required:true},
   category: [{
-    name:String
+      _id: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' },
   }],
   subCategory:[{
-   name:String
+    _id: { type: mongoose.Schema.Types.ObjectId },
   }],
-  subSubCategory: [String],
+  subSubCategory: [ {_id: { type: mongoose.Schema.Types.ObjectId }}],
   // stock:String,
   addVarient:[String],
   selectVarientValue:[String],

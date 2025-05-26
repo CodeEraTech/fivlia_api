@@ -6,7 +6,7 @@ const router = express.Router()
 const { users, addUser } = require('../controlers/authControler');
 const { intro, getIntro } = require('../controlers/controlers')
 const { update, banner, getBanner, getAllBanner, updateBannerStatus, addCategory, getCategories, brand, getBrand } = require('../controlers/categorycontroler');
-const { addProduct, addAtribute, getAttributes, getProduct, getFeatureProduct, searchProduct, bestSelling,editAttributes,unit,getUnit,addCart,getCart } = require('../controlers/ProductControler')
+const { addProduct, addAtribute, getAttributes, getProduct, getFeatureProduct, searchProduct, bestSelling,editAttributes,unit,getUnit,addCart,getCart,getDicount,discount } = require('../controlers/ProductControler')
 const cityZone = require('../modals/cityZone');
 const { addCity, updateCityStatus, getAviableCity, getCity, deleteCity, deleteZoneFromCity, updateZoneStatus, getAllZone, getZone, location } = require('../controlers/areaControler');
 
@@ -19,6 +19,7 @@ router.post('/addAtribute', addAtribute)
 router.post('/unit', unit)
 router.post('/addCart',upload, addCart)
 
+router.post('/discount', discount)
 router.post('/addCity', addCity)
 router.post('/location', location)
 
@@ -39,6 +40,7 @@ router.get('/bestSelling', bestSelling)
 router.get('/search', searchProduct)
 router.get('/getUnit', getUnit)
 router.get('/getCart', getCart)
+router.get('/getDiscount', getDicount)
 
 router.post('/addUser', upload, addUser)
 router.patch('/edit/:id', upload, update)

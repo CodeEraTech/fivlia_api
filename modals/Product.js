@@ -24,7 +24,7 @@ const productSchema = new mongoose.Schema({
   productImageUrl: [{ type: String, required: true }],
   productThumbnailUrl:{type:String, required:true},
   category: [{
-      _id: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' },
+      _id: { type: mongoose.Schema.Types.ObjectId, ref: 'Categories' },
   }],
   subCategory:[{
     _id: { type: mongoose.Schema.Types.ObjectId },

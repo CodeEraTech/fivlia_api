@@ -15,7 +15,7 @@ const subCategorySchema = new mongoose.Schema({
   Selection: String,
   image: String,
   ItemsNo: Number,
-  Products: [{type: mongoose.Schema.Types.ObjectId, ref: "Product"}],
+  Products: [{type: mongoose.Schema.Types.ObjectId, ref: "products"}],
   subSubCategory: {
     type: Map,
     of: subSubCategorySchema
@@ -28,7 +28,7 @@ const categorySchema = new mongoose.Schema({
   Selection: String,
   image: String,
   ItemsNo: Number,
-  Products: [{type: mongoose.Schema.Types.ObjectId, ref: "Product"}] ,
+  Products: [{type: mongoose.Schema.Types.ObjectId, ref: "products"}] ,
   subCategory: {
     type: Map,
     of: subCategorySchema

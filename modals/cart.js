@@ -9,8 +9,8 @@ const cartSchema = new mongoose.Schema({
 
 const discountSchema=new mongoose.Schema({
   head:String,
-  value:String,
-  Description:String
+  value:Number,
+  description:String
 })
 
 module.exports={

@@ -324,8 +324,52 @@ exports.getBrand = async (req,res) => {
     }
 }
 
+exports.editCat=async (req,res) => {
+  try {
+  const{id}=req.params
+  const{name,description,Selection}=req.body
+  
+  const image =req.files.image?.[0].path
+
+if(Selection === 'SubSubCategory'){
+    const editSubSub = await Category.updateOne(
+        { "subcat.subSubCat._id": id },
+        {
+          $set: {
+            "subcat.$[].subSubCat.$[ss].name": name,
+            "subcat.$[].subSubCat.$[ss].description": description,
+            "subcat.$[].subSubCat.$[ss].image": image,
+          },
+        },
+        {
+          arrayFilters: [{ "ss._id": id }],
+        }
+      );
+
+  console.log("subSubCat:", { name, description, image });
+
+  return res.status(200).json({ message: "SubSubCategory Edited successfully" ,editSubSub});
+}
+if(Selection === 'SubCategory'){
+const editSub = await Category.updateOne({"subcat._id":id},{$set:{"subcat.$.name":name,"subcat.$.image":image,"subcat.$.description":description}}) 
+
+ console.log("SubCat:", { name, description, image });
+
+return res.status(200).json({ message: "SubCategory Edited successfully" ,editSub});
+}
+else{
+const edit = await Category.updateOne({_id:id},{$set:{name,image,description}}) 
+
+ console.log("Category:", { name, description, image });
+
+return res.status(200).json({ message: "Category Edited successfully" ,edit});
+}
+   } catch (error) {
+    console.error("Update error:", error);
+    return res.status(500).json({ message: "An error occurred", error: error.message });
+  }
+}
 
 // if (req.file && req.file.path) {
 //       updateData.image = req.file.path;
 //     }
-

@@ -135,4 +135,3 @@ exports.updateZoneStatus = async (req, res) => {
     return res.status(500).json({ message: "An error occurred", error: error.message });
   }
 };
-

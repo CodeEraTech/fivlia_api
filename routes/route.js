@@ -5,7 +5,7 @@ const router = express.Router()
 
 const { users, addUser } = require('../controlers/authControler');
 const { intro, getIntro } = require('../controlers/controlers')
-const { update, banner, getBanner, getAllBanner, updateBannerStatus, addCategory, getCategories, brand, getBrand } = require('../controlers/categorycontroler');
+const { update, banner, getBanner, getAllBanner, updateBannerStatus, addCategory, getCategories, brand, getBrand, editCat } = require('../controlers/categorycontroler');
 const { addProduct, addAtribute, getAttributes, getProduct, getFeatureProduct, searchProduct, bestSelling,editAttributes,unit,getUnit,addCart,getCart,getDicount,discount } = require('../controlers/ProductControler')
 const cityZone = require('../modals/cityZone');
 const { addCity, updateCityStatus, getAviableCity, getCity, updateZoneStatus, getAllZone, getZone, location } = require('../controlers/areaControler');
@@ -48,6 +48,8 @@ router.put('/updateCityStatus/:id', updateCityStatus);
 router.patch('/admin/banner/:id/status', updateBannerStatus);
 router.put('/updateZoneStatus/:id', updateZoneStatus);
 router.patch('/editAttributes/:id', editAttributes);
+router.put('/editCat/:id',upload, editCat);
+
 
 router.get('/zones', (req, res) => {
   res.json(cityZone);

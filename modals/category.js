@@ -1,38 +1,26 @@
 const mongoose = require('mongoose');
 
 const subSubCategorySchema = new mongoose.Schema({
-  id: Number,
-  CategoryHeading: String,
+  name:String,
   Selection: String,
+  description:String,
   image: String,
-  ItemsNo: Number,
-  Products: [{type: mongoose.Schema.Types.ObjectId, ref: "Product"}]
-}, { _id: false });
+});
 
 const subCategorySchema = new mongoose.Schema({
-  id: Number,
-  CategoryHeading: String,
+  name:String,
   Selection: String,
   image: String,
-  ItemsNo: Number,
-  Products: [{type: mongoose.Schema.Types.ObjectId, ref: "products"}],
-  subSubCategory: {
-    type: Map,
-    of: subSubCategorySchema
-  }
-}, { _id: false });
+  description:String,
+  subSubCat:[subSubCategorySchema]
+});
 
 const categorySchema = new mongoose.Schema({
-  id: Number,
-  CategoryHeading: String,
+  name:String,
   Selection: String,
   image: String,
-  ItemsNo: Number,
-  Products: [{type: mongoose.Schema.Types.ObjectId, ref: "products"}] ,
-  subCategory: {
-    type: Map,
-    of: subCategorySchema
-  }
+  description:String,
+  subcat: [subCategorySchema]
 });
 const Category=mongoose.model('Category', categorySchema,'Categories');
 module.exports = Category

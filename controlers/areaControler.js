@@ -1,5 +1,4 @@
 const {CityData,ZoneData} = require('../modals/cityZone');
-const StateData = require('../modals/state')
 const Location = require('../modals/location');
 exports.addCity = async (req, res) => {
   try {
@@ -34,46 +33,13 @@ exports.addCity = async (req, res) => {
 exports.updateCityStatus = async (req, res) => {
   try {
     const {id} = req.params
-    const { status } = req.body;
+    const { status,city,state,latitude,longitude,fullAddress } = req.body;
 
-    const cityDoc = await CityData.findByIdAndUpdate(id,{ status },{new: true });
+    const cityDoc = await CityData.findByIdAndUpdate(id,{ status,city,state,latitude,longitude,fullAddress },{new: true });
     return res.status(200).json({ message: 'Status updated successfully', data: cityDoc });
 
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: 'An error occurred', error: error.message });
-  }
-};
-
-exports.deleteCity = async (req, res) => {
-  try {
-    const { city } = req.params;
-
-    const deleted = await CityData.findOneAndDelete({ city });
-
-    if (!deleted) return res.status(404).json({ message: 'City not found' });
-
-    return res.status(200).json({ message: 'City deleted successfully' });
-
-  } catch (error) {
-    return res.status(500).json({ message: 'An error occurred', error: error.message });
-  }
-};
-
-exports.deleteZoneFromCity = async (req, res) => {
-  try {
-    const { city, zone } = req.body;
-
-    const cityDoc = await CityData.findOne({ city });
-
-    if (!cityDoc) return res.status(404).json({ message: 'City not found' });
-    const zonesToRemove = Array.isArray(zone) ? zone : [zone];
-    cityDoc.zones = cityDoc.zones.filter(z => !zonesToRemove.includes(z));
-    await cityDoc.save();
-
-    return res.status(200).json({ message: `Zone '${zonesToRemove.join(", ")}' removed from city '${city}'`, data: cityDoc });
-
-  } catch (error) {
     return res.status(500).json({ message: 'An error occurred', error: error.message });
   }
 };
@@ -142,12 +108,17 @@ exports.getZone=async (req,res) => {
 exports.updateZoneStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, cashOnDelivery } = req.body;
+    const { status,city,zone, cashOnDelivery,address,latitude,longitude,range} = req.body;
 
     const updated = await ZoneData.updateOne(
       { "zones._id": id },
       {
         $set: {
+          city,zone,
+           "zones.$.address":address,
+           "zones.$.latitude":latitude,
+           "zones.$.longitude":longitude,
+           "zones.$.range":range,
           "zones.$.status": status,
           "zones.$.cashOnDelivery": cashOnDelivery,
         }

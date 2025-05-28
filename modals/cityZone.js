@@ -7,6 +7,12 @@ const citySchemma=new mongoose.Schema({
     required: true,
     unique: true,
   },
+  state:String,
+  
+fullAddress:String,
+latitude:Number,
+longitude:Number,
+
   status:{type:boolean,default:true},
   zones: {
     type: [String],
@@ -17,9 +23,15 @@ const citySchemma=new mongoose.Schema({
 const mainSchema = new mongoose.Schema({
   cashOnDelivery: { type: Boolean, default: true },
   status: { type: Boolean, default: true },
+  address: { type: String, required: true },
+  latitude: { type: Number },
+  longitude: { type: Number },
+  range: { type: Number },
+
 }, { _id: true });
 
 const zoneSchemma=new mongoose.Schema({
+    city:{type:String},
     zones: [mainSchema]
 },{timestamps:true})
 

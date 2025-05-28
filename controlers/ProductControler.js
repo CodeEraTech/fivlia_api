@@ -4,6 +4,7 @@ const Attribute = require('../modals/attribute');
 const Category = require('../modals/category');
 const Unit = require('../modals/unit');
 const {Cart,Discount} = require('../modals/cart');
+const { ZoneData } = require('../modals/cityZone');
 
 exports.addAtribute=async (req,res) => {
     try {
@@ -66,6 +67,33 @@ exports.addProduct = async (req, res) => {
 const MultipleImage = req.files.MultipleImage?.[0].path
 const image = req.files.image?.[0].path
 const parsedVariants = JSON.parse(variants);
+const parsedLocation = typeof location === 'string' ? JSON.parse(location) : location;
+
+const productLocation = [];
+
+for (let loc of parsedLocation) {
+  const cityData = await ZoneData.findOne({ "city": loc.city.name });
+  console.log('cityData for', loc.city.name, cityData);
+  if (!cityData) {
+    return res.status(400).json({ message: `City ${loc.city.name} is not available right now` });
+  }
+
+const zoneMatch = cityData.zones.find(zone =>
+  zone.address === loc.zone.name
+);
+
+  console.log('parsedLocation=>',parsedLocation);
+  console.log('zoneMatch=>',zoneMatch);
+  
+  if (!zoneMatch) {
+    return res.status(400).json({ message: `Zone ${loc.zone.name} is not available right now` });
+  }
+   productLocation.push({
+    city: { _id: cityData._id, name: cityData.city },
+    zone: { _id: zoneMatch._id, name: zoneMatch.address }
+  });
+}
+
 
     const foundCategory = await Category.findOne({ name: category }).lean();
     if (!foundCategory) return res.status(404).json({ message: `Category ${category} not found` });
@@ -101,7 +129,7 @@ subCategory:foundSubCategory? { _id: foundSubCategory._id, name: foundSubCategor
 subSubCategory: foundSubSubCategory? { _id: foundSubSubCategory._id, name: foundSubSubCategory.name }: null,
 
       
-      sku,ribbon,brand_Name,sold_by,type,location,online_visible,inventory,tax,feature_product,minQuantity,maxQuantity,fulfilled_by,variants:finalVariants,addVarient,selectVarientValue
+      sku,ribbon,brand_Name,sold_by,type, location:productLocation ,online_visible,inventory,tax,feature_product,minQuantity,maxQuantity,fulfilled_by,variants:finalVariants,addVarient,selectVarientValue
     });
     console.log("✅ Product Added");
 return res.status(200).json({message:"Product Added"})

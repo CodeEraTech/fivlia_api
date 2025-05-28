@@ -262,3 +262,20 @@ exports.getDicount=async (req,res) => {
     return res.status(500).json({ message: "An error occured!", error: error.message });
   }
 }
+
+exports.getVarients = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const attribute = await Attribute.findById(id, 'varient');
+
+    if (!attribute) {
+      return res.status(404).json({ message: "Attribute not found" });
+    }
+
+    return res.status(200).json({ varient: attribute.varient });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "An error occurred", error: error.message });
+  }
+};

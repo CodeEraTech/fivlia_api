@@ -6,7 +6,7 @@ const router = express.Router()
 const { users, addUser } = require('../controlers/authControler');
 const { intro, getIntro } = require('../controlers/controlers')
 const { update, banner, getBanner, getAllBanner, updateBannerStatus, addCategory, getCategories, brand, getBrand, editCat } = require('../controlers/categorycontroler');
-const { addProduct, addAtribute, getAttributes, getProduct, getFeatureProduct, searchProduct, bestSelling,editAttributes,unit,getUnit,addCart,getCart,getDicount,discount } = require('../controlers/ProductControler')
+const { addProduct, addAtribute, getAttributes, getProduct, getFeatureProduct, searchProduct, bestSelling,editAttributes,unit,getUnit,addCart,getCart,getDicount,discount,getVarients } = require('../controlers/ProductControler')
 const cityZone = require('../modals/cityZone');
 const { addCity, updateCityStatus, getAviableCity, getCity, updateZoneStatus, getAllZone, getZone, location } = require('../controlers/areaControler');
 
@@ -41,6 +41,7 @@ router.get('/search', searchProduct)
 router.get('/getUnit', getUnit)
 router.get('/getCart', getCart)
 router.get('/getDiscount', getDicount)
+router.get('/getVarients/:id', getVarients)
 
 router.post('/addUser', upload, addUser)
 router.patch('/edit/:id', upload, update)

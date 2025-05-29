@@ -3,8 +3,8 @@ const Products = require('../modals/Product');
 const Attribute = require('../modals/attribute');
 const Category = require('../modals/category');
 const Unit = require('../modals/unit');
-const {Cart,Discount} = require('../modals/cart');
 const { ZoneData } = require('../modals/cityZone');
+const brand = require('../modals/brand')
 
 exports.addAtribute=async (req,res) => {
     try {
@@ -73,7 +73,6 @@ const productLocation = [];
 
 for (let loc of parsedLocation) {
   const cityData = await ZoneData.findOne({ "city": loc.city.name });
-  console.log('cityData for', loc.city.name, cityData);
   if (!cityData) {
     return res.status(400).json({ message: `City ${loc.city.name} is not available right now` });
   }
@@ -82,9 +81,6 @@ const zoneMatch = cityData.zones.find(zone =>
   zone.address === loc.zone.name
 );
 
-  console.log('parsedLocation=>',parsedLocation);
-  console.log('zoneMatch=>',zoneMatch);
-  
   if (!zoneMatch) {
     return res.status(400).json({ message: `Zone ${loc.zone.name} is not available right now` });
   }
@@ -94,7 +90,10 @@ const zoneMatch = cityData.zones.find(zone =>
   });
 }
 
-
+const brands = await brand.findOne({brandName:brand_Name})
+if (!brands) {
+  return res.status(400).json({ message: `Brand ${brand_Name} not found` });
+}
     const foundCategory = await Category.findOne({ name: category }).lean();
     if (!foundCategory) return res.status(404).json({ message: `Category ${category} not found` });
 
@@ -129,7 +128,9 @@ subCategory:foundSubCategory? { _id: foundSubCategory._id, name: foundSubCategor
 subSubCategory: foundSubSubCategory? { _id: foundSubSubCategory._id, name: foundSubSubCategory.name }: null,
 
       
-      sku,ribbon,brand_Name,sold_by,type, location:productLocation ,online_visible,inventory,tax,feature_product,minQuantity,maxQuantity,fulfilled_by,variants:finalVariants,addVarient,selectVarientValue
+      sku,ribbon,
+      brand_Name:{_id: brands._id, name: brands.brandName},
+      sold_by,type, location:productLocation ,online_visible,inventory,tax,feature_product,minQuantity,maxQuantity,fulfilled_by,variants:finalVariants,addVarient,selectVarientValue
     });
     console.log("✅ Product Added");
 return res.status(200).json({message:"Product Added"})
@@ -221,47 +222,6 @@ exports.getUnit=async (req,res) => {
     return res.status(500).json({ message: "An error occured!", error: error.message });
   }
 }
-exports.addCart=async (req,res) => {
-  try {
-  const{name,quantity,price}=req.body
-  const image = req.files.image?.[0].path
-  const items = await Cart.create({image,name,quantity,price})
-  return res.status(200).json({ message: 'Item Added To Database', items });
-} catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "An error occured!", error: error.message });
-  }
-}
-
-exports.getCart=async (req,res) => {
-  try {
-    const items = await Cart.find()
-    return res.status(200).json({ message: 'Cart Items:', items });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "An error occured!", error: error.message });
-  }
-}
-exports.discount=async (req,res) => {
-  try {
- const{description,value,head}=req.body
-  const newDiscount=await Discount.create({description,value,head})
-   return res.status(200).json({ message: 'New Discount:', newDiscount });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "An error occured!", error: error.message });
-  }
-}
-
-exports.getDicount=async (req,res) => {
-  try {
-  const discount = await Discount.find()
-  return res.status(200).json({ message: 'New Discounts:', discount });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "An error occured!", error: error.message });
-  }
-}
 
 exports.getVarients = async (req, res) => {
   try {
@@ -279,3 +239,4 @@ exports.getVarients = async (req, res) => {
     return res.status(500).json({ message: "An error occurred", error: error.message });
   }
 };
+

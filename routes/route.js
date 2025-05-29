@@ -5,8 +5,9 @@ const router = express.Router()
 
 const { users, addUser } = require('../controlers/authControler');
 const { intro, getIntro } = require('../controlers/controlers')
+const { addCart,getCart,getDicount,discount } = require('../controlers/cartControler')
 const { update, banner, getBanner, getAllBanner, updateBannerStatus, addCategory, getCategories, brand, getBrand, editCat } = require('../controlers/categorycontroler');
-const { addProduct, addAtribute, getAttributes, getProduct, getFeatureProduct, searchProduct, bestSelling,editAttributes,unit,getUnit,addCart,getCart,getDicount,discount,getVarients } = require('../controlers/ProductControler')
+const { addProduct, addAtribute, getAttributes, getProduct, getFeatureProduct, searchProduct, bestSelling,editAttributes,unit,getUnit,getVarients } = require('../controlers/ProductControler')
 const cityZone = require('../modals/cityZone');
 const { addCity, updateCityStatus, getAviableCity, getCity, updateZoneStatus, getAllZone, getZone, location } = require('../controlers/areaControler');
 
@@ -32,7 +33,7 @@ router.get('/users', users)
 router.get('/getCity', getCity)
 router.get('/getAviableCity', getAviableCity)
 router.get("/categories", getCategories);
-router.get("/getBrand", getBrand);
+router.get("/getBrand/:id", getBrand);
 router.get('/getAttributes', getAttributes)
 router.get('/getProducts', getProduct)
 router.get('/getFeatureProduct', getFeatureProduct)

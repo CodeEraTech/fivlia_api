@@ -44,7 +44,10 @@ const productSchema = new mongoose.Schema({
   addVarient:[String],
   selectVarientValue:[String],
   ribbon: String,
-  brand_Name: String,
+  brand_Name: [{
+    _id: { type: mongoose.Schema.Types.ObjectId ,ref:'brands'},
+    name:String
+  }],
   purchases:Number,
   type: String,
   location:  [locationSchema],

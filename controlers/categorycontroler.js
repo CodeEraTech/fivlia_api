@@ -1,6 +1,8 @@
 const Category = require('../modals/category');
 const Banner = require('../modals/banner');
 const brand = require('../modals/brand')
+const Products = require('../modals/Product')
+const {ZoneData} = require('../modals/cityZone')
 exports.update = async (req, res) => {
   try {
     const { name, description, subcat } = req.body;
@@ -58,12 +60,38 @@ if(subSubCategory && !subCategory){
       return res.status(402).json({ message: 'Invalid banner type. Must be "normal" or "offer".' });
     }
 
-   const newBanner = await Banner.create({image,city,title,type:bannerType,mainCategory,subCategory,subSubCategory,status,zones})
+   const foundCategory = await Category.findOne({ name: mainCategory }).lean();
+      if (!foundCategory) return res.status(404).json({ message: `Category ${mainCategory} not found` });
+  
+   let foundSubCategory = null;
+      let foundSubSubCategory = null;
+  
+      if (subCategory && subCategory.trim() !== "") {
+        foundSubCategory = foundCategory.subcat.find(sub => sub.name.toLowerCase() === subCategory.toLowerCase());
+        
+        if (!foundSubCategory) return res.status(404).json({ message: `SubCategory ${subCategory} not found` });
+  
+        if (subSubCategory && subSubCategory.trim() !== "") {
+          foundSubSubCategory = foundSubCategory.subsubcat.find(subsub => subsub.name === subSubCategory);
+          if (!foundSubSubCategory) return res.status(404).json({ message: `SubSubCategory ${subSubCategory} not found` });
+        }
+      } else {
+        if (subSubCategory && subSubCategory.trim() !== "") {
+          return res.status(400).json({ message: "Cannot provide subSubCategory without subCategory" });
+        }
+      }
+
+   const newBanner = await Banner.create({image,
+    city,title,type:bannerType,
+    mainCategory:{_id:foundCategory._id,name:foundCategory.name},
+    subCategory:foundSubCategory? { _id: foundSubCategory._id, name: foundSubCategory.name }: null,
+    subSubCategory: foundSubSubCategory? { _id: foundSubSubCategory._id, name: foundSubSubCategory.name }: null,
+    status,zones
+  })
    return res.status(200).json({message:'Banner Added Successfully',newBanner})
 } catch (error) {
   console.error(error);
-  
-    return res.status(500).json({message:'An Error Occured'})
+    return res.status(500).json({message:'An Error Occured',error:error.message})
   }
 }
 exports.getBanner = async (req, res) => {
@@ -101,16 +129,16 @@ exports.getBanner = async (req, res) => {
 exports.updateBannerStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status,title,image,city,zones,address,latitude,longitude,mainCategory,subCategory,subSubCategory} = req.body;
 
-    const updatedBanner = await Banner.findByIdAndUpdate(
-      id,
-      { status },
+    const updatedBanner = await Banner.updateOne(
+      {'zones._id':id},
+      {$set:{ status,title,image,city,mainCategory,subCategory,subSubCategory,'zones.$.address':address,'zones.$.latitude':latitude,'zones.$.longitude':longitude }}
     );
 
-    if (!updatedBanner) {
-      return res.status(404).json({ message: 'Banner not found.' });
-    }
+    if (updatedBanner.modifiedCount === 0) {
+  return res.status(404).json({ message: 'No matching banner or zone found, or data unchanged.' });
+}
 
     return res.status(200).json({ message: 'Banner status updated.', banner: updatedBanner });
   } catch (err) {
@@ -314,20 +342,33 @@ exports.brand = async (req,res) => {
     }
 }
 
-exports.getBrand = async (req,res) => {
+exports.getBrand = async (req, res) => {
   try {
- const brands = await brand.find({})
-    res.json(brands)
-    } catch (error) {
+    const brands = await brand.find({});
+
+    const brandsWithProducts = await Promise.all(
+      brands.map(async (b) => {
+        const products = await Products.find({ 'brand_Name._id': b._id });
+
+        return {
+          ...b.toObject(), 
+          products,
+        };
+      })
+    );
+
+    res.json(brandsWithProducts);
+  } catch (error) {
     console.error(error);
-  return res.status(500).json({ message: "An error occured!", error: error.message });
-    }
-}
+    return res.status(500).json({ message: "An error occurred!", error: error.message });
+  }
+};
+
 
 exports.editCat=async (req,res) => {
   try {
   const{id}=req.params
-  const{name,description,Selection}=req.body
+  const{name,description,Selection,status}=req.body
   
   const image =req.files.image?.[0].path
 
@@ -358,7 +399,7 @@ const editSub = await Category.updateOne({"subcat._id":id},{$set:{"subcat.$.name
 return res.status(200).json({ message: "SubCategory Edited successfully" ,editSub});
 }
 else{
-const edit = await Category.updateOne({_id:id},{$set:{name,image,description}}) 
+const edit = await Category.updateOne({_id:id},{$set:{name,image,description,status}}) 
 
  console.log("Category:", { name, description, image });
 

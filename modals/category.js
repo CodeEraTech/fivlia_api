@@ -5,6 +5,7 @@ const subSubCategorySchema = new mongoose.Schema({
   Selection: String,
   description:String,
   image: String,
+  status:{type:Boolean,default:true}
 });
 
 const subCategorySchema = new mongoose.Schema({
@@ -12,7 +13,8 @@ const subCategorySchema = new mongoose.Schema({
   Selection: String,
   image: String,
   description:String,
-  subSubCat:[subSubCategorySchema]
+  subSubCat:[subSubCategorySchema],
+  status:{type:Boolean,default:true}
 });
 
 const categorySchema = new mongoose.Schema({
@@ -20,7 +22,8 @@ const categorySchema = new mongoose.Schema({
   Selection: String,
   image: String,
   description:String,
-  subcat: [subCategorySchema]
+  subcat: [subCategorySchema],
+  status:{type:Boolean,default:true}
 });
 const Category=mongoose.model('Category', categorySchema,'Categories');
 module.exports = Category

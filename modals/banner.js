@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const bannerSchema = new mongoose.Schema({
     image:String,
     title:{type:String,required:true},
-    city:[{id:{type:mongoose.Schema.Types.ObjectId,ref:'AvalibleCity'},name:String}],
+    city:{name:String},
   zones: [
     {
       address: { type: String, required: true },
@@ -11,9 +11,10 @@ const bannerSchema = new mongoose.Schema({
       longitude: { type: String, required: true }
     }
   ],
-    mainCategory: { type: String },
-    subCategory: { type: String },
-    subSubCategory: { type: String },
+    mainCategory: {name:{type:String}, _id:{type:mongoose.Schema.Types.ObjectId,ref:'Categories'}},
+    subCategory: { name:{type:String}, _id:{type:mongoose.Schema.Types.ObjectId} },
+    subSubCategory: { name:{type:String}, _id:{type:mongoose.Schema.Types.ObjectId} },
+    seller:String,
     status:{type:Boolean,dafault:true},
     type:{type:String,enum:['offer','normal'],default:'normal'}
 },{timestamps:true})

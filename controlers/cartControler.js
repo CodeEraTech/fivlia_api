@@ -53,3 +53,15 @@ const updated_cart=await Cart.findByIdAndUpdate(  id,{ quantity },{ new: true })
     return res.status(500).json({ message: "An error occured!", error: error.message });   
     }
 }
+
+exports.deleteCart=async (req,res) => {
+    try {
+    const{id}=req.params
+    const cart = await Cart.findByIdAndDelete(id)
+
+    return res.status(200).json({ message: 'Cart Item Removed:', cart });
+    } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "An error occured!", error: error.message });   
+    }
+}

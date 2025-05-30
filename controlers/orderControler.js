@@ -1,53 +1,69 @@
 // controllers/orderController.js
 const Order = require('../modals/order');
-const {ZoneData} = require('../modals/cityZone');   
+const {ZoneData} = require('../modals/cityZone');
+const User = require('../modals/User') 
 exports.placeOrder = async (req, res) => {
   try {
     const {
       user,
       items,
-      address,
+      addressId,
       paymentStatus,
       orderType,
       orderPlacedFrom,
       totalAmount,
       discount,
       finalAmount,
-      notes
+      notes,
+      cashOnDelivery
     } = req.body;
-   const userData = await User.findById(user).populate('zone');
 
-    if (!userData || !userData.address || !userData.city) {
-      return res.status(400).json({ message: 'User address or city not found' });
-    }
-
-
-    const city = address.city;
-
-const zoneDoc = await ZoneData.findOne({city});
-if (!zoneDoc) {
-  return res.status(400).json({ message: 'City not found in the database' });
-}
-    const zone = zoneDoc.zones.find(z =>z._id.toString()  === address.zone);
-    console.log('Zones in DB:', zoneDoc.zones);
-    console.log('address.zone',address.zone);
+    // 1. Fetch user and populate zone
+    const userData = await User.findById(user).lean();
+    console.log(userData);
     
-    if (!zone) {
-      return res.status(400).json({ message: 'Invalid zone provided' });
+    if (!userData || !userData.Address || userData.Address.length === 0) {
+      return res.status(400).json({ message: 'User has no saved address' });
     }
 
-    const codAllowed = zone.cashOnDelivery === true;
+    // 2. Get address by ID from user's saved address
+    const selectedAddress = userData.Address.find(addr => addr._id.toString() === addressId);
+    if (!selectedAddress) {
+      return res.status(400).json({ message: 'Selected address not found in user profile' });
+    }
 
-    // If user tries to select COD but not allowed, reject
-    if (req.body.cashOnDelivery && !codAllowed) {
+    // 3. Get city and zone
+    const city = selectedAddress.city;
+    const zoneDoc = await ZoneData.findOne({ city });
+    if (!zoneDoc) {
+      return res.status(400).json({ message: 'City not found in the database' });
+    }
+
+    const zone = zoneDoc.zones.find(z => z._id.toString() === selectedAddress.zone?.toString());
+    if (!zone) {
+      return res.status(400).json({ message: 'Invalid or missing zone in selected address' });
+    }
+
+    // 4. COD check
+    const codAllowed = zone.cashOnDelivery === true;
+    if (cashOnDelivery && !codAllowed) {
       return res.status(400).json({ message: 'Cash on delivery not available in your zone' });
     }
 
+    // 5. Build and save order
     const newOrder = new Order({
       user,
       items,
-      address,
-      cashOnDelivery: codAllowed && req.body.cashOnDelivery ? true : false,
+      address: {
+        fullName: selectedAddress.fullName,
+        mobile: selectedAddress.mobileNumber,
+        street: selectedAddress.address,
+        city: selectedAddress.city,
+        zone: selectedAddress.zone,
+        landmark: selectedAddress.locality,
+        type: selectedAddress.addressType
+      },
+      cashOnDelivery: codAllowed && cashOnDelivery ? true : false,
       paymentStatus: paymentStatus || 'Pending',
       orderType: orderType || 'Delivery',
       orderPlacedFrom: orderPlacedFrom || 'Web',
@@ -65,6 +81,7 @@ if (!zoneDoc) {
     return res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
 
 
 exports.getOrders = async (req, res) => {

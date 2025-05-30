@@ -11,9 +11,9 @@ const bannerSchema = new mongoose.Schema({
       longitude: { type: String, required: true }
     }
   ],
-    mainCategory: {name:{type:String}, _id:{type:mongoose.Schema.Types.ObjectId,ref:'Categories'}},
-    subCategory: { name:{type:String}, _id:{type:mongoose.Schema.Types.ObjectId} },
-    subSubCategory: { name:{type:String}, _id:{type:mongoose.Schema.Types.ObjectId} },
+    mainCategory: {name:{type:String}, _id:{type:mongoose.Schema.Types.ObjectId,ref:'Categories'},slug:String},
+    subCategory: { name:{type:String}, _id:{type:mongoose.Schema.Types.ObjectId},slug: String},
+    subSubCategory: { name:{type:String}, _id:{type:mongoose.Schema.Types.ObjectId},slug: String},
     seller:String,
     status:{type:Boolean,dafault:true},
     type:{type:String,enum:['offer','normal'],default:'normal'}

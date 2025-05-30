@@ -2,7 +2,7 @@ const Category = require('../modals/category');
 const Banner = require('../modals/banner');
 const brand = require('../modals/brand')
 const Products = require('../modals/Product')
-const {ZoneData} = require('../modals/cityZone')
+const slugify = require('slugify');
 exports.update = async (req, res) => {
   try {
     const { name, description, subcat } = req.body;
@@ -60,7 +60,7 @@ if(subSubCategory && !subCategory){
       return res.status(402).json({ message: 'Invalid banner type. Must be "normal" or "offer".' });
     }
 
-   const foundCategory = await Category.findOne({ name: mainCategory }).lean();
+   const foundCategory = await Category.findOne({ name: mainCategory })
       if (!foundCategory) return res.status(404).json({ message: `Category ${mainCategory} not found` });
   
    let foundSubCategory = null;
@@ -69,8 +69,10 @@ if(subSubCategory && !subCategory){
       if (subCategory && subCategory.trim() !== "") {
         foundSubCategory = foundCategory.subcat.find(sub => sub.name.toLowerCase() === subCategory.toLowerCase());
         
-        if (!foundSubCategory) return res.status(404).json({ message: `SubCategory ${subCategory} not found` });
-  
+        if (!foundSubCategory){
+         return res.status(404).json({ message: `SubCategory ${subCategory} not found` });
+        }
+
         if (subSubCategory && subSubCategory.trim() !== "") {
           foundSubSubCategory = foundSubCategory.subsubcat.find(subsub => subsub.name === subSubCategory);
           if (!foundSubSubCategory) return res.status(404).json({ message: `SubSubCategory ${subSubCategory} not found` });
@@ -80,12 +82,15 @@ if(subSubCategory && !subCategory){
           return res.status(400).json({ message: "Cannot provide subSubCategory without subCategory" });
         }
       }
+ let slug = `/category/${foundCategory._id}`;
+    if (foundSubCategory) slug += `/${foundSubCategory._id}`;
+    if (foundSubSubCategory) slug += `/${foundSubSubCategory._id}`;
 
    const newBanner = await Banner.create({image,
     city,title,type:bannerType,
-    mainCategory:{_id:foundCategory._id,name:foundCategory.name},
-    subCategory:foundSubCategory? { _id: foundSubCategory._id, name: foundSubCategory.name }: null,
-    subSubCategory: foundSubSubCategory? { _id: foundSubSubCategory._id, name: foundSubSubCategory.name }: null,
+    mainCategory:{_id:foundCategory._id,name:foundCategory.name,slug: slugify(foundCategory.name, { lower: true })},
+    subCategory:foundSubCategory? { _id: foundSubCategory._id, name: foundSubCategory.name, slug: slugify(foundSubCategory.name, { lower: true }) }: null,
+    subSubCategory: foundSubSubCategory? { _id: foundSubSubCategory._id, name: foundSubSubCategory.name,slug: slugify(foundSubSubCategory.name, { lower: true }) }: null,
     status,zones
   })
    return res.status(200).json({message:'Banner Added Successfully',newBanner})

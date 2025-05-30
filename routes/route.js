@@ -5,11 +5,12 @@ const router = express.Router()
 
 const { users, addUser } = require('../controlers/authControler');
 const { intro, getIntro } = require('../controlers/controlers')
+const { placeOrder, getOrders } = require('../controlers/orderControler')
 const { addCart,getCart,getDicount,discount,quantity,deleteCart } = require('../controlers/cartControler')
 const { update, banner, getBanner, getAllBanner, updateBannerStatus, addCategory, getCategories, brand, getBrand, editCat } = require('../controlers/categorycontroler');
 const { addProduct, addAtribute, getAttributes, getProduct, getFeatureProduct, searchProduct, bestSelling,editAttributes,unit,getUnit,getVarients } = require('../controlers/ProductControler')
 const cityZone = require('../modals/cityZone');
-const { addCity, updateCityStatus, getAviableCity, getCity, updateZoneStatus, getAllZone, getZone, location } = require('../controlers/areaControler');
+const { addCity, updateCityStatus, getAviableCity, getCity, updateZoneStatus, getAllZone, getZone, location,addAddress } = require('../controlers/areaControler');
 
 router.post('/add-category', upload, addCategory)
 router.post('/products', upload, addProduct)
@@ -19,6 +20,7 @@ router.post('/brand', upload, brand)
 router.post('/addAtribute', addAtribute)
 router.post('/unit', unit)
 router.post('/addCart',upload, addCart)
+router.post('/placeOrder', placeOrder);
 
 router.post('/discount', discount)
 router.post('/addCity', addCity)
@@ -43,6 +45,7 @@ router.get('/getUnit', getUnit)
 router.get('/getCart', getCart)
 router.get('/getDiscount', getDicount)
 router.get('/getVarients/:id', getVarients)
+router.get('/orders', getOrders);
 
 router.post('/addUser', upload, addUser)
 router.patch('/edit/:id', upload, update)
@@ -52,6 +55,7 @@ router.put('/updateZoneStatus/:id', updateZoneStatus);
 router.patch('/editAttributes/:id', editAttributes);
 router.put('/editCat/:id',upload, editCat);
 router.put('/updateCart/:id',quantity)
+router.put('/address/:id', addAddress);
 
 router.delete('/removeCart/:id',deleteCart)
 

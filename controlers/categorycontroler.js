@@ -344,6 +344,20 @@ exports.brand = async (req,res) => {
 
 exports.getBrand = async (req, res) => {
   try {
+    const { id } = req.query;
+
+    if (id) {
+      const b = await brand.findById(id);
+      if (!b) return res.status(404).json({ message: "Brand not found" });
+
+      const products = await Products.find({ 'brand_Name._id': b._id });
+
+      return res.json({
+        ...b.toObject(),
+        products,
+      });
+    }
+
     const brands = await brand.find({});
 
     const brandsWithProducts = await Promise.all(
@@ -351,7 +365,7 @@ exports.getBrand = async (req, res) => {
         const products = await Products.find({ 'brand_Name._id': b._id });
 
         return {
-          ...b.toObject(), 
+          ...b.toObject(),
           products,
         };
       })
@@ -363,6 +377,7 @@ exports.getBrand = async (req, res) => {
     return res.status(500).json({ message: "An error occurred!", error: error.message });
   }
 };
+
 
 
 exports.editCat=async (req,res) => {

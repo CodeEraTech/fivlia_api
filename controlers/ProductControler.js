@@ -143,7 +143,7 @@ return res.status(200).json({message:"Product Added"})
 exports.getProduct = async (req, res) => {
   try {
     const { id } = req.query;
-    // Search for this ID in any of the 3 category levels
+
     const products = await Products.find({
       $or: [
         { 'category._id': id },
@@ -163,9 +163,6 @@ exports.getProduct = async (req, res) => {
     return res.status(500).json({ message: 'Server error.', error: error.message });
   }
 };
-
-
-
 
 exports.bestSelling=async (req,res) => {
   try {
@@ -237,6 +234,57 @@ exports.getVarients = async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "An error occurred", error: error.message });
+  }
+};
+
+exports.filter = async (req, res) => {
+  try {
+    const {id,color,price,discount,brand,size,weight,ratings,bestSeller} = req.body;
+
+    const filters = {};
+
+    if (color) filters.color = color;
+
+    if (price) {
+      const [min, max] = price.split('-').map(Number);
+      filters.price = {};
+      if (!isNaN(min)) filters.price.$gte = min;
+      if (!isNaN(max)) filters.price.$lte = max;
+    }
+
+    if (discount) filters.discount = { $gte: Number(discount) };
+
+if (brand) {
+  filters['brand_Name._id'] = new mongoose.Types.ObjectId(brand);
+}
+
+    if (size) filters.size = size;
+
+    if (weight) {
+      const [min, max] = weight.split('-').map(Number);
+      filters.weight = {};
+      if (!isNaN(min)) filters.weight.$gte = min;
+      if (!isNaN(max)) filters.weight.$lte = max;
+    }
+
+    if (ratings) filters.ratings = { $gte: Number(ratings) };
+
+    if (bestSeller !== undefined) filters.bestSeller = bestSeller === true || bestSeller === 'true';
+
+    if (id) {
+      filters.$or = [
+        { 'category._id': id },
+        { 'subCategory._id': id },
+        { 'subSubCategory._id': id }
+      ];
+    }
+
+    const products = await Products.find(filters);
+
+    res.json(products);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error while filtering products' });
   }
 };
 

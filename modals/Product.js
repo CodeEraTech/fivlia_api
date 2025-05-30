@@ -2,7 +2,6 @@
 const mongoose = require('mongoose');
 const { required } = require('zod/v4-mini');
 
-
 const locationSchema=new mongoose.Schema({
   city:{ _id: { type: mongoose.Schema.Types.ObjectId, ref: 'Locations' },
       name:String},
@@ -13,6 +12,7 @@ const locationSchema=new mongoose.Schema({
 const variantSchema = new mongoose.Schema({
   mrp: { type: Number, required: true },
   sell_price: { type: Number, required: true },
+  ratings: {avg: Number,count: Number},
   sku: { type: String },
   discountValue: {
     type: Number,
@@ -51,7 +51,6 @@ const productSchema = new mongoose.Schema({
   purchases:Number,
   type: String,
   location:  [locationSchema],
-  ratings: {avg: Number,count: Number},
   tax: String,
   minQuantity:Number,
   maxQuantity:Number,

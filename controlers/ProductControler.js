@@ -60,7 +60,7 @@ exports.getAttributes=async (req,res) => {
 
 exports.addProduct = async (req, res) => {
   try {
-    const{productName,description,category,subCategory,subSubCategory,sku,ribbon,brand_Name,sold_by,type,location,online_visible,inventory,tax,feature_product,fulfilled_by,variants,minQuantity,maxQuantity,addVarient,selectVarientValue
+    const{productName,description,category,subCategory,subSubCategory,sku,ribbon,brand_Name,sold_by,type,location,online_visible,inventory,tax,feature_product,fulfilled_by,variants,minQuantity,maxQuantity,addVarient,selectVarientValue,ratings
 
     } = req.body;
 
@@ -130,7 +130,7 @@ subSubCategory: foundSubSubCategory? { _id: foundSubSubCategory._id, name: found
       
       sku,ribbon,
       brand_Name:{_id: brands._id, name: brands.brandName},
-      sold_by,type, location:productLocation ,online_visible,inventory,tax,feature_product,minQuantity,maxQuantity,fulfilled_by,variants:finalVariants,addVarient,selectVarientValue
+      sold_by,type, location:productLocation ,online_visible,inventory,tax,feature_product,minQuantity,maxQuantity,fulfilled_by,variants:finalVariants,addVarient,ratings,selectVarientValue
     });
     console.log("✅ Product Added");
 return res.status(200).json({message:"Product Added"})
@@ -239,26 +239,45 @@ exports.getVarients = async (req, res) => {
 
 exports.filter = async (req, res) => {
   try {
-    const {id,color,price,discount,brand,size,weight,ratings,bestSeller} = req.body;
-
+    const {id,color,price,discount,brand,weight,ratings,bestSeller} = req.body;
+ const size = req.body.size || req.body.Size;
     const filters = {};
 
-    if (color) filters.color = color;
-
-    if (price) {
-      const [min, max] = price.split('-').map(Number);
-      filters.price = {};
-      if (!isNaN(min)) filters.price.$gte = min;
-      if (!isNaN(max)) filters.price.$lte = max;
+   if (color) {
+  filters['variants'] = {
+    $elemMatch: {
+      color: { $regex: color, $options: 'i' }
     }
+  };
+}
+  if (price) {
+  const [min, max] = price.split('-').map(Number);
+  filters.variants = filters.variants || {};
+  filters.variants.$elemMatch = filters.variants.$elemMatch || {};
+  if (!isNaN(min)) filters.variants.$elemMatch.sell_price = { ...filters.variants.$elemMatch.sell_price, $gte: min };
+  if (!isNaN(max)) filters.variants.$elemMatch.sell_price = { ...filters.variants.$elemMatch.sell_price, $lte: max };
+}
 
-    if (discount) filters.discount = { $gte: Number(discount) };
+
+   if (discount) {
+  filters.variants = filters.variants || {};
+  filters.variants.$elemMatch = filters.variants.$elemMatch || {};
+  filters.variants.$elemMatch.discountValue = { $gte: Number(discount) };
+}
+
 
 if (brand) {
   filters['brand_Name._id'] = new mongoose.Types.ObjectId(brand);
 }
 
-    if (size) filters.size = size;
+if (size) {
+  filters['variants'] = {
+    $elemMatch: {
+      Size: { $regex: size, $options: 'i' }
+    }
+  };
+}
+
 
     if (weight) {
       const [min, max] = weight.split('-').map(Number);
@@ -267,7 +286,12 @@ if (brand) {
       if (!isNaN(max)) filters.weight.$lte = max;
     }
 
-    if (ratings) filters.ratings = { $gte: Number(ratings) };
+  if (ratings) {
+  filters['variants'] = filters['variants'] || {};
+  filters['variants'].$elemMatch = filters['variants'].$elemMatch || {};
+  filters['variants'].$elemMatch.ratings = { $gte: Number(ratings) };
+}
+
 
     if (bestSeller !== undefined) filters.bestSeller = bestSeller === true || bestSeller === 'true';
 

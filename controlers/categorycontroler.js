@@ -60,21 +60,21 @@ if(subSubCategory && !subCategory){
       return res.status(402).json({ message: 'Invalid banner type. Must be "normal" or "offer".' });
     }
 
-   const foundCategory = await Category.findOne({ name: mainCategory })
+   const foundCategory = await Category.findOne({ _id: mainCategory })
       if (!foundCategory) return res.status(404).json({ message: `Category ${mainCategory} not found` });
   
    let foundSubCategory = null;
       let foundSubSubCategory = null;
   
       if (subCategory && subCategory.trim() !== "") {
-        foundSubCategory = foundCategory.subcat.find(sub => sub.name.toLowerCase() === subCategory.toLowerCase());
+        foundSubCategory = foundCategory.subcat.find(sub => sub._id.toLowerCase() === subCategory.toLowerCase());
         
         if (!foundSubCategory){
          return res.status(404).json({ message: `SubCategory ${subCategory} not found` });
         }
 
         if (subSubCategory && subSubCategory.trim() !== "") {
-          foundSubSubCategory = foundSubCategory.subsubcat.find(subsub => subsub.name === subSubCategory);
+          foundSubSubCategory = foundSubCategory.subsubcat.find(subsub => subsub._id === subSubCategory);
           if (!foundSubSubCategory) return res.status(404).json({ message: `SubSubCategory ${subSubCategory} not found` });
         }
       } else {

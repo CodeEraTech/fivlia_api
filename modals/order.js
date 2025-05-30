@@ -36,7 +36,7 @@ const orderSchema = new mongoose.Schema({
     city: { type: String, required: true },
     zone: { type: mongoose.Schema.Types.ObjectId, ref: 'Zone' },
     landmark: { type: String },
-    type: { type: String, enum: ['Home', 'Work', 'Other'], default: 'Home' }
+    type: { type: String, enum: ['home', 'work', 'other'], default: 'home' }
   },
 
 cashOnDelivery: { type: Boolean, default: true },

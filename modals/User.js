@@ -6,7 +6,8 @@ const addressSchema = new mongoose.Schema({
   pincode: { type: String, required: true },
   locality: { type: String, required: true },
   address: { type: String, required: true },
-  city: {  type: mongoose.Schema.Types.ObjectId, ref: 'City', required: true },
+  zone:{ type: mongoose.Schema.Types.ObjectId, ref: 'Locations'},
+  city: { type: String, required: true },
   addressType: { type: String, enum: ['home', 'work', 'other'], required: true },
 },{timestamps:true});
 

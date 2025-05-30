@@ -18,39 +18,33 @@ exports.placeOrder = async (req, res) => {
       cashOnDelivery
     } = req.body;
 
-    // 1. Fetch user and populate zone
+    // 1. Fetch user and get addresses
     const userData = await User.findById(user).lean();
-    console.log(userData);
-    
     if (!userData || !userData.Address || userData.Address.length === 0) {
       return res.status(400).json({ message: 'User has no saved address' });
     }
 
-    // 2. Get address by ID from user's saved address
     const selectedAddress = userData.Address.find(addr => addr._id.toString() === addressId);
     if (!selectedAddress) {
       return res.status(400).json({ message: 'Selected address not found in user profile' });
     }
 
-    // 3. Get city and zone
     const city = selectedAddress.city;
-    const zoneDoc = await ZoneData.findOne({ city });
-    if (!zoneDoc) {
-      return res.status(400).json({ message: 'City not found in the database' });
+
+    let codAllowed = false;
+
+    if (selectedAddress.zone) {
+      const zoneDoc = await ZoneData.findOne({ city });
+      if (zoneDoc) {
+        const zone = zoneDoc.zones.find(z => z._id.toString() === selectedAddress.zone.toString());
+        if (zone && zone.cashOnDelivery === true) {
+          codAllowed = true;
+        }
+      }
     }
 
-    const zone = zoneDoc.zones.find(z => z._id.toString() === selectedAddress.zone?.toString());
-    if (!zone) {
-      return res.status(400).json({ message: 'Invalid or missing zone in selected address' });
-    }
+    const finalCOD = codAllowed && cashOnDelivery ? true : false;
 
-    // 4. COD check
-    const codAllowed = zone.cashOnDelivery === true;
-    if (cashOnDelivery && !codAllowed) {
-      return res.status(400).json({ message: 'Cash on delivery not available in your zone' });
-    }
-
-    // 5. Build and save order
     const newOrder = new Order({
       user,
       items,
@@ -59,11 +53,12 @@ exports.placeOrder = async (req, res) => {
         mobile: selectedAddress.mobileNumber,
         street: selectedAddress.address,
         city: selectedAddress.city,
-        zone: selectedAddress.zone,
+        pincode: selectedAddress.pincode,
+        zone: selectedAddress.zone, 
         landmark: selectedAddress.locality,
         type: selectedAddress.addressType
       },
-      cashOnDelivery: codAllowed && cashOnDelivery ? true : false,
+      cashOnDelivery: finalCOD,
       paymentStatus: paymentStatus || 'Pending',
       orderType: orderType || 'Delivery',
       orderPlacedFrom: orderPlacedFrom || 'Web',
@@ -81,6 +76,7 @@ exports.placeOrder = async (req, res) => {
     return res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
 
 
 

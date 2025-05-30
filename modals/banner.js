@@ -12,7 +12,7 @@ const bannerSchema = new mongoose.Schema({
     }
   ],
     mainCategory: {name:{type:String}, _id:{type:mongoose.Schema.Types.ObjectId,ref:'Categories'},slug:String},
-    subCategory: { name:{type:String}, _id:{type:mongoose.Schema.Types.ObjectId},slug: String},
+    subCategory:  { name:{type:String}, _id:{type:mongoose.Schema.Types.ObjectId},slug: String},
     subSubCategory: { name:{type:String}, _id:{type:mongoose.Schema.Types.ObjectId},slug: String},
     seller:String,
     status:{type:Boolean,dafault:true},

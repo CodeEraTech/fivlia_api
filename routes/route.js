@@ -1,9 +1,9 @@
 const express = require('express');
 const upload = require('../midllerware/multer');
 const router = express.Router()
-// const verifyToken = require('../midllerware/authToken');
+const verifyToken = require('../midllerware/authToken');
 
-const { users, addUser } = require('../controlers/authControler');
+const { users, addUser,updateProfile } = require('../controlers/authControler');
 const { intro, getIntro } = require('../controlers/controlers')
 const { placeOrder, getOrders,orderStatus } = require('../controlers/orderControler')
 const { addCart,getCart,getDicount,discount,quantity,deleteCart } = require('../controlers/cartControler')
@@ -57,8 +57,9 @@ router.put('/updateZoneStatus/:id', updateZoneStatus);
 router.patch('/editAttributes/:id', editAttributes);
 router.put('/editCat/:id',upload, editCat);
 router.put('/updateCart/:id',quantity)
-router.put('/address/:id', addAddress);
+router.put('/address',verifyToken, addAddress);
 router.put('/orderStatus/:id', orderStatus);
+router.patch('/update-profile',upload, verifyToken, updateProfile);
 
 router.delete('/removeCart/:id',deleteCart)
 

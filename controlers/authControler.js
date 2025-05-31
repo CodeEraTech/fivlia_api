@@ -54,3 +54,54 @@ exports.addUser = async (req, res) => {
     });
   }
 };
+
+exports.updateProfile = async (req, res) => {
+  try {
+    const userId = req.user.id; // assuming you're using middleware to decode the token and attach `req.user`
+
+    const {
+      name,
+      password,
+      mobileNumber,
+      email,
+      state,
+      city,
+      Address,
+      otp
+    } = req.body;
+const image = req.files?.image?.[0].path
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        $set: {
+          name,
+          password,
+          mobileNumber,
+          email,
+          state,
+          city,
+          image,
+          Address,
+          otp
+        }
+      },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    return res.status(200).json({
+      message: 'Profile updated successfully',
+      user: updatedUser
+    });
+
+  } catch (error) {
+    console.error('Update Profile Error =>', error);
+    return res.status(500).json({
+      message: 'An error occurred while updating the profile',
+      error: error.message
+    });
+  }
+};

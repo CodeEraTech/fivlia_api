@@ -47,22 +47,10 @@ cashOnDelivery: { type: Boolean, default: true },
     default: 'Pending'
   },
 
-  orderType: {
-    type: String,
-    enum: ['Delivery', 'Pickup'],
-    default: 'Delivery'
-  },
-
   orderStatus: {
     type: String,
     enum: ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'],
     default: 'Pending'
-  },
-
-  orderPlacedFrom: {
-    type: String,
-    enum: ['Web', 'App', 'POS'],
-    default: 'Web'
   },
 
   totalAmount: {
@@ -89,7 +77,7 @@ cashOnDelivery: { type: Boolean, default: true },
     default: false
   },
 
-  createdAt: {
+  orderedAt: {
     type: Date,
     default: Date.now
   }

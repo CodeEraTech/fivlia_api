@@ -9,7 +9,6 @@ exports.placeOrder = async (req, res) => {
       items,
       addressId,
       paymentStatus,
-      orderType,
       orderPlacedFrom,
       totalAmount,
       discount,
@@ -60,7 +59,6 @@ exports.placeOrder = async (req, res) => {
       },
       cashOnDelivery: finalCOD,
       paymentStatus: paymentStatus || 'Pending',
-      orderType: orderType || 'Delivery',
       orderPlacedFrom: orderPlacedFrom || 'Web',
       totalAmount,
       discount: discount || 0,
@@ -92,3 +90,15 @@ exports.getOrders = async (req, res) => {
     return res.status(500).json({ message: 'Server Error', error: error.message });
   }
 };
+
+exports.orderStatus=async (req,res) => {
+  try {
+   const{id}=req.params
+  const {orderStatus,paymentStatus}=req.body
+  const update = await Order.findByIdAndUpdate(id,{orderStatus,paymentStatus})
+  return res.status(200).json({message:'Status Updated',update})
+} catch (error) {
+     console.error('Get orders error:', error.message);
+    return res.status(500).json({ message: 'Server Error', error: error.message });
+  }
+}

@@ -247,7 +247,7 @@ exports.getCategories = async (req, res) => {
     const { id } = req.query;
 
     if (id) {
-      // Try to find as top-level category
+      // 1. Try to find as top-level category
       const singleCategory = await Category.findById(id).lean();
 
       if (singleCategory) {
@@ -273,34 +273,47 @@ exports.getCategories = async (req, res) => {
         return res.status(200).json({ category: formatted });
       }
 
+      // 2. If not found as top-level, search sub and sub-sub categories
       const allCategories = await Category.find().lean();
 
       for (const category of allCategories) {
-        const subCategory = (category.subcat || []).find(
-          sub => sub._id.toString() === id
-        );
+        for (const sub of category.subcat || []) {
+          if (sub._id.toString() === id) {
+            // Found as subcategory
+            const formatted = {
+              id: sub._id,
+              name: sub.name,
+              description: sub.description,
+              image: sub.image,
+              subSubCategories: (sub.subsubcat || []).map(subsub => ({
+                id: subsub._id,
+                name: subsub.name,
+                description: subsub.description,
+                image: subsub.image
+              }))
+            };
+            return res.status(200).json({ subCategory: formatted });
+          }
 
-        if (subCategory) {
-          const formatted = {
-            id: subCategory._id,
-            name: subCategory.name,
-            description: subCategory.description,
-            image: subCategory.image,
-            subSubCategories: (subCategory.subsubcat || []).map(subsub => ({
-              id: subsub._id,
-              name: subsub.name,
-              description: subsub.description,
-              image: subsub.image
-            }))
-          };
-
-          return res.status(200).json({ subCategory: formatted });
+          for (const subsub of sub.subsubcat || []) {
+            if (subsub._id.toString() === id) {
+              // Found as sub-subcategory
+              const formatted = {
+                id: subsub._id,
+                name: subsub.name,
+                description: subsub.description,
+                image: subsub.image
+              };
+              return res.status(200).json({ subSubCategory: formatted });
+            }
+          }
         }
       }
 
-      return res.status(404).json({ message: "Category or sub-category not found" });
+      return res.status(404).json({ message: "Category not found at any level" });
     }
 
+    // If no id is provided, return full list
     const allCategories = await Category.find().lean();
 
     const formatted = allCategories.map(cat => ({
@@ -329,6 +342,7 @@ exports.getCategories = async (req, res) => {
     return res.status(500).json({ message: "Server error", error: err.message });
   }
 };
+
 
 exports.brand = async (req,res) => {
   try {

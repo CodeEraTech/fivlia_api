@@ -3,6 +3,7 @@ const upload = require('../midllerware/multer');
 const router = express.Router()
 const verifyToken = require('../midllerware/authToken');
 
+const { settings,addSettings } = require('../controlers/settingControler');
 const { users, addUser,updateProfile } = require('../controlers/authControler');
 const { intro, getIntro } = require('../controlers/controlers')
 const { placeOrder, getOrders,orderStatus } = require('../controlers/orderControler')
@@ -21,6 +22,8 @@ router.post('/addAtribute', addAtribute)
 router.post('/unit', unit)
 router.post('/addCart',upload, addCart)
 router.post('/placeOrder', placeOrder);
+router.post('/filter',filter)
+router.post('/addSettings',addSettings)
 
 router.post('/discount', discount)
 router.post('/addCity', addCity)
@@ -46,7 +49,7 @@ router.get('/getCart', getCart)
 router.get('/getDiscount', getDicount)
 router.get('/getVarients/:id', getVarients)
 router.get('/orders', getOrders);
-router.post('/filter',filter)
+router.get('/settings/:id',settings);
 
 
 router.post('/addUser', upload, addUser)

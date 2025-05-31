@@ -57,36 +57,12 @@ exports.addUser = async (req, res) => {
 
 exports.updateProfile = async (req, res) => {
   try {
-    const userId = req.user.id; // assuming you're using middleware to decode the token and attach `req.user`
+    const userId = req.user.id;
 
-    const {
-      name,
-      password,
-      mobileNumber,
-      email,
-      state,
-      city,
-      Address,
-      otp
-    } = req.body;
+    const {name,password,mobileNumber,email,state,city,Address,otp} = req.body;
 const image = req.files?.image?.[0].path
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      {
-        $set: {
-          name,
-          password,
-          mobileNumber,
-          email,
-          state,
-          city,
-          image,
-          Address,
-          otp
-        }
-      },
-      { new: true }
-    );
+    const updatedUser = await User.findByIdAndUpdate(userId,
+      {$set: {name,password,mobileNumber,email,state,city,image,Address,otp}},{ new: true });
 
     if (!updatedUser) {
       return res.status(404).json({ message: 'User not found' });

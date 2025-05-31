@@ -385,51 +385,60 @@ exports.getBrand = async (req, res) => {
 
 
 
-exports.editCat=async (req,res) => {
+exports.editCat = async (req, res) => {
   try {
-  const{id}=req.params
-  const{name,description,Selection,status}=req.body
-  
-  const image =req.files.image?.[0].path
+    const { id } = req.params;
+    const { status } = req.body;
 
-if(Selection === 'SubSubCategory'){
-    const editSubSub = await Category.updateOne(
-        { "subcat.subSubCat._id": id },
-        {
-          $set: {
-            "subcat.$[].subSubCat.$[ss].name": name,
-            "subcat.$[].subSubCat.$[ss].description": description,
-            "subcat.$[].subSubCat.$[ss].image": image,
-          },
-        },
-        {
-          arrayFilters: [{ "ss._id": id }],
+    const mainCat = await Category.findOne({
+      $or: [
+        { _id: id },
+        { "subcat._id": id },
+        { "subcat.subsubcat._id": id }
+      ]
+    });
+
+    if (!mainCat) {
+      return res.status(404).json({ message: "Category not found" });
+    }
+
+    let updated = false;
+
+    if (mainCat._id.toString() === id) {
+      mainCat.status = status;
+      updated = true;
+    } else {
+      for (let sub of mainCat.subcat) {
+        if (sub._id.toString() === id) {
+          sub.status = status;
+          updated = true;
+          break;
         }
-      );
 
-  console.log("subSubCat:", { name, description, image });
+        for (let subsub of sub.subsubcat || []) {
+          if (subsub._id.toString() === id) {
+            subsub.status = status;
+            updated = true;
+            break;
+          }
+        }
 
-  return res.status(200).json({ message: "SubSubCategory Edited successfully" ,editSubSub});
-}
-if(Selection === 'SubCategory'){
-const editSub = await Category.updateOne({"subcat._id":id},{$set:{"subcat.$.name":name,"subcat.$.image":image,"subcat.$.description":description}}) 
+        if (updated) break;
+      }
+    }
 
- console.log("SubCat:", { name, description, image });
-
-return res.status(200).json({ message: "SubCategory Edited successfully" ,editSub});
-}
-else{
-const edit = await Category.updateOne({_id:id},{$set:{name,image,description,status}}) 
-
- console.log("Category:", { name, description, image });
-
-return res.status(200).json({ message: "Category Edited successfully" ,edit});
-}
-   } catch (error) {
+    if (updated) {
+      await mainCat.save();
+      return res.status(200).json({ message: "Category status updated successfully" });
+    } else {
+      return res.status(404).json({ message: "ID not found in any level" });
+    }
+  } catch (error) {
     console.error("Update error:", error);
     return res.status(500).json({ message: "An error occurred", error: error.message });
   }
-}
+};
+
 
 // if (req.file && req.file.path) {
 //       updateData.image = req.file.path;

@@ -14,7 +14,7 @@ const subCategorySchema = new mongoose.Schema({
   Selection: String,
   image: String,
   description:String,
-  subSubCat:[subSubCategorySchema],
+  subsubcat:[subSubCategorySchema],
   attribute:[{type:String}],
   status:{type:Boolean,default:true}
 });

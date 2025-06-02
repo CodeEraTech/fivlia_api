@@ -183,3 +183,13 @@ exports.addAddress = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
+exports.getAddress = async (req,res) => {
+ try {
+  const address =await User.find({},'Address')
+  res.json(address)
+  } catch (error) {
+   console.error("Error adding address:", error);
+    return res.status(500).json({ message: "Server error" });
+ }
+}

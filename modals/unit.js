@@ -5,4 +5,3 @@ const unitScheema = new mongoose.Schema({
     })
 
 module.exports=mongoose.model('Unit',unitScheema)
-

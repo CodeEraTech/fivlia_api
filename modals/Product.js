@@ -10,8 +10,8 @@ const locationSchema=new mongoose.Schema({
 })
 
 const variantSchema = new mongoose.Schema({
-  mrp: { type: Number, required: true },
-  sell_price: { type: Number, required: true },
+  mrp: { type: Number},
+  sell_price: { type: Number},
 ratings: {
   avg: { type: Number, default: 0 },
   count: { type: Number, default: 0 }
@@ -30,10 +30,13 @@ ratings: {
 },{strict:false});
 
 const productSchema = new mongoose.Schema({
-  productName: { type: String, required: true },
+  productName: { type: String},
   description: String,
-  productImageUrl: [{ type: String, required: true }],
-  productThumbnailUrl:{type:String, required:true},
+   mrp: { type: Number },
+  sell_price: { type: Number},
+   sku: { type: String },
+  productImageUrl: [{ type: String }],
+  productThumbnailUrl:{type:String},
   category: [{
       _id: { type: mongoose.Schema.Types.ObjectId, ref: 'Categories' },
       name:String

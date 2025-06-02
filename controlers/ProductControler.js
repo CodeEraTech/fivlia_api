@@ -60,66 +60,107 @@ exports.getAttributes=async (req,res) => {
 
 exports.addProduct = async (req, res) => {
   try {
-    const{productName,description,category,subCategory,subSubCategory,sku,ribbon,brand_Name,sold_by,type,location,online_visible,inventory,tax,feature_product,fulfilled_by,variants,minQuantity,maxQuantity,ratings,unit
-
+    const {
+      productName, description, category, subCategory, subSubCategory,
+      sku, ribbon, brand_Name, sold_by, type, location, online_visible,
+      inventory, tax, feature_product, fulfilled_by, variants, minQuantity,
+      maxQuantity, ratings, unit,mrp,sell_price
     } = req.body;
-const MultipleImage = req.files.MultipleImage?.[0].path
-const image = req.files.image?.[0].path
-const parsedVariants = JSON.parse(variants);
-const parsedLocation = typeof location === 'string' ? JSON.parse(location) : location;
 
-const productLocation = [];
+   const MultipleImage = req.files.MultipleImage?.map(file => file.path);
 
-for (let loc of parsedLocation) {
-  const cityData = await ZoneData.findOne({ "city": loc.city.name });
-  if (!cityData) {
-    return res.status(400).json({ message: `City ${loc.city.name} is not available right now` });
-  }
+    const image = req.files.image?.[0].path;
+    const parsedVariants = JSON.parse(variants);
+    const parsedLocation = typeof location === 'string' ? JSON.parse(location) : location;
 
-const zoneMatch = cityData.zones.find(zone =>
-  zone.address === loc.zone.name
-);
-
-  if (!zoneMatch) {
-    return res.status(400).json({ message: `Zone ${loc.zone.name} is not available right now` });
-  }
-   productLocation.push({
-    city: { _id: cityData._id, name: cityData.city },
-    zone: { _id: zoneMatch._id, name: zoneMatch.address }
-  });
-}
-
-const brands = await brand.findOne({brandName:brand_Name})
-if (!brands) {
-  return res.status(400).json({ message: `Brand ${brand_Name} not found` });
-}
-   const foundCategory = await Category.findOne({
-  $or: [{ name: category }, { _id: category }]
-}).lean();
-    if (!foundCategory) return res.status(404).json({ message: `Category ${category} not found` });
-
- let foundSubCategory = null;
-    let foundSubSubCategory = null;
-
-    if (subCategory && subCategory.trim() !== "") {
-    foundSubCategory = foundCategory.subcat.find(sub => 
-  sub.name === subCategory || sub._id.toString() === subCategory
-);
-
-      if (!foundSubCategory) return res.status(404).json({ message: `SubCategory ${subCategory} not found` });
-
-      if (subSubCategory && subSubCategory.trim() !== "") {
-       foundSubSubCategory = foundSubCategory.subsubcat.find(subsub => 
-  subsub.name === subSubCategory || subsub._id.toString() === subSubCategory
-);
-        if (!foundSubSubCategory) return res.status(404).json({ message: `SubSubCategory ${subSubCategory} not found` });
+    // Process locations
+    const productLocation = [];
+    for (let loc of parsedLocation) {
+      const cityData = await ZoneData.findOne({ "city": loc.city.name });
+      if (!cityData) {
+        return res.status(400).json({ message: `City ${loc.city.name} is not available right now` });
       }
-    } else {
-      if (subSubCategory && subSubCategory.trim() !== "") {
-        return res.status(400).json({ message: "Cannot provide subSubCategory without subCategory" });
+
+      const zoneMatch = cityData.zones.find(zone => zone.address === loc.zone.name);
+      if (!zoneMatch) {
+        return res.status(400).json({ message: `Zone ${loc.zone.name} is not available right now` });
+      }
+
+      productLocation.push({
+        city: { _id: cityData._id, name: cityData.city },
+        zone: { _id: zoneMatch._id, name: zoneMatch.address }
+      });
+    }
+
+    // Find brand
+    const brands = await brand.findOne({ brandName: brand_Name });
+    if (!brands) {
+      return res.status(400).json({ message: `Brand ${brand_Name} not found` });
+    }
+
+    // Parse category input to array if needed
+    let categories = category;
+    if (typeof categories === 'string') {
+      try {
+        categories = JSON.parse(categories);
+      } catch {
+        categories = [categories];
+      }
+    }
+    if (!Array.isArray(categories)) {
+      categories = [categories];
+    }
+
+    // Separate categories into ObjectIds and names
+    const categoryIds = categories.filter(c => /^[0-9a-fA-F]{24}$/.test(c));
+    const categoryNames = categories.filter(c => !/^[0-9a-fA-F]{24}$/.test(c));
+
+    // Find categories
+    const foundCategories = await Category.find({
+      $or: [
+        { _id: { $in: categoryIds } },
+        { name: { $in: categoryNames } }
+      ]
+    }).lean();
+
+    if (foundCategories.length === 0) {
+      return res.status(404).json({ message: `No matching categories found for ${categories}` });
+    }
+
+    // For now, assume product accepts multiple categories, so store them as array of {_id, name}
+    const productCategories = foundCategories.map(cat => ({
+      _id: cat._id,
+      name: cat.name
+    }));
+
+    // Handle subCategory (if multiple are possible, adapt similar to category)
+    let foundSubCategory = null;
+    if (subCategory && subCategory.trim() !== "") {
+      // For simplicity assuming single subCategory string (id or name)
+      foundSubCategory = foundCategories[0].subcat.find(sub =>
+        sub.name === subCategory || sub._id.toString() === subCategory
+      );
+
+      if (!foundSubCategory) {
+        return res.status(404).json({ message: `SubCategory ${subCategory} not found` });
       }
     }
 
+    // Handle subSubCategory similarly
+    let foundSubSubCategory = null;
+    if (foundSubCategory && subSubCategory && subSubCategory.trim() !== "") {
+      foundSubSubCategory = foundSubCategory.subsubcat.find(subsub =>
+        subsub.name === subSubCategory || subsub._id.toString() === subSubCategory
+      );
+
+      if (!foundSubSubCategory) {
+        return res.status(404).json({ message: `SubSubCategory ${subSubCategory} not found` });
+      }
+    } else if (!foundSubCategory && subSubCategory && subSubCategory.trim() !== "") {
+      return res.status(400).json({ message: "Cannot provide subSubCategory without subCategory" });
+    }
+
+    // Calculate discount on variants
     const finalVariants = parsedVariants.map(variant => {
       const discount = variant.mrp && variant.sell_price
         ? Math.round(((variant.mrp - variant.sell_price) / variant.mrp) * 100)
@@ -127,24 +168,44 @@ if (!brands) {
       return { ...variant, discountValue: discount };
     });
 
-    const newProduct = await Products.create({productName,description,productThumbnailUrl:image,productImageUrl:MultipleImage,
-
-category: {_id: foundCategory._id, name: foundCategory.name},
-subCategory:foundSubCategory? { _id: foundSubCategory._id, name: foundSubCategory.name }: null,
-subSubCategory: foundSubSubCategory? { _id: foundSubSubCategory._id, name: foundSubSubCategory.name }: null,
-
-      
-      sku,ribbon,unit,
-      brand_Name:{_id: brands._id, name: brands.brandName},
-      sold_by,type, location:productLocation ,online_visible,inventory,tax,feature_product,minQuantity,maxQuantity,fulfilled_by,variants:finalVariants,ratings
+    // Create product
+    const newProduct = await Products.create({
+      productName,
+      description,
+      productThumbnailUrl: image,
+      productImageUrl: MultipleImage,
+      category: productCategories,  // **multiple categories as array here**
+      subCategory: foundSubCategory ? { _id: foundSubCategory._id, name: foundSubCategory.name } : null,
+      subSubCategory: foundSubSubCategory ? { _id: foundSubSubCategory._id, name: foundSubSubCategory.name } : null,
+      sku,
+      ribbon,
+      unit,
+      brand_Name: { _id: brands._id, name: brands.brandName },
+      sold_by,
+      type,
+      location: productLocation,
+      online_visible,
+      inventory,
+      tax,
+      feature_product,
+      minQuantity,
+      maxQuantity,
+      fulfilled_by,
+      variants: finalVariants,
+      ratings,
+      sell_price,
+      sku,
+      mrp
     });
+
     console.log("✅ Product Added");
-return res.status(200).json({message:"Product Added"})
+    return res.status(200).json({ message: "Product Added" });
   } catch (error) {
     console.error("Server error:", error);
     return res.status(500).json({ message: "An error occured!", error: error.message });
   }
 };
+
 
 exports.getProduct = async (req, res) => {
   try {

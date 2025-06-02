@@ -453,6 +453,23 @@ exports.editCat = async (req, res) => {
   }
 };
 
+exports.updateAt = async (req,res) => {
+  try {
+    const {id} = req.params
+  const {attribute} = req.body
+  const attrArray = Array.isArray(attribute) ? attribute : [attribute];
+
+const newUpdate = await Category.findByIdAndUpdate(
+  id,
+  { $addToSet: { attribute: { $each: attrArray } } },
+  { new: true }
+);
+  return res.status(200).json({ message: "Category status updated successfully",newUpdate });
+  } catch (error) {
+     console.error("Update error:", error);
+    return res.status(500).json({ message: "An error occurred", error: error.message }); 
+  }
+}
 
 // if (req.file && req.file.path) {
 //       updateData.image = req.file.path;

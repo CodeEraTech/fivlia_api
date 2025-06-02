@@ -179,6 +179,7 @@ exports.addProduct = async (req, res) => {
       ...(ratings && { ratings }),
       ...(mrp && { mrp }),
       ...(sell_price && { sell_price }),
+      ...(discountValue && {discountValue})
     });
 
     console.log("✅ Product Added");

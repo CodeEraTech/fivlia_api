@@ -64,7 +64,7 @@ router.put('/updateZoneStatus/:id', updateZoneStatus);
 router.patch('/editAttributes/:id', editAttributes);
 router.put('/editCat/:id',upload, editCat);
 router.put('/updateCart/:id',quantity)
-router.put('/address',verifyToken, addAddress);
+router.put('/address/:id', addAddress);
 router.put('/orderStatus/:id', orderStatus);
 router.patch('/update-profile',upload, verifyToken, updateProfile);
 

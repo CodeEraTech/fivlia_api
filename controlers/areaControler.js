@@ -138,14 +138,14 @@ exports.updateZoneStatus = async (req, res) => {
 };
 exports.addAddress = async (req, res) => {
   try {
-    const userId = req.user.id; 
+    const {id} = req.params; 
     const {fullName,mobileNumber,pincode,locality,address,city,addressType} = req.body;
 
     if (!fullName || !mobileNumber || !pincode || !locality || !address || !city || !addressType) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    const user = await User.findById(userId);
+    const user = await User.findById(id);
     
     if (!user) return res.status(404).json({ message: "User not found" });
 

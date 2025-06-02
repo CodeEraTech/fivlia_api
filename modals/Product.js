@@ -47,10 +47,10 @@ const productSchema = new mongoose.Schema({
   }],
   subSubCategory: [ {_id: { type: mongoose.Schema.Types.ObjectId },name:String}],
   ribbon: String,
-  brand_Name: [{
+  brand_Name: {
     _id: { type: mongoose.Schema.Types.ObjectId ,ref:'brands'},
     name:String
-  }],
+  },
   location:  [locationSchema],
   tax: String,
   minQuantity:Number,
@@ -60,7 +60,8 @@ const productSchema = new mongoose.Schema({
   feature_product: { type: Boolean, default: false },
   fulfilled_by: String,
   inventory: { type: String, enum: ['InStock', 'OutOfStock'],default:'OutOfStock' },
-  variants: [variantSchema]
+  variants: [variantSchema],
+  purchases:{type:Number,default:0}
 }, { timestamps: true });
 
 productSchema.pre('save', function (next) {

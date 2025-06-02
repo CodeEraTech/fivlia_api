@@ -239,61 +239,22 @@ exports.getVarients = async (req, res) => {
 
 exports.filter = async (req, res) => {
   try {
-    const {id,color,price,discount,brand,weight,ratings,bestSeller} = req.body;
- const size = req.body.size || req.body.Size;
+    const {
+      id,
+      color,
+      price,
+      discount,
+      brand,
+      weight,
+      ratings,
+      bestSeller,
+      size,
+      productName,
+      material,
+      gender
+    } = req.body;
+
     const filters = {};
-
-   if (color) {
-  filters['variants'] = {
-    $elemMatch: {
-      color: { $regex: color, $options: 'i' }
-    }
-  };
-}
-  if (price) {
-  const [min, max] = price.split('-').map(Number);
-  filters.variants = filters.variants || {};
-  filters.variants.$elemMatch = filters.variants.$elemMatch || {};
-  if (!isNaN(min)) filters.variants.$elemMatch.sell_price = { ...filters.variants.$elemMatch.sell_price, $gte: min };
-  if (!isNaN(max)) filters.variants.$elemMatch.sell_price = { ...filters.variants.$elemMatch.sell_price, $lte: max };
-}
-
-
-   if (discount) {
-  filters.variants = filters.variants || {};
-  filters.variants.$elemMatch = filters.variants.$elemMatch || {};
-  filters.variants.$elemMatch.discountValue = { $gte: Number(discount) };
-}
-
-
-if (brand) {
-  filters['brand_Name._id'] = new mongoose.Types.ObjectId(brand);
-}
-
-if (size) {
-  filters['variants'] = {
-    $elemMatch: {
-      Size: { $regex: size, $options: 'i' }
-    }
-  };
-}
-
-
-    if (weight) {
-      const [min, max] = weight.split('-').map(Number);
-      filters.weight = {};
-      if (!isNaN(min)) filters.weight.$gte = min;
-      if (!isNaN(max)) filters.weight.$lte = max;
-    }
-
-  if (ratings) {
-  filters['variants'] = filters['variants'] || {};
-  filters['variants'].$elemMatch = filters['variants'].$elemMatch || {};
-  filters['variants'].$elemMatch.ratings = { $gte: Number(ratings) };
-}
-
-
-    if (bestSeller !== undefined) filters.bestSeller = bestSeller === true || bestSeller === 'true';
 
     if (id) {
       filters.$or = [
@@ -303,8 +264,69 @@ if (size) {
       ];
     }
 
-    const products = await Products.find(filters);
+   if (brand) {
+  if (mongoose.Types.ObjectId.isValid(brand)) {
+    filters['brand_Name._id'] = new mongoose.Types.ObjectId(brand);
+  } else {
+    filters['brand_Name.name'] = { $regex: brand, $options: 'i' };
+  }
+}
 
+    if (bestSeller !== undefined) {
+      filters.bestSeller = bestSeller === true || bestSeller === 'true';
+    }
+
+    if (productName) {
+      filters.productName = { $regex: productName, $options: 'i' };
+    }
+
+    if (material) {
+      filters.material = { $regex: material, $options: 'i' };
+    }
+
+    if (gender) {
+      filters.gender = { $regex: gender, $options: 'i' };
+    }
+
+    if (weight) {
+      const [min, max] = weight.split('-').map(Number);
+      filters.weight = {};
+      if (!isNaN(min)) filters.weight.$gte = min;
+      if (!isNaN(max)) filters.weight.$lte = max;
+    }
+
+    // Variant filters
+    const variantMatch = {};
+
+    if (color) {
+      variantMatch.color = { $regex: color, $options: 'i' };
+    }
+
+    if (size) {
+      variantMatch.Size = { $regex: size, $options: 'i' };
+    }
+
+    if (price) {
+      const [min, max] = price.split('-').map(Number);
+      variantMatch.sell_price = {};
+      if (!isNaN(min)) variantMatch.sell_price.$gte = min;
+      if (!isNaN(max)) variantMatch.sell_price.$lte = max;
+    }
+
+    if (discount) {
+      variantMatch.discountValue = { $gte: Number(discount) };
+    }
+
+    if (ratings) {
+      variantMatch.ratings = { $gte: Number(ratings) };
+    }
+
+    // Add variant filter only if any variant field is applied
+    if (Object.keys(variantMatch).length) {
+      filters.variants = { $elemMatch: variantMatch };
+    }
+
+    const products = await Products.find(filters);
     res.json(products);
   } catch (error) {
     console.error(error);
@@ -312,3 +334,18 @@ if (size) {
   }
 };
 
+exports.bulkProductUpload = async (req, res) => {
+  try {
+    const products = req.body;
+
+    if (!Array.isArray(products)) {
+      return res.status(400).json({ message: "Invalid format: Expected an array of products" });
+    }
+
+    const createdProducts = await Products.insertMany(products);
+    res.status(201).json({ message: "Products uploaded successfully", count: createdProducts.length });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Bulk upload failed", error: err.message });
+  }
+};

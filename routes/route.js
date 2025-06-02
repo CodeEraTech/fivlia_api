@@ -10,7 +10,7 @@ const { intro, getIntro } = require('../controlers/controlers')
 const { placeOrder, getOrders,orderStatus } = require('../controlers/orderControler')
 const { addCart,getCart,getDicount,discount,quantity,deleteCart } = require('../controlers/cartControler')
 const { update, banner, getBanner, getAllBanner, updateBannerStatus, addCategory, getCategories, brand, getBrand, editCat } = require('../controlers/categorycontroler');
-const { addProduct, addAtribute, getAttributes, getProduct, getFeatureProduct, searchProduct, bestSelling,editAttributes,unit,getUnit,getVarients,filter } = require('../controlers/ProductControler')
+const { addProduct, addAtribute, getAttributes, getProduct, getFeatureProduct, searchProduct, bestSelling,editAttributes,unit,getUnit,getVarients,filter,bulkProductUpload } = require('../controlers/ProductControler')
 const cityZone = require('../modals/cityZone');
 const { addCity, updateCityStatus, getAviableCity, getCity, updateZoneStatus, getAllZone, getZone, location,addAddress,getAddress } = require('../controlers/areaControler');
 
@@ -26,6 +26,7 @@ router.post('/placeOrder', placeOrder);
 router.post('/filter',filter)
 router.post('/addSettings',addSettings)
 router.post('/createStore',upload,createStore)
+router.post('/Product/bulk',upload,bulkProductUpload)
 
 router.post('/discount', discount)
 router.post('/addCity', addCity)

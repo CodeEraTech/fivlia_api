@@ -87,3 +87,231 @@ Product Tax Group - 5%,12%,18%,28% or Tax Free (====>apke hisar t daale ga)
 Fulfilled by - Fivlia Plus or Seller Name (Approved only)
 feature  =>[]
 
+
+
+
+[
+  {
+    "productName": "Whole Wheat Aata 5kg",
+    "description": "Premium quality whole wheat flour for soft rotis.",
+    "productThumbnailUrl": "https://res.cloudinary.com/devrowfzo/image/upload/v1748420443/goru-Gallery/wheat-thumb.jpg",
+    "productImageUrl": [
+      "https://res.cloudinary.com/devrowfzo/image/upload/v1748420443/goru-Gallery/wheat-1.jpg"
+    ],
+    "category": [
+      { "_id": "6834657390595d7d2dfffc09", "name": "Aata" }
+    ],
+    "subCategory": [],
+    "subSubCategory": [],
+    "brand_Name": [{ "_id": "683900abc00123456789abcd", "name": "Annapurna" }],
+    "location": [],
+    "tax": "5",
+    "unit": ["kg"],
+    "minQuantity": 1,
+    "maxQuantity": 5,
+    "inventory": "InStock",
+    "variants": [
+      {
+        "mrp": 280,
+        "sell_price": 250,
+        "sku": "AATA-5KG",
+        "ratings": { "avg": 4.5, "count": 120 },
+        "Weight": "5kg"
+      }
+    ]
+  },
+  {
+    "productName": "Multigrain Aata 2kg",
+    "description": "High fiber multigrain aata.",
+    "productThumbnailUrl": "https://res.cloudinary.com/devrowfzo/image/upload/v1748420443/goru-Gallery/multigrain-thumb.jpg",
+    "productImageUrl": [
+      "https://res.cloudinary.com/devrowfzo/image/upload/v1748420443/goru-Gallery/multigrain-1.jpg"
+    ],
+    "category": [
+      { "_id": "6834657390595d7d2dfffc09", "name": "Aata" }
+    ],
+    "brand_Name": [{ "_id": "683900abc00123456789abce", "name": "24 Mantra" }],
+    "tax": "5",
+    "unit": ["kg"],
+    "minQuantity": 1,
+    "maxQuantity": 5,
+    "inventory": "InStock",
+    "variants": [
+      {
+        "mrp": 180,
+        "sell_price": 160,
+        "sku": "AATA-MULTI-2KG",
+        "ratings": { "avg": 4.2, "count": 88 },
+        "Weight": "2kg"
+      }
+    ]
+  },
+  {
+    "productName": "Aata with Iron 1kg",
+    "description": "Fortified wheat flour with added iron.",
+    "productThumbnailUrl": "https://res.cloudinary.com/devrowfzo/image/upload/v1748420443/goru-Gallery/iron-thumb.jpg",
+    "productImageUrl": [
+      "https://res.cloudinary.com/devrowfzo/image/upload/v1748420443/goru-Gallery/iron-1.jpg"
+    ],
+    "category": [
+      { "_id": "6834657390595d7d2dfffc09", "name": "Aata" }
+    ],
+    "brand_Name": [{ "_id": "683900abc00123456789abcf", "name": "FortiPlus" }],
+    "tax": "5",
+    "unit": ["kg"],
+    "inventory": "InStock",
+    "variants": [
+      {
+        "mrp": 65,
+        "sell_price": 59,
+        "sku": "AATA-IRON-1KG",
+        "ratings": { "avg": 4.7, "count": 45 },
+        "Weight": "1kg"
+      }
+    ]
+  },
+  {
+    "productName": "Surface Cleaner Lemon 1L",
+    "description": "Kills 99.9% germs with refreshing lemon scent.",
+    "productThumbnailUrl": "https://res.cloudinary.com/devrowfzo/image/upload/v1748420364/goru-Gallery/cleaner-lemon-thumb.jpg",
+    "productImageUrl": [
+      "https://res.cloudinary.com/devrowfzo/image/upload/v1748420364/goru-Gallery/cleaner-lemon-1.jpg"
+    ],
+    "category": [
+      { "_id": "6834662090595d7d2dfffc0d", "name": "Cleaning" }
+    ],
+    "brand_Name": [{ "_id": "683900abc00123456789abc1", "name": "Lizol" }],
+    "tax": "12",
+    "unit": ["L"],
+    "inventory": "InStock",
+    "variants": [
+      {
+        "mrp": 149,
+        "sell_price": 129,
+        "sku": "CLN-LMN-1L",
+        "ratings": { "avg": 4.6, "count": 95 },
+        "Fragrance": "Lemon"
+      }
+    ]
+  },
+  {
+    "productName": "Glass Cleaner 500ml",
+    "description": "Streak-free shine glass cleaner.",
+    "productThumbnailUrl": "https://res.cloudinary.com/devrowfzo/image/upload/v1748420364/goru-Gallery/glass-thumb.jpg",
+    "productImageUrl": [
+      "https://res.cloudinary.com/devrowfzo/image/upload/v1748420364/goru-Gallery/glass-1.jpg"
+    ],
+    "category": [
+      { "_id": "6834662090595d7d2dfffc0d", "name": "Cleaning" }
+    ],
+    "brand_Name": [{ "_id": "683900abc00123456789abc2", "name": "Colin" }],
+    "tax": "12",
+    "unit": ["ml"],
+    "inventory": "InStock",
+    "variants": [
+      {
+        "mrp": 90,
+        "sell_price": 75,
+        "sku": "GLS-CLN-500ML",
+        "ratings": { "avg": 4.3, "count": 102 },
+        "Size": "500ml"
+      }
+    ]
+  },
+  {
+    "productName": "Milk Full Cream 1L",
+    "description": "Pure full cream cow milk.",
+    "productThumbnailUrl": "https://res.cloudinary.com/devrowfzo/image/upload/v1748264655/goru-Gallery/milk-thumb.jpg",
+    "productImageUrl": [
+      "https://res.cloudinary.com/devrowfzo/image/upload/v1748264655/goru-Gallery/milk-1.jpg"
+    ],
+    "category": [
+      { "_id": "683466d090595d7d2dfffc12", "name": "Dairy" }
+    ],
+    "brand_Name": [{ "_id": "683900abc00123456789abc3", "name": "Amul" }],
+    "tax": "5",
+    "unit": ["L"],
+    "inventory": "InStock",
+    "variants": [
+      {
+        "mrp": 70,
+        "sell_price": 66,
+        "sku": "MLK-AMUL-1L",
+        "ratings": { "avg": 4.9, "count": 330 },
+        "Type": "Full Cream"
+      }
+    ]
+  },
+  {
+    "productName": "Toned Milk 500ml",
+    "description": "Low fat milk for everyday use.",
+    "productThumbnailUrl": "https://res.cloudinary.com/devrowfzo/image/upload/v1748264655/goru-Gallery/toned-thumb.jpg",
+    "productImageUrl": [
+      "https://res.cloudinary.com/devrowfzo/image/upload/v1748264655/goru-Gallery/toned-1.jpg"
+    ],
+    "category": [
+      { "_id": "683466d090595d7d2dfffc12", "name": "Dairy" }
+    ],
+    "brand_Name": [{ "_id": "683900abc00123456789abc4", "name": "Mother Dairy" }],
+    "tax": "5",
+    "unit": ["ml"],
+    "inventory": "InStock",
+    "variants": [
+      {
+        "mrp": 32,
+        "sell_price": 30,
+        "sku": "MLK-TONE-500ML",
+        "ratings": { "avg": 4.4, "count": 110 },
+        "Type": "Toned"
+      }
+    ]
+  },
+  {
+    "productName": "Non-Stick Frying Pan 24cm",
+    "description": "Durable non-stick frying pan for everyday cooking.",
+    "productThumbnailUrl": "https://res.cloudinary.com/devrowfzo/image/upload/v1748320620/goru-Gallery/pan-thumb.jpg",
+    "productImageUrl": [
+      "https://res.cloudinary.com/devrowfzo/image/upload/v1748320620/goru-Gallery/pan-1.jpg"
+    ],
+    "category": [
+      { "_id": "6835416cbd551d3cedbf178b", "name": "kitchenware" }
+    ],
+    "brand_Name": [{ "_id": "683900abc00123456789abc5", "name": "Prestige" }],
+    "tax": "18",
+    "unit": ["pcs"],
+    "inventory": "InStock",
+    "variants": [
+      {
+        "mrp": 699,
+        "sell_price": 599,
+        "sku": "KTCH-FRY-24CM",
+        "ratings": { "avg": 4.1, "count": 220 },
+        "Diameter": "24cm"
+      }
+    ]
+  },
+  {
+    "productName": "Steel Kitchen Knife Set",
+    "description": "3-piece stainless steel knife set.",
+    "productThumbnailUrl": "https://res.cloudinary.com/devrowfzo/image/upload/v1748320620/goru-Gallery/knife-thumb.jpg",
+    "productImageUrl": [
+      "https://res.cloudinary.com/devrowfzo/image/upload/v1748320620/goru-Gallery/knife-1.jpg"
+    ],
+    "category": [
+      { "_id": "6835416cbd551d3cedbf178b", "name": "kitchenware" }
+    ],
+    "brand_Name": [{ "_id": "683900abc00123456789abc6", "name": "Borosil" }],
+    "tax": "18",
+    "unit": ["set"],
+    "inventory": "InStock",
+    "variants": [
+      {
+        "mrp": 499,
+        "sell_price": 429,
+        "sku": "KNF-SET-3PCS",
+        "ratings": { "avg": 4.2, "count": 190 },
+        "Pieces": "3"
+      }
+    ]
+  }
+]

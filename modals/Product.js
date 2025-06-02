@@ -12,7 +12,10 @@ const locationSchema=new mongoose.Schema({
 const variantSchema = new mongoose.Schema({
   mrp: { type: Number, required: true },
   sell_price: { type: Number, required: true },
-  ratings: {avg: Number,count: Number},
+ratings: {
+  avg: { type: Number, default: 0 },
+  count: { type: Number, default: 0 }
+},
   sku: { type: String },
   discountValue: {
     type: Number,
@@ -45,8 +48,6 @@ const productSchema = new mongoose.Schema({
     _id: { type: mongoose.Schema.Types.ObjectId ,ref:'brands'},
     name:String
   }],
-  purchases:Number,
-  type: String,
   location:  [locationSchema],
   tax: String,
   minQuantity:Number,
@@ -55,7 +56,7 @@ const productSchema = new mongoose.Schema({
   online_visible: { type: Boolean, default: true },
   feature_product: { type: Boolean, default: false },
   fulfilled_by: String,
-  inventory: { type: String, required: true, enum: ['InStock', 'OutOfStock'],default:'OutOfStock' },
+  inventory: { type: String, enum: ['InStock', 'OutOfStock'],default:'OutOfStock' },
   variants: [variantSchema]
 }, { timestamps: true });
 

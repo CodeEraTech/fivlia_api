@@ -189,8 +189,6 @@ exports.addProduct = async (req, res) => {
   }
 };
 
-
-
 exports.getProduct = async (req, res) => {
   try {
     const { id } = req.query;

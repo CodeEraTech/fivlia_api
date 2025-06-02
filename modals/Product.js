@@ -10,7 +10,17 @@ const locationSchema=new mongoose.Schema({
 })
 
 const variantSchema = new mongoose.Schema({
-  sell_price: { type: Number}
+  sell_price: { type: Number},
+  discountValue: {
+    type: Number,
+    default: function () {
+      if (this.mrp && this.sell_price) {
+        const discount = ((this.mrp - this.sell_price) / this.mrp) * 100;
+        return Math.round(discount); // auto-calculate if not provided
+      }
+      return 0;
+    },
+  }
 },{strict:false});
 
 const productSchema = new mongoose.Schema({

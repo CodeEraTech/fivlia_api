@@ -1,4 +1,4 @@
-const Settings = require('../modals/setting');
+const {Settings,SettingAdmin} = require('../modals/setting');
 const Order = require('../modals/order');
 const User = require('../modals/User');  
 
@@ -60,3 +60,17 @@ exports.settings = async (req, res) => {
     return res.status(500).json({ message: "Error getting settings", error: error.message });
   }
 };
+
+exports.adminSetting=async (req,res) => {
+  try {
+  const {Owner_Name,Owner_Email,Owner_Number,Store_Number,Password,Platform_Fee,GST_Number,Description,Delivery_Charges,Delivery_Charge_Per_Km,Minimum_Delivery_Charges,Minimum_Delivery_Charge_Within_Km}=req.body
+
+  const newSetting=await SettingAdmin.create({Owner_Name,Owner_Email,Owner_Number,Store_Number,Password,Platform_Fee,GST_Number,Description,Delivery_Charges,Delivery_Charge_Per_Km,Minimum_Delivery_Charges,Minimum_Delivery_Charge_Within_Km})
+
+  return res.status(200).json({message:"Done",newSetting})
+
+  } catch (error) {
+    console.error("Get User Settings Error =>", error);
+    return res.status(500).json({ message: "Error getting settings", error: error.message }); 
+  }
+}

@@ -4,7 +4,7 @@ const router = express.Router()
 const verifyToken = require('../midllerware/authToken');
 
 const { createStore,getStore } = require('../controlers/storeControler');
-const { settings,addSettings } = require('../controlers/settingControler');
+const { settings,addSettings,adminSetting } = require('../controlers/settingControler');
 const { users, addUser,updateProfile } = require('../controlers/authControler');
 const { intro, getIntro } = require('../controlers/controlers')
 const { placeOrder, getOrders,orderStatus } = require('../controlers/orderControler')
@@ -27,6 +27,7 @@ router.post('/filter',filter)
 router.post('/addSettings',addSettings)
 router.post('/createStore',upload,createStore)
 router.post('/Product/bulk',upload,bulkProductUpload)
+router.post('/adminSetting', adminSetting)
 
 router.post('/discount', discount)
 router.post('/addCity', addCity)

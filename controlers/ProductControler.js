@@ -60,7 +60,7 @@ exports.getAttributes=async (req,res) => {
 
 exports.addProduct = async (req, res) => {
   try {
-    const{productName,description,category,subCategory,subSubCategory,sku,ribbon,brand_Name,sold_by,type,location,online_visible,inventory,tax,feature_product,fulfilled_by,variants,minQuantity,maxQuantity,addVarient,selectVarientValue,ratings
+    const{productName,description,category,subCategory,subSubCategory,sku,ribbon,brand_Name,sold_by,type,location,online_visible,inventory,tax,feature_product,fulfilled_by,variants,minQuantity,maxQuantity,ratings,unit
 
     } = req.body;
 
@@ -128,9 +128,9 @@ subCategory:foundSubCategory? { _id: foundSubCategory._id, name: foundSubCategor
 subSubCategory: foundSubSubCategory? { _id: foundSubSubCategory._id, name: foundSubSubCategory.name }: null,
 
       
-      sku,ribbon,
+      sku,ribbon,unit,
       brand_Name:{_id: brands._id, name: brands.brandName},
-      sold_by,type, location:productLocation ,online_visible,inventory,tax,feature_product,minQuantity,maxQuantity,fulfilled_by,variants:finalVariants,addVarient,ratings,selectVarientValue
+      sold_by,type, location:productLocation ,online_visible,inventory,tax,feature_product,minQuantity,maxQuantity,fulfilled_by,variants:finalVariants,ratings
     });
     console.log("✅ Product Added");
 return res.status(200).json({message:"Product Added"})

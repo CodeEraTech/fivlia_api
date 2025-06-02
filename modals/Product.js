@@ -40,9 +40,6 @@ const productSchema = new mongoose.Schema({
     name:String
   }],
   subSubCategory: [ {_id: { type: mongoose.Schema.Types.ObjectId },name:String}],
-  // stock:String,
-  addVarient:[String],
-  selectVarientValue:[String],
   ribbon: String,
   brand_Name: [{
     _id: { type: mongoose.Schema.Types.ObjectId ,ref:'brands'},
@@ -54,6 +51,7 @@ const productSchema = new mongoose.Schema({
   tax: String,
   minQuantity:Number,
   maxQuantity:Number,
+  unit:[String],
   online_visible: { type: Boolean, default: true },
   feature_product: { type: Boolean, default: false },
   fulfilled_by: String,

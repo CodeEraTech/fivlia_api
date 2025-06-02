@@ -63,7 +63,6 @@ exports.addProduct = async (req, res) => {
     const{productName,description,category,subCategory,subSubCategory,sku,ribbon,brand_Name,sold_by,type,location,online_visible,inventory,tax,feature_product,fulfilled_by,variants,minQuantity,maxQuantity,ratings,unit
 
     } = req.body;
-
 const MultipleImage = req.files.MultipleImage?.[0].path
 const image = req.files.image?.[0].path
 const parsedVariants = JSON.parse(variants);
@@ -94,18 +93,25 @@ const brands = await brand.findOne({brandName:brand_Name})
 if (!brands) {
   return res.status(400).json({ message: `Brand ${brand_Name} not found` });
 }
-    const foundCategory = await Category.findOne({ name: category }).lean();
+   const foundCategory = await Category.findOne({
+  $or: [{ name: category }, { _id: category }]
+}).lean();
     if (!foundCategory) return res.status(404).json({ message: `Category ${category} not found` });
 
  let foundSubCategory = null;
     let foundSubSubCategory = null;
 
     if (subCategory && subCategory.trim() !== "") {
-      foundSubCategory = foundCategory.subcat.find(sub => sub.name === subCategory);
+    foundSubCategory = foundCategory.subcat.find(sub => 
+  sub.name === subCategory || sub._id.toString() === subCategory
+);
+
       if (!foundSubCategory) return res.status(404).json({ message: `SubCategory ${subCategory} not found` });
 
       if (subSubCategory && subSubCategory.trim() !== "") {
-        foundSubSubCategory = foundSubCategory.subsubcat.find(subsub => subsub.name === subSubCategory);
+       foundSubSubCategory = foundSubCategory.subsubcat.find(subsub => 
+  subsub.name === subSubCategory || subsub._id.toString() === subSubCategory
+);
         if (!foundSubSubCategory) return res.status(404).json({ message: `SubSubCategory ${subSubCategory} not found` });
       }
     } else {

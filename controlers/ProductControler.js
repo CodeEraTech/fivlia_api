@@ -50,14 +50,26 @@ exports.editAttributes = async (req, res) => {
 
 exports.getAttributes=async (req,res) => {
   try {
-    const {id}=req.params
-  const Attributes=await Category.findById(id,'attribute')
+  const Attributes=await Attribute.find()
   res.json(Attributes)
 } catch (error) {
   console.error(error);
   return res.status(500).json({message:"An error occured"})   
   }
 }
+
+// exports.getAttributes=async (req,res) => {
+//   try {
+//     const {id}=req.params
+//   const Attributes=await Category.findById(id,'attribute')
+//   res.json(Attributes)
+// } catch (error) {
+//   console.error(error);
+//   return res.status(500).json({message:"An error occured"})   
+//   }
+// }
+
+
 
 exports.addProduct = async (req, res) => {
   try {
@@ -410,7 +422,19 @@ exports.deleteProduct=async (req,res) => {
   }
 }
 
-exports.notification=async (req,res) => {
-  const { title,description,image,time,zone}=req.body
-  
+exports.updateProduct=async (req,res) => {
+  try {
+    const {id}=req.params
+  const data=req.body
+  const update = await Products.findByIdAndUpdate(id,data)
+    res.status(200).json({ message: "Products Updated successfully", update});
+  } catch (error) {
+      console.error(error);
+    res.status(500).json({ message: "Product Deleted", error }); 
+  }
 }
+
+// exports.notification=async (req,res) => {
+//   const { title,description,image,time,zone}=req.body
+  
+// }

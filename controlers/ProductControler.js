@@ -468,9 +468,8 @@ exports.updateProduct = async (req, res) => {
 
 exports.notification=async (req,res) => {
   try {
-    console.log(req.body);
   const {title,description,time,zone}=req.body
-  const image = req.files.image[0].path
+  const image = req.files.image?.[0].path
   const newNotificaton = await Notification.create({title,description,image,time,zone})
   res.status(200).json({message: "Product updated successfully",newNotificaton});
 } catch (error) {

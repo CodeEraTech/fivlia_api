@@ -43,7 +43,7 @@ router.get('/getCity', getCity)
 router.get('/getAviableCity', getAviableCity)
 router.get("/categories", getCategories);
 router.get("/getBrand", getBrand);
-router.get('/getAttributes', getAttributes)
+router.get('/getAttributes/:id', getAttributes)
 router.get('/getProducts', getProduct)
 router.get('/getFeatureProduct', getFeatureProduct)
 router.get('/bestSelling', bestSelling)

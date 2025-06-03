@@ -50,7 +50,8 @@ exports.editAttributes = async (req, res) => {
 
 exports.getAttributes=async (req,res) => {
   try {
-  const Attributes=await Attribute.find()
+    const {id}=req.params
+  const Attributes=await Category.findById(id,'attribute')
   res.json(Attributes)
 } catch (error) {
   console.error(error);
@@ -398,3 +399,18 @@ exports.bulkProductUpload = async (req, res) => {
     res.status(500).json({ message: "Bulk upload failed", error: err.message });
   }
 };
+exports.deleteProduct=async (req,res) => {
+  try {
+  const {id} = req.params
+  const deleted = await Products.findByIdAndDelete(id)
+  res.status(200).json({ message: "Products deleted successfully", deleted});
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Product Deleted", error });
+  }
+}
+
+exports.notification=async (req,res) => {
+  const { title,description,image,time,zone}=req.body
+  
+}

@@ -73,7 +73,7 @@ router.put('/updateCart/:id',quantity)
 router.put('/address/:id', addAddress);
 router.put('/orderStatus/:id', orderStatus);
 router.patch('/update-profile',upload, verifyToken, updateProfile);
-router.patch('/updateProduct/:id', updateProduct);
+router.patch('/updateProduct/:id',upload, updateProduct);
 router.delete('/deleteProduct/:id',deleteProduct)
 router.delete('/removeCart/:id',deleteCart)
 

@@ -428,19 +428,36 @@ exports.updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
     const data = req.body;
+
     const arrayOps = {};
     const normalOps = {};
 
+    // Handle single image
+    if (req.files?.image?.[0]) {
+      normalOps.productThumbnailUrl = req.files.image[0].path;
+    }
+
+    // Handle multiple images
+    if (req.files?.MultipleImage?.length > 0) {
+      const multipleImages = req.files.MultipleImage.map(file => file.path);
+      arrayOps.productImageUrl = { $each: multipleImages };
+    }
+
+    // Separate normal and array fields from body
     for (let key in data) {
-      if (Array.isArray(data[key])) {
-        arrayOps[key] = { $each: data[key] };
-      } else {
+      try {
+        const parsed = JSON.parse(data[key]);
+        if (Array.isArray(parsed)) {
+          arrayOps[key] = { $each: parsed };
+        } else {
+          normalOps[key] = parsed;
+        }
+      } catch {
         normalOps[key] = data[key];
       }
     }
 
     const updateQuery = {};
-
     if (Object.keys(normalOps).length > 0) {
       Object.assign(updateQuery, normalOps);
     }
@@ -464,6 +481,7 @@ exports.updateProduct = async (req, res) => {
     res.status(500).json({ message: "Error updating product", error: err.message });
   }
 };
+
 
 
 exports.notification=async (req,res) => {

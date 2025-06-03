@@ -46,7 +46,8 @@ const productSchema = new mongoose.Schema({
   fulfilled_by: String,
   inventory: { type: String, enum: ['InStock', 'OutOfStock'],default:'OutOfStock' },
   variants: [variantSchema],
-  purchases:{type:Number,default:0}
+  purchases:{type:Number,default:0},
+  status:{type:Boolean,default:true}
 }, { timestamps: true });
 
 productSchema.pre('save', function (next) {

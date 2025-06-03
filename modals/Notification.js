@@ -5,8 +5,8 @@ const notificationSchema = new mongoose.Schema({
  description:String,
  image:String,
  time: { type: Date },
- zone:[String]
-
+ zone:[{type:mongoose.Schema.Types.ObjectId,ref:'Locations'}],
+ sent: { type: Boolean, default: false }
 });
 
 module.exports = mongoose.model('notification', notificationSchema);

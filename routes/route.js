@@ -10,7 +10,7 @@ const { intro, getIntro } = require('../controlers/controlers')
 const { placeOrder, getOrders,orderStatus } = require('../controlers/orderControler')
 const { addCart,getCart,getDicount,discount,quantity,deleteCart } = require('../controlers/cartControler')
 const { update, banner, getBanner, getAllBanner, updateBannerStatus, addCategory, getCategories, brand, getBrand, editCat,updateAt } = require('../controlers/categorycontroler');
-const { addProduct, addAtribute, getAttributes, getProduct, getFeatureProduct, searchProduct, bestSelling,editAttributes,unit,getUnit,getVarients,filter,bulkProductUpload,updateProduct,deleteProduct,getAttributesId } = require('../controlers/ProductControler')
+const { addProduct, addAtribute, getAttributes, getProduct, getFeatureProduct, searchProduct, bestSelling,editAttributes,unit,getUnit,getVarients,filter,bulkProductUpload,updateProduct,deleteProduct,getAttributesId,notification,getNotification } = require('../controlers/ProductControler')
 const cityZone = require('../modals/cityZone');
 const { addCity, updateCityStatus, getAviableCity, getCity, updateZoneStatus, getAllZone, getZone, location,addAddress,getAddress } = require('../controlers/areaControler');
 
@@ -32,7 +32,9 @@ router.post('/adminSetting', adminSetting)
 router.post('/discount', discount)
 router.post('/addCity', addCity)
 router.post('/location', location)
+router.post('/notification',upload, notification)
 
+router.get('/getNotification', getNotification)
 router.get('/getIntro', getIntro)
 router.get('/getAllZone', getAllZone)
 router.get('/getZone', getZone)

@@ -5,6 +5,7 @@ const Category = require('../modals/category');
 const Unit = require('../modals/unit');
 const { ZoneData } = require('../modals/cityZone');
 const brand = require('../modals/brand')
+const Notification = require('../modals/Notification');
 
 exports.addAtribute=async (req,res) => {
     try {
@@ -415,7 +416,7 @@ exports.deleteProduct=async (req,res) => {
   try {
   const {id} = req.params
   const deleted = await Products.findByIdAndDelete(id)
-  res.status(200).json({ message: "Products deleted successfully", deleted});
+  res.status(200).json({ message: "Product deleted successfully", deleted});
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Product Deleted", error });
@@ -465,7 +466,25 @@ exports.updateProduct = async (req, res) => {
 };
 
 
-// exports.notification=async (req,res) => {
-//   const { title,description,image,time,zone}=req.body
-  
-// }
+exports.notification=async (req,res) => {
+  try {
+    console.log(req.body);
+  const {title,description,time,zone}=req.body
+  const image = req.files.image[0].path
+  const newNotificaton = await Notification.create({title,description,image,time,zone})
+  res.status(200).json({message: "Product updated successfully",newNotificaton});
+} catch (error) {
+     console.error(error);
+    res.status(500).json({ message: "Notification Not Created", error: error.message });
+  }
+}
+
+exports.getNotification=async (req,res) => {
+  try {
+    const notification = await Notification.find()
+    return res.status(200).json({message:"New Notification",notification})
+  } catch (error) {
+     console.error(error);
+    res.status(500).json({ message: "Notification Not Found", error: error.message }); 
+  }
+}

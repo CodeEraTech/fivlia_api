@@ -58,16 +58,16 @@ exports.getAttributes=async (req,res) => {
   }
 }
 
-// exports.getAttributes=async (req,res) => {
-//   try {
-//     const {id}=req.params
-//   const Attributes=await Category.findById(id,'attribute')
-//   res.json(Attributes)
-// } catch (error) {
-//   console.error(error);
-//   return res.status(500).json({message:"An error occured"})   
-//   }
-// }
+exports.getAttributesId=async (req,res) => {
+  try {
+    const {id}=req.params
+  const Attributes=await Category.findById(id,'attribute')
+  res.json(Attributes)
+} catch (error) {
+  console.error(error);
+  return res.status(500).json({message:"An error occured"})   
+  }
+}
 
 
 

@@ -428,7 +428,6 @@ exports.updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
     const data = req.body;
-
     const arrayOps = {};
     const normalOps = {};
 

@@ -397,6 +397,33 @@ exports.getBrand = async (req, res) => {
   }
 };
 
+exports.editBrand = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { brandName, description } = req.body;
+
+    const existingBrand = await brand.findById(id);
+    if (!existingBrand) {
+      return res.status(404).json({ message: "Brand not found" });
+    }
+
+    const newImage = req.files?.image?.[0]?.path;
+    const image = newImage || existingBrand.brandLogo;
+
+    const updateData = {
+      brandName: brandName || existingBrand.brandName,
+      description: description || existingBrand.description,
+      brandLogo: image,
+    };
+
+    const edit = await brand.findByIdAndUpdate(id, updateData, { new: true });
+
+    return res.status(200).json({ message: "Done", edit });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "An error occurred!", error: error.message });
+  }
+};
 
 
 exports.editCat = async (req, res) => {

@@ -1,7 +1,7 @@
 const express = require('express');
 require('dotenv').config()
-
 const connectDb = require('./database/database')
+require('./config/scheduler/notification')
 
 const cors = require('cors')
 connectDb();
@@ -18,7 +18,6 @@ app.use(express.json())
 //   });
 //   next();
 // });
-
 const authRoutes = require('./routes/route');
 const zonesRoute = require('./routes/route');
 app.get('/',(req,res)=>{

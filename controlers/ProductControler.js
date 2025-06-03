@@ -6,6 +6,7 @@ const Unit = require('../modals/unit');
 const { ZoneData } = require('../modals/cityZone');
 const brand = require('../modals/brand')
 const Notification = require('../modals/Notification');
+const moment = require('moment-timezone');
 
 exports.addAtribute=async (req,res) => {
     try {
@@ -470,7 +471,8 @@ exports.notification=async (req,res) => {
   try {
   const {title,description,time,zone}=req.body
   const image = req.files.image?.[0].path
-  const newNotificaton = await Notification.create({title,description,image,time,zone})
+   const utcTime = moment.tz(time, "Asia/Kolkata").utc().toDate();
+  const newNotificaton = await Notification.create({title,description,image,time:utcTime,zone})
   res.status(200).json({message: "Product updated successfully",newNotificaton});
 } catch (error) {
      console.error(error);

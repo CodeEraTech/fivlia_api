@@ -422,17 +422,48 @@ exports.deleteProduct=async (req,res) => {
   }
 }
 
-exports.updateProduct=async (req,res) => {
+exports.updateProduct = async (req, res) => {
   try {
-    const {id}=req.params
-  const data=req.body
-  const update = await Products.findByIdAndUpdate(id,data)
-    res.status(200).json({ message: "Products Updated successfully", update});
-  } catch (error) {
-      console.error(error);
-    res.status(500).json({ message: "Product Deleted", error }); 
+    const { id } = req.params;
+    const data = req.body;
+
+    const arrayOps = {};
+    const normalOps = {};
+
+    for (let key in data) {
+      if (Array.isArray(data[key])) {
+        arrayOps[key] = { $each: data[key] };
+      } else {
+        normalOps[key] = data[key];
+      }
+    }
+
+    const updateQuery = {};
+
+    if (Object.keys(normalOps).length > 0) {
+      Object.assign(updateQuery, normalOps);
+    }
+
+    if (Object.keys(arrayOps).length > 0) {
+      updateQuery.$addToSet = arrayOps;
+    }
+
+    const updated = await Products.findByIdAndUpdate(id, updateQuery, {
+      new: true,
+      runValidators: true
+    });
+
+    res.status(200).json({
+      message: "Product updated successfully",
+      updated
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error updating product", error: err.message });
   }
-}
+};
+
 
 // exports.notification=async (req,res) => {
 //   const { title,description,image,time,zone}=req.body

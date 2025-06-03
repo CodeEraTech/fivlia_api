@@ -137,9 +137,10 @@ exports.updateBannerStatus = async (req, res) => {
     const { status,title,image,city,zones,address,latitude,longitude,mainCategory,subCategory,subSubCategory} = req.body;
 
     const updatedBanner = await Banner.updateOne(
-      {'zones._id':id},
+      {_id:id},
       {$set:{ status,title,image,city,mainCategory,subCategory,subSubCategory,'zones.$.address':address,'zones.$.latitude':latitude,'zones.$.longitude':longitude }}
     );
+console.log(updatedBanner);
 
     if (updatedBanner.modifiedCount === 0) {
   return res.status(404).json({ message: 'No matching banner or zone found, or data unchanged.' });
@@ -402,21 +403,9 @@ exports.editBrand = async (req, res) => {
     const { id } = req.params;
     const { brandName, description } = req.body;
 
-    const existingBrand = await brand.findById(id);
-    if (!existingBrand) {
-      return res.status(404).json({ message: "Brand not found" });
-    }
+const image = req.files.image?.[0].path    
 
-    const newImage = req.files?.image?.[0]?.path;
-    const image = newImage || existingBrand.brandLogo;
-
-    const updateData = {
-      brandName: brandName || existingBrand.brandName,
-      description: description || existingBrand.description,
-      brandLogo: image,
-    };
-
-    const edit = await brand.findByIdAndUpdate(id, updateData, { new: true });
+    const edit = await brand.updateOne(  { _id: id }, {brandName, description, brandLogo:image}, { new: true });
 
     return res.status(200).json({ message: "Done", edit });
   } catch (error) {

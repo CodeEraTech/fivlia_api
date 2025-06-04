@@ -68,14 +68,16 @@ if(subSubCategory && !subCategory){
       let foundSubSubCategory = null;
   
       if (subCategory && subCategory.trim() !== "") {
-        foundSubCategory = foundCategory.subcat.find(sub => sub._id.toLowerCase() === subCategory.toLowerCase());
+        foundSubCategory = foundCategory.subcat.find(sub => sub._id.toString().toLowerCase() === subCategory.toLowerCase());
+
         
         if (!foundSubCategory){
          return res.status(404).json({ message: `SubCategory ${subCategory} not found` });
         }
 
         if (subSubCategory && subSubCategory.trim() !== "") {
-          foundSubSubCategory = foundSubCategory.subsubcat.find(subsub => subsub._id === subSubCategory);
+        foundSubSubCategory = foundSubCategory.subsubcat.find(subsub => subsub._id.toString() === subSubCategory);
+
           if (!foundSubSubCategory) return res.status(404).json({ message: `SubSubCategory ${subSubCategory} not found` });
         }
       } else {

@@ -85,10 +85,6 @@ if(subSubCategory && !subCategory){
       }
       const cityDoc = await CityData.findOne({_id:city});
       console.log(cityDoc);
-      
-      if (!cityDoc) {
-       return res.status(404).json({ message: "City not found" });
-      }
     
  let slug = `/category/${foundCategory._id}`;
     if (foundSubCategory) slug += `/${foundSubCategory._id}`;

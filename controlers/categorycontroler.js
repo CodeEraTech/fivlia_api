@@ -3,6 +3,7 @@ const Banner = require('../modals/banner');
 const brand = require('../modals/brand')
 const Products = require('../modals/Product')
 const slugify = require('slugify');
+const { CityData } = require('../modals/cityZone');
 exports.update = async (req, res) => {
   try {
     const { name, description, subcat } = req.body;
@@ -82,12 +83,19 @@ if(subSubCategory && !subCategory){
           return res.status(400).json({ message: "Cannot provide subSubCategory without subCategory" });
         }
       }
+      const cityDoc = await CityData.findOne({_id:city});
+      console.log(cityDoc);
+      
+      if (!cityDoc) {
+       return res.status(404).json({ message: "City not found" });
+      }
+    
  let slug = `/category/${foundCategory._id}`;
     if (foundSubCategory) slug += `/${foundSubCategory._id}`;
     if (foundSubSubCategory) slug += `/${foundSubSubCategory._id}`;
 
    const newBanner = await Banner.create({image,
-    city,title,type:bannerType,
+    city: { _id: cityDoc._id, name: cityDoc.city } ,title,type:bannerType,
     mainCategory:{_id:foundCategory._id,name:foundCategory.name,slug: slugify(foundCategory.name, { lower: true })},
     subCategory:foundSubCategory? { _id: foundSubCategory._id, name: foundSubCategory.name, slug: slugify(foundSubCategory.name, { lower: true }) }: null,
     subSubCategory: foundSubSubCategory? { _id: foundSubSubCategory._id, name: foundSubSubCategory.name,slug: slugify(foundSubSubCategory.name, { lower: true }) }: null,

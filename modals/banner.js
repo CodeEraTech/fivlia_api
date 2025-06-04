@@ -3,7 +3,10 @@ const mongoose = require('mongoose');
 const bannerSchema = new mongoose.Schema({
     image:String,
     title:{type:String,required:true},
-    city:{name:String},
+    city: {
+          _id: { type: mongoose.Schema.Types.ObjectId, ref: 'AvalibleCity' },
+          name:String
+      },
   zones: [
     {
       address: { type: String, required: true },

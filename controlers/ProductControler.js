@@ -425,7 +425,7 @@ exports.deleteProduct=async (req,res) => {
 }
 
 exports.updateProduct = async (req, res) => {
-   try {
+  try {
     const id = req.params.id;
     const {
       productName, description, category, subCategory, subSubCategory,
@@ -448,7 +448,8 @@ exports.updateProduct = async (req, res) => {
       }
     }
 
-      let parsedLocation = [];
+    // Parse location
+    let parsedLocation = [];
     if (location) {
       try {
         parsedLocation = typeof location === 'string' ? JSON.parse(location) : location;
@@ -473,10 +474,18 @@ exports.updateProduct = async (req, res) => {
       }
     }
 
-    // Resolve brand object (if needed)
+    // Parse brand_Name properly
     let brandObj = null;
     if (brand_Name) {
-      brandObj = await brand.findOne({ brandName: brand_Name });
+      if (typeof brand_Name === "string") {
+        if (/^[0-9a-fA-F]{24}$/.test(brand_Name)) {
+          brandObj = await brand.findById(brand_Name);
+        } else {
+          brandObj = await brand.findOne({ brandName: brand_Name });
+        }
+      } else if (typeof brand_Name === "object" && brand_Name._id) {
+        brandObj = await brand.findById(brand_Name._id);
+      }
     }
 
     // Parse category array from request
@@ -501,11 +510,10 @@ exports.updateProduct = async (req, res) => {
       ]
     }).lean();
 
-    // Prepare final category objects with needed fields
+    // Prepare final category objects WITHOUT brand_Name
     const productCategories = foundCategories.map(cat => ({
       _id: cat._id,
-      name: cat.name,
-      brand_Name: cat.brand_Name || "undefined" // optional
+      name: cat.name
     }));
 
     // Handle subCategory & subSubCategory similarly to addProduct
@@ -574,6 +582,7 @@ exports.updateProduct = async (req, res) => {
     return res.status(500).json({ message: "Error updating product", error: error.message });
   }
 };
+
 
 
 exports.notification=async (req,res) => {

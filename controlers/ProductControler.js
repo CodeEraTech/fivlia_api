@@ -431,7 +431,7 @@ exports.updateProduct = async (req, res) => {
       productName, description, category, subCategory, subSubCategory,
       sku, ribbon, brand_Name, sold_by, type, location, online_visible,
       inventory, tax, feature_product, fulfilled_by, variants, minQuantity,
-      maxQuantity, ratings, unit, mrp, sell_price
+      maxQuantity, ratings, unit, mrp, sell_price,status
     } = req.body;
 
     // Images (if you update them)
@@ -565,6 +565,7 @@ exports.updateProduct = async (req, res) => {
       ...(finalVariants.length && { variants: finalVariants }),
       ...(ratings && { ratings }),
       ...(mrp && { mrp }),
+      ...(status && {status}),
       ...(sell_price && { sell_price }),
     };
 

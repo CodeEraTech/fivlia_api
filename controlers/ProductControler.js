@@ -425,63 +425,155 @@ exports.deleteProduct=async (req,res) => {
 }
 
 exports.updateProduct = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const data = req.body;
+   try {
+    const id = req.params.id;
+    const {
+      productName, description, category, subCategory, subSubCategory,
+      sku, ribbon, brand_Name, sold_by, type, location, online_visible,
+      inventory, tax, feature_product, fulfilled_by, variants, minQuantity,
+      maxQuantity, ratings, unit, mrp, sell_price
+    } = req.body;
 
-    const arrayOps = {};
-    const normalOps = {};
+    // Images (if you update them)
+    const MultipleImage = req.files?.MultipleImage?.map(file => file.path) || [];
+    const image = req.files?.image?.[0]?.path || "";
 
-    // Handle single image
-    if (req.files?.image?.[0]) {
-      normalOps.productThumbnailUrl = req.files.image[0].path;
-    }
-
-    // Handle multiple images
-    if (req.files?.MultipleImage?.length > 0) {
-      const multipleImages = req.files.MultipleImage.map(file => file.path);
-      arrayOps.productImageUrl = { $each: multipleImages };
-    }
-
-    // Separate normal and array fields from body
-    for (let key in data) {
+    // Parse variants
+    let parsedVariants = [];
+    if (variants) {
       try {
-        const parsed = JSON.parse(data[key]);
-        if (Array.isArray(parsed)) {
-          arrayOps[key] = { $each: parsed };
-        } else {
-          normalOps[key] = parsed;
-        }
+        parsedVariants = JSON.parse(variants);
       } catch {
-        normalOps[key] = data[key];
+        parsedVariants = [];
       }
     }
 
-    const updateQuery = {};
-    if (Object.keys(normalOps).length > 0) {
-      Object.assign(updateQuery, normalOps);
+      let parsedLocation = [];
+    if (location) {
+      try {
+        parsedLocation = typeof location === 'string' ? JSON.parse(location) : location;
+      } catch (e) {
+        parsedLocation = [];
+      }
+    }
+    const productLocation = [];
+    for (let loc of parsedLocation) {
+      try {
+        const cityData = await ZoneData.findOne({ "city": loc.city });
+        if (!cityData) continue;
+        const zoneMatch = cityData.zones.find(zone => zone.address === loc.zone);
+        if (!zoneMatch) continue;
+
+        productLocation.push({
+          city: { _id: cityData._id, name: cityData.city },
+          zone: { _id: zoneMatch._id, name: zoneMatch.address }
+        });
+      } catch (err) {
+        continue;
+      }
     }
 
-    if (Object.keys(arrayOps).length > 0) {
-      updateQuery.$addToSet = arrayOps;
+    // Resolve brand object (if needed)
+    let brandObj = null;
+    if (brand_Name) {
+      brandObj = await brand.findOne({ brandName: brand_Name });
     }
 
-    const updated = await Products.findByIdAndUpdate(id, updateQuery, {
-      new: true,
-      runValidators: true
+    // Parse category array from request
+    let categories = [];
+    if (category) {
+      try {
+        categories = typeof category === 'string' ? JSON.parse(category) : category;
+      } catch {
+        categories = [category];
+      }
+    }
+
+    // Separate category _id's and names to find them
+    const categoryIds = categories.filter(c => /^[0-9a-fA-F]{24}$/.test(c));
+    const categoryNames = categories.filter(c => !/^[0-9a-fA-F]{24}$/.test(c));
+
+    // Fetch categories from DB
+    const foundCategories = await Category.find({
+      $or: [
+        { _id: { $in: categoryIds } },
+        { name: { $in: categoryNames } }
+      ]
+    }).lean();
+
+    // Prepare final category objects with needed fields
+    const productCategories = foundCategories.map(cat => ({
+      _id: cat._id,
+      name: cat.name,
+      brand_Name: cat.brand_Name || "undefined" // optional
+    }));
+
+    // Handle subCategory & subSubCategory similarly to addProduct
+    let foundSubCategory = null;
+    if (subCategory && foundCategories.length > 0) {
+      foundSubCategory = foundCategories[0].subcat?.find(sub =>
+        sub.name === subCategory || sub._id.toString() === subCategory
+      );
+    }
+
+    let foundSubSubCategory = null;
+    if (subSubCategory && foundSubCategory) {
+      foundSubSubCategory = foundSubCategory.subsubcat?.find(subsub =>
+        subsub.name === subSubCategory || subsub._id.toString() === subSubCategory
+      );
+    }
+
+    // Calculate discounts in variants like addProduct
+    const finalVariants = parsedVariants.map(variant => {
+      const discount = variant.mrp && variant.sell_price
+        ? Math.round(((variant.mrp - variant.sell_price) / variant.mrp) * 100)
+        : 0;
+      return { ...variant, discountValue: discount };
     });
 
-    res.status(200).json({
-      message: "Product updated successfully",
-      updated
-    });
+    // Prepare update object
+    const updateData = {
+      ...(productName && { productName }),
+      ...(description && { description }),
+      ...(image && { productThumbnailUrl: image }),
+      ...(MultipleImage.length && { productImageUrl: MultipleImage }),
+      ...(productCategories.length && { category: productCategories }),
+      ...(foundSubCategory && { subCategory: { _id: foundSubCategory._id, name: foundSubCategory.name } }),
+      ...(foundSubSubCategory && { subSubCategory: { _id: foundSubSubCategory._id, name: foundSubSubCategory.name } }),
+      ...(sku && { sku }),
+      ...(ribbon && { ribbon }),
+      ...(unit && { unit }),
+      ...(brandObj && { brand_Name: { _id: brandObj._id, name: brandObj.brandName } }),
+      ...(sold_by && { sold_by }),
+      ...(type && { type }),
+      ...(productLocation.length && { location: productLocation }),
+      ...(online_visible !== undefined && { online_visible }),
+      ...(inventory && { inventory }),
+      ...(tax && { tax }),
+      ...(feature_product && { feature_product }),
+      ...(fulfilled_by && { fulfilled_by }),
+      ...(minQuantity && { minQuantity }),
+      ...(maxQuantity && { maxQuantity }),
+      ...(finalVariants.length && { variants: finalVariants }),
+      ...(ratings && { ratings }),
+      ...(mrp && { mrp }),
+      ...(sell_price && { sell_price }),
+    };
 
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Error updating product", error: err.message });
+    // Perform the update
+    const updatedProduct = await Products.findByIdAndUpdate(id, updateData, { new: true });
+
+    if (!updatedProduct) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    return res.status(200).json({ message: "Product updated successfully", updated: updatedProduct });
+
+  } catch (error) {
+    console.error("Error updating product:", error);
+    return res.status(500).json({ message: "Error updating product", error: error.message });
   }
 };
-
 
 
 exports.notification=async (req,res) => {

@@ -51,13 +51,8 @@ const productSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 productSchema.pre('save', function (next) {
-  const taxPercent = parseFloat(this.tax) || 0;
 
   this.variants = this.variants.map(variant => {
-    if (variant.sell_price) {
-      const taxedPrice = variant.sell_price + (variant.sell_price * taxPercent / 100);
-      variant.sell_price = Math.round(taxedPrice * 100) / 100; // round to 2 decimal places
-    }
      if (this.mrp && variant.sell_price) {
       const discount = ((this.mrp - variant.sell_price) / this.mrp) * 100;
       variant.discountValue = Math.round(discount);

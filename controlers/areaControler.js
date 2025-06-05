@@ -109,13 +109,14 @@ exports.getZone=async (req,res) => {
 exports.updateZoneStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status,city,zone, cashOnDelivery,address,latitude,longitude,range} = req.body;
+    const { status,city,zone, cashOnDelivery,zoneTitle,address,latitude,longitude,range} = req.body;
 
     const updated = await ZoneData.updateOne(
       { "zones._id": id },
       {
         $set: {
           city,zone,
+           "zones.$.zoneTitle":zoneTitle,
            "zones.$.address":address,
            "zones.$.latitude":latitude,
            "zones.$.longitude":longitude,

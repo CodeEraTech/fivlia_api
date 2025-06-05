@@ -21,6 +21,7 @@ longitude:Number,
 },{timestamps:true})
 
 const mainSchema = new mongoose.Schema({
+  zoneTitle:String,
   cashOnDelivery: { type: Boolean, default: true },
   status: { type: Boolean, default: true },
   address: { type: String, required: true },

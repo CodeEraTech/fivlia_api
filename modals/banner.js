@@ -4,7 +4,7 @@ const bannerSchema = new mongoose.Schema({
     image:String,
     title:{type:String,required:true},
     city: {
-          _id: { type: mongoose.Schema.Types.ObjectId, ref: 'AvalibleCity' },
+          _id: { type: mongoose.Schema.Types.ObjectId, ref: 'Locations' },
           name:String
       },
   zones: [

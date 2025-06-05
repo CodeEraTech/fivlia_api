@@ -3,7 +3,7 @@ const Banner = require('../modals/banner');
 const brand = require('../modals/brand')
 const Products = require('../modals/Product')
 const slugify = require('slugify');
-const { CityData } = require('../modals/cityZone');
+const { ZoneData } = require('../modals/cityZone');
 exports.update = async (req, res) => {
   try {
     const { name, description, subcat } = req.body;
@@ -85,7 +85,7 @@ if(subSubCategory && !subCategory){
           return res.status(400).json({ message: "Cannot provide subSubCategory without subCategory" });
         }
       }
-      const cityDoc = await CityData.findOne({_id:city});
+      const cityDoc = await ZoneData.findOne({_id:city});
       console.log(cityDoc);
     
  let slug = `/category/${foundCategory._id}`;

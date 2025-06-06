@@ -145,9 +145,12 @@ exports.updateBannerStatus = async (req, res) => {
 
  const image = req.files?.image?.[0].path
 
+const cityDoc = await ZoneData.findById(city).lean();
+
+
     const updatedBanner = await Banner.updateOne(
       {_id:id},
-      {$set:{ status,title,image,city,mainCategory,subCategory,type2,subSubCategory,'zones.$.address':address,'zones.$.latitude':latitude,'zones.$.longitude':longitude }}
+      {$set:{ status,title,image,city: { _id: cityDoc._id, name: cityDoc.city },mainCategory,subCategory,type2,subSubCategory,'zones.$.address':address,'zones.$.latitude':latitude,'zones.$.longitude':longitude }}
     );
 console.log(updatedBanner);
 

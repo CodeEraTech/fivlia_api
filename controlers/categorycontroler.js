@@ -4,6 +4,7 @@ const brand = require('../modals/brand')
 const Products = require('../modals/Product')
 const slugify = require('slugify');
 const { ZoneData } = require('../modals/cityZone');
+const { error } = require('zod/v4/locales/ar.js');
 exports.update = async (req, res) => {
   try {
     const { name, description, subcat } = req.body;
@@ -140,11 +141,13 @@ exports.getBanner = async (req, res) => {
 exports.updateBannerStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status,title,image,city,zones,address,latitude,longitude,mainCategory,subCategory,subSubCategory} = req.body;
+    const { status,title,city,zones,type2,address,latitude,longitude,mainCategory,subCategory,subSubCategory} = req.body;
+
+ const image = req.files?.image?.[0].path
 
     const updatedBanner = await Banner.updateOne(
       {_id:id},
-      {$set:{ status,title,image,city,mainCategory,subCategory,subSubCategory,'zones.$.address':address,'zones.$.latitude':latitude,'zones.$.longitude':longitude }}
+      {$set:{ status,title,image,city,mainCategory,subCategory,type2,subSubCategory,'zones.$.address':address,'zones.$.latitude':latitude,'zones.$.longitude':longitude }}
     );
 console.log(updatedBanner);
 
@@ -154,6 +157,7 @@ console.log(updatedBanner);
 
     return res.status(200).json({ message: 'Banner status updated.', banner: updatedBanner });
   } catch (err) {
+    console.error(err);
     return res.status(500).json({ message: 'Error updating banner status.', error: err.message });
   }
 };

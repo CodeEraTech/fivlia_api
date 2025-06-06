@@ -39,6 +39,7 @@ const productSchema = new mongoose.Schema({
   location:  [locationSchema],
   tax: String,
   minQuantity:Number,
+  type:String,
   maxQuantity:Number,
   unit:[String],
   online_visible: { type: Boolean, default: true },

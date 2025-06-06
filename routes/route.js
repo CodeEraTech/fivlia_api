@@ -65,7 +65,7 @@ router.post('/addUser', upload, addUser)
 router.patch('/edit/:id', upload, update)
 router.patch('/updateAt/:id', updateAt);
 router.put('/updateCityStatus/:id', updateCityStatus);
-router.patch('/admin/banner/:id/status', updateBannerStatus);
+router.patch('/admin/banner/:id/status',upload, updateBannerStatus);
 router.put('/updateZoneStatus/:id', updateZoneStatus);
 router.patch('/editAttributes/:id', editAttributes);
 router.put('/editCat/:id',upload, editCat);

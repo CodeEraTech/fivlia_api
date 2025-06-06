@@ -18,11 +18,12 @@ app.use(express.json())
 //   });
 //   next();
 // });
+const PORT = process.env.PORT || 5000;
 const authRoutes = require('./routes/route');
 const zonesRoute = require('./routes/route');
 app.get('/',(req,res)=>{
-    res.send('social media api is running ...')
+    res.send('Fivlia api is running ...')
 })
 app.use('/fivlia',authRoutes);
 app.use('/',zonesRoute);
-app.listen(5000,()=> console.log('Server Running On 5000'))
+app.listen(PORT,()=> console.log(`Server Running On ${PORT}`))

@@ -19,7 +19,8 @@ const bannerSchema = new mongoose.Schema({
     subSubCategory: { name:{type:String}, _id:{type:mongoose.Schema.Types.ObjectId},slug: String},
     seller:String,
     status:{type:Boolean,dafault:true},
-    type:{type:String,enum:['offer','normal'],default:'normal'}
+    type:{type:String,enum:['offer','normal'],default:'normal'},
+    type2:String
 },{timestamps:true})
 module.exports=mongoose.model('Banner',bannerSchema)
 

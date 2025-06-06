@@ -35,7 +35,7 @@ console.log("updateData:", updatedCategory);
 
 exports.banner = async (req,res) => {
   try {
-   let {title,type,city,zones,mainCategory,subCategory,subSubCategory,status}=req.body
+   let {title,type,city,zones,mainCategory,subCategory,subSubCategory,status,type2}=req.body
    const image = req.files.image?.[0].path;
 
    if (typeof zones === 'string') {
@@ -92,7 +92,7 @@ if(subSubCategory && !subCategory){
     if (foundSubCategory) slug += `/${foundSubCategory._id}`;
     if (foundSubSubCategory) slug += `/${foundSubSubCategory._id}`;
 
-   const newBanner = await Banner.create({image,
+   const newBanner = await Banner.create({image,type2,
     city: { _id: cityDoc._id, name: cityDoc.city } ,title,type:bannerType,
     mainCategory:{_id:foundCategory._id,name:foundCategory.name,slug: slugify(foundCategory.name, { lower: true })},
     subCategory:foundSubCategory? { _id: foundSubCategory._id, name: foundSubCategory.name, slug: slugify(foundSubCategory.name, { lower: true }) }: null,

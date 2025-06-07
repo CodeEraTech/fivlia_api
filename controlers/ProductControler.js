@@ -523,32 +523,87 @@ exports.updateProduct = async (req, res) => {
         parsedVariants = [];
       }
     }
+// Assuming `location` can be a JSON string or an array/object
 
-    // Parse location
-    let parsedLocation = [];
-    if (location) {
-      try {
-        parsedLocation = typeof location === 'string' ? JSON.parse(location) : location;
-      } catch (e) {
-        parsedLocation = [];
-      }
-    }
-    const productLocation = [];
-    for (let loc of parsedLocation) {
-      try {
-        const cityData = await ZoneData.findOne({ "city": loc.city });
-        if (!cityData) continue;
-        const zoneMatch = cityData.zones.find(zone => zone.address === loc.zone);
-        if (!zoneMatch) continue;
+// parsedLocation from your request body
+let parsedLocation = typeof location === 'string' ? JSON.parse(location) : location;
 
-        productLocation.push({
-          city: { _id: cityData._id, name: cityData.city },
-          zone: { _id: zoneMatch._id, name: zoneMatch.address }
-        });
-      } catch (err) {
-        continue;
-      }
+// Function to split locations with multiple cities into separate entries per city with filtered zones
+const splitLocations = (locs) => {
+  const result = [];
+  
+  for (const loc of locs) {
+    if (!Array.isArray(loc.city)) continue;
+    if (!Array.isArray(loc.zone) && !Array.isArray(loc.zones)) continue;
+    
+    const zonesArray = loc.zone || loc.zones || [];
+
+    for (const cityObj of loc.city) {
+      const cityName = cityObj.name || cityObj.city || null;
+      if (!cityName) continue;
+
+      // Filter zones that contain cityName in their name string
+      const filteredZones = zonesArray.filter(zoneObj => {
+        const zoneName = zoneObj.name || zoneObj.address || '';
+        return zoneName.toLowerCase().includes(cityName.toLowerCase());
+      });
+
+      if (filteredZones.length === 0) continue;
+
+      result.push({
+        city: cityName,
+        zones: filteredZones
+      });
     }
+  }
+  return result;
+};
+
+const normalizedLocations = splitLocations(parsedLocation);
+
+// Now build productLocation with DB data as you did before
+const productLocation = [];
+
+for (const loc of normalizedLocations) {
+  try {
+    const cityData = await ZoneData.findOne({ city: loc.city });
+    if (!cityData) {
+      console.log(`No city data found for city: ${loc.city}`);
+      continue;
+    }
+
+    const zoneAddresses = loc.zones
+      .map(z => (z.name || z.address || '').trim())
+      .filter(z => z.length > 0);
+
+    console.log(`City: ${loc.city}`);
+    console.log('Client zones:', zoneAddresses);
+    console.log('DB zones:', cityData.zones.map(z => z.address.trim()));
+
+    const matchedZones = cityData.zones.filter(z => 
+      zoneAddresses.some(addr => addr.toLowerCase() === z.address.trim().toLowerCase())
+    );
+
+    console.log('Matched zones:', matchedZones.map(z => z.address));
+
+    if (matchedZones.length === 0) {
+      console.log(`No matched zones found for city: ${loc.city}`);
+      continue;
+    }
+
+    productLocation.push({
+      city: { _id: cityData._id, name: cityData.city },
+      zone: matchedZones.map(z => ({ _id: z._id, name: z.address }))
+    });
+
+  } catch (err) {
+    console.error("Error processing location:", err);
+  }
+}
+
+console.log('Final productLocation:', JSON.stringify(productLocation, null, 2));
+console.log('normalizedLocations', normalizedLocations);
+
 
     // Parse brand_Name properly
     let brandObj = null;

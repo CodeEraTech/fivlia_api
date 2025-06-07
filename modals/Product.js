@@ -3,15 +3,14 @@ const mongoose = require('mongoose');
 const { required } = require('zod/v4-mini');
 
 const locationSchema=new mongoose.Schema({
-  city:{ _id: { type: mongoose.Schema.Types.ObjectId, ref: 'Locations' },
-      name:String},
-  zone:{_id: { type: mongoose.Schema.Types.ObjectId, },
-      name:String}
+  city:[{ _id: { type: mongoose.Schema.Types.ObjectId, ref: 'Locations' },
+      name:String}],
+  zone:[{_id: { type: mongoose.Schema.Types.ObjectId, },
+      name:String}]
 })
 
 const variantSchema = new mongoose.Schema({
   sell_price: { type: Number},
- discountValue: { type: Number, default: 0 }
 },{strict:false});
 
 const productSchema = new mongoose.Schema({
@@ -19,6 +18,7 @@ const productSchema = new mongoose.Schema({
   description: String,
    mrp: { type: Number },
   sell_price: { type: Number},
+   discountValue: { type: Number, default: 0 },
    sku: { type: String },
   productImageUrl: [{ type: String }],
   productThumbnailUrl:{type:String},
@@ -52,30 +52,16 @@ const productSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 productSchema.pre('save', function (next) {
-
-  this.variants = this.variants.map(variant => {
-     if (this.mrp && variant.sell_price) {
-      const discount = ((this.mrp - variant.sell_price) / this.mrp) * 100;
-      variant.discountValue = Math.round(discount);
-    } else {
-      variant.discountValue = 0;
-    }
-
-    // Dynamically assign variant fields
-    if (this.addVarient && this.selectVarientValue) {
-      this.selectVarientValue.forEach(entry => {
-        const [key, value] = entry.split(':');
-        if (this.addVarient.includes(key)) {
-          variant[key] = value;
-        }
-      });
-    }
-
-    return variant;
-  });
+  if (this.mrp && this.sell_price) {
+    const discount = ((this.mrp - this.sell_price) / this.mrp) * 100;
+    this.discountValue = Math.round(discount);
+  } else {
+    this.discountValue = 0;
+  }
 
   next();
 });
+
 
 
 

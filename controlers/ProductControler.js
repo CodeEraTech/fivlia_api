@@ -3,7 +3,7 @@ const Products = require('../modals/Product');
 const Attribute = require('../modals/attribute');
 const Category = require('../modals/category');
 const Unit = require('../modals/unit');
-const { ZoneData } = require('../modals/cityZone');
+const {CityData, ZoneData } = require('../modals/cityZone');
 const brand = require('../modals/brand')
 const Notification = require('../modals/Notification');
 const moment = require('moment-timezone');
@@ -103,20 +103,41 @@ exports.addProduct = async (req, res) => {
       }
     }
 
-    const productLocation = [];
-    for (let loc of parsedLocation) {
-      try {
-        const cityData = await ZoneData.findOne({ "city": loc.city.name });
-        const zoneMatch = cityData?.zones?.find(zone => zone.address === loc.zone.name);
+console.log("Parsed location:", JSON.stringify(parsedLocation, null, 2));
+const productLocation = [];
 
-        if (cityData && zoneMatch) {
-          productLocation.push({
-            city: { _id: cityData._id, name: cityData.city },
-            zone: { _id: zoneMatch._id, name: zoneMatch.address }
-          });
+for (let loc of parsedLocation) {
+  try {
+    if (!loc.city || !Array.isArray(loc.city)) continue;
+
+    for (let cityObj of loc.city) {
+      const cityName = cityObj.name;
+      if (!cityName) continue;
+
+      const cityData = await ZoneData.findOne({ city: cityName });
+      if (!cityData) continue;
+
+      let matchedZones = [];
+      if (loc.zone && Array.isArray(loc.zone) && loc.zone.length > 0) {
+        for (let zoneObj of loc.zone) {
+          const zoneName = zoneObj.name;
+          const zoneMatch = cityData.zones.find(zone => zone.address === zoneName);
+          if (zoneMatch) {
+            matchedZones.push({ _id: zoneMatch._id, name: zoneMatch.address });
+          }
         }
-      } catch { continue; }
+      }
+
+      // Push one location per city, with all matched zones
+      productLocation.push({
+        city: [{ _id: cityData._id, name: cityData.city }],
+        zone: matchedZones
+      });
     }
+  } catch (err) {
+    continue;
+  }
+}
 
     let brandObj = null;
     if (brand_Name) {
@@ -208,25 +229,80 @@ exports.getProduct = async (req, res) => {
   try {
     const { id } = req.query;
 
-    const products = await Products.find({
-      $or: [
-        { 'category._id': id },
-        { 'subCategory._id': id },
-        { 'subSubCategory._id': id }
-      ]
-    });
+    // Get active city & zone IDs
+    const activeCities = await CityData.find({ status: true }, 'city').lean();
+    const activeCityNames = activeCities.map(c =>c.city ? c.city.toString():null);
 
-    if (!products.length) {
-      return res.status(404).json({ message: 'No products found for this ID.' });
+    const zoneDocs = await ZoneData.find({}, 'zones').lean();
+    const activeZoneIds = [];
+
+zoneDocs.forEach(doc => {
+  if (Array.isArray(doc.zones)) {
+    doc.zones.forEach(zone => {
+      if (zone.status === true && zone._id) {
+        activeZoneIds.push(zone._id.toString());
+      }
+    });
+  }
+});
+    // Fetch products filtered by category ID or get all
+    let products;
+    if (id) {
+      products = await Products.find({
+        $or: [
+          { 'category._id': id },
+          { 'subCategory._id': id },
+          { 'subSubCategory._id': id }
+        ]
+      }).lean();
+    } else {
+      products = await Products.find({}).lean();
     }
 
-    return res.status(200).json({ message: 'Products fetched successfully.', products });
+   const filteredProducts = products.filter(product => {
+  if (!Array.isArray(product.location)) return false;
+
+  return product.location.some(loc => {
+    const cityName = Array.isArray(loc.city)
+      ? loc.city[0]?.name
+      : loc.city?.name;
+
+    const zoneId = Array.isArray(loc.zone)
+      ? loc.zone[0]?._id?.toString()
+      : loc.zone?._id?.toString();
+
+    return (
+      cityName &&
+      zoneId &&
+      activeCityNames.includes(cityName) &&
+      activeZoneIds.includes(zoneId)
+    );
+  });
+});
+
+    // DEBUG (optional)
+  console.log("Sample product location:", products[0]?.location);
+    
+    console.log("Active City Names:", activeCityNames);
+    console.log("Active Zone IDs:", activeZoneIds);
+    console.log("Filtered Products Count:", filteredProducts.length);
+
+    // Send response
+    if (filteredProducts.length === 0) {
+      return res.status(404).json({ message: 'No active products found.' });
+    }
+
+    return res.status(200).json({
+      message: 'Products fetched successfully.',
+      products: filteredProducts,
+    });
 
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: 'Server error.', error: error.message });
   }
 };
+
 
 exports.bestSelling=async (req,res) => {
   try {

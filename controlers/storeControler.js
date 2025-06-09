@@ -91,29 +91,34 @@ exports.getStore = async (req, res) => {
       return res.status(200).json({ stores: allStores });
     }
 
-    // Find the store by id
     const store = await Store.findById(id).lean();
     if (!store) {
       return res.status(404).json({ message: "Store not found" });
     }
 
-    // Get the main category with subcats and subsubcats
-    const category = await CategoryModel.findById(store.Category).lean();
-    if (!category) {
-      return res.status(404).json({ message: "Category linked with store not found" });
+    const categoryIds = Array.isArray(store.Category)
+      ? store.Category
+      : [store.Category];
+
+    const allCategoryTrees = [];
+    const allCategoryIds = [];
+
+    for (const catId of categoryIds) {
+      const category = await CategoryModel.findById(catId).lean();
+      if (!category) continue;
+
+      allCategoryTrees.push(category);
+
+      allCategoryIds.push(category._id.toString());
+
+      (category.subcat || []).forEach(sub => {
+        allCategoryIds.push(sub._id.toString());
+        (sub.subsubcat || []).forEach(subsub => {
+          allCategoryIds.push(subsub._id.toString());
+        });
+      });
     }
 
-    // Build all category IDs (main + sub + subsub)
-    const allCategoryIds = [category._id.toString()];
-
-    (category.subcat || []).forEach(sub => {
-      allCategoryIds.push(sub._id.toString());
-      (sub.subsubcat || []).forEach(subsub => {
-        allCategoryIds.push(subsub._id.toString());
-      });
-    });
-
-    // Get all products in these categories
     const products = await Products.find({
       $or: [
         { "category._id": { $in: allCategoryIds } },
@@ -124,12 +129,13 @@ exports.getStore = async (req, res) => {
 
     return res.status(200).json({
       store,
-      categoryTree: category,
+      categories: allCategoryTrees,
       products
     });
 
   } catch (err) {
-    console.error(err);
+    console.error("Error in getStore:", err);
     return res.status(500).json({ message: "Server error", error: err.message });
   }
 };
+

@@ -98,7 +98,7 @@ exports.getStore = async (req, res) => {
     }
 
     // Get the main category with subcats and subsubcats
-    const category = await Category.findById(store.Category).lean();
+    const category = await CategoryModel.findById(store.Category).lean();
     if (!category) {
       return res.status(404).json({ message: "Category linked with store not found" });
     }

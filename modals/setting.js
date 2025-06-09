@@ -36,7 +36,8 @@ Description:String,
 Delivery_Charges:Number,
 Delivery_Charge_Per_Km:Number,
 Minimum_Delivery_Charges:Number,
-Minimum_Delivery_Charge_Within_Km:Number
+Minimum_Delivery_Charge_Within_Km:Number,
+DeliveryStatus:String
 });
 
 module.exports ={

@@ -2,18 +2,42 @@ const cron = require('node-cron');
 const Notification = require('../../modals/Notification');
 const moment = require('moment-timezone');
 
-cron.schedule('* * * * *',async () => {
-    console.log("⏰ Cron job running (IST):", moment().tz("Asia/Kolkata").format("YYYY-MM-DD HH:mm:ss"));
-  const now = new Date()
-const notification = await Notification.find({
-  time:{$lte:now},
-  sent:false
-})
+// Optional: FCM integration (uncomment if needed)
+// const sendToFCM = require('./sendToFCM'); // Your FCM send function
 
-for(const notf of notification){
-  console.log(`🚀 Sending notification: , ${notf.title}`);
-    notf.sent = true
-    await notf.save()
-}
+// Runs every minute
+cron.schedule('* * * * *', async () => {
+  try {
+    const nowIST = moment().tz("Asia/Kolkata");
+    console.log("⏰ Cron job running (IST):", nowIST.format("YYYY-MM-DD HH:mm:ss"));
 
-})
+    // Convert to UTC to match stored notification time
+    const nowUTC = nowIST.utc().toDate();
+
+    const notificationsToSend = await Notification.find({
+      time: { $lte: nowUTC },
+      sent: false
+    });
+
+    if (notificationsToSend.length === 0) {
+      console.log("📭 No notifications to send at this time.");
+      return;
+    }
+
+    for (const notif of notificationsToSend) {
+      console.log(`🚀 Sending notification: ${notif.title}`);
+
+      // Optional: trigger FCM sending logic
+      // await sendToFCM(notif);
+
+      // Mark as sent
+      notif.sent = true;
+      await notif.save();
+    }
+
+    console.log(`✅ Processed ${notificationsToSend.length} notification(s)`);
+
+  } catch (err) {
+    console.error("❌ Cron job error:", err.message);
+  }
+});

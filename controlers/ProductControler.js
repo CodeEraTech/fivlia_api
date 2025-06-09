@@ -690,31 +690,6 @@ console.log('normalizedLocations', normalizedLocations);
   }
 };
 
-
-
-exports.notification=async (req,res) => {
-  try {
-  const {title,description,time,zone}=req.body
-  const image = req.files.image?.[0].path
-   const utcTime = moment.tz(time, "Asia/Kolkata").utc().toDate();
-  const newNotificaton = await Notification.create({title,description,image,time:utcTime,zone})
-  res.status(200).json({message: "Product updated successfully",newNotificaton});
-} catch (error) {
-     console.error(error);
-    res.status(500).json({ message: "Notification Not Created", error: error.message });
-  }
-}
-
-exports.getNotification=async (req,res) => {
-  try {
-    const notification = await Notification.find()
-    return res.status(200).json({message:"New Notification",notification})
-  } catch (error) {
-     console.error(error);
-    res.status(500).json({ message: "Notification Not Found", error: error.message }); 
-  }
-}
-
 exports.getRelatedProducts = async (req, res) => {
   try {
     const { productId } = req.params;
@@ -756,5 +731,53 @@ exports.getRelatedProducts = async (req, res) => {
   } catch (err) {
     console.error("Error fetching related products:", err);
     return res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
+exports.notification=async (req,res) => {
+  try {
+  const {title,description,time,city}=req.body
+  const image = req.files.image?.[0].path
+   const utcTime = moment.tz(time, "Asia/Kolkata").utc().toDate();
+  const newNotificaton = await Notification.create({title,description,image,time:utcTime,city})
+  res.status(200).json({message: "Notification Createded successfully",newNotificaton});
+} catch (error) {
+     console.error(error);
+    res.status(500).json({ message: "Notification Not Createded", error: error.message });
+  }
+}
+
+exports.getNotification = async (req, res) => {
+  try {
+    const user = req.user; 
+    let userCity = user.city;
+
+    if (user.Address?.length > 0) {
+      const latestAddress = user.Address[user.Address.length - 1];
+      if (latestAddress.city) {
+        userCity = latestAddress.city;
+      }
+    }
+
+    if (!userCity) {
+      return res.status(400).json({ message: "City not found in user profile or address" });
+    }
+
+    const matchingCities = await ZoneData.find({ city: userCity }).select('_id');
+    const cityIds = matchingCities.map(c => c._id);
+
+
+    const notifications = await Notification.find({
+      $or: [
+        { global: true },
+        { city: { $in: cityIds } }
+      ]
+    }).sort({ time: -1 });
+
+    return res.status(200).json({ message: "Notifications fetched", notifications });
+
+  } catch (error) {
+    console.error("Error fetching notifications:", error);
+    return res.status(500).json({ message: "Internal server error", error: error.message });
   }
 };

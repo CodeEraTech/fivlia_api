@@ -34,7 +34,7 @@ router.post('/addCity', addCity)
 router.post('/location', location)
 router.post('/notification',upload, notification)
 
-router.get('/getNotification', getNotification)
+router.get('/getNotification',verifyToken, getNotification)
 router.get('/getIntro', getIntro)
 router.get('/getAllZone', getAllZone)
 router.get('/getZone', getZone)

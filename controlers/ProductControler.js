@@ -280,14 +280,6 @@ zoneDocs.forEach(doc => {
   });
 });
 
-    // DEBUG (optional)
-  console.log("Sample product location:", products[0]?.location);
-    
-    console.log("Active City Names:", activeCityNames);
-    console.log("Active Zone IDs:", activeZoneIds);
-    console.log("Filtered Products Count:", filteredProducts.length);
-
-    // Send response
     if (filteredProducts.length === 0) {
       return res.status(404).json({ message: 'No active products found.' });
     }
@@ -510,11 +502,9 @@ exports.updateProduct = async (req, res) => {
       maxQuantity, ratings, unit, mrp, sell_price,status
     } = req.body;
 
-    // Images (if you update them)
     const MultipleImage = req.files?.MultipleImage?.map(file => file.path) || [];
     const image = req.files?.image?.[0]?.path || "";
 
-    // Parse variants
     let parsedVariants = [];
     if (variants) {
       try {
@@ -523,12 +513,9 @@ exports.updateProduct = async (req, res) => {
         parsedVariants = [];
       }
     }
-// Assuming `location` can be a JSON string or an array/object
-
-// parsedLocation from your request body
+    
 let parsedLocation = typeof location === 'string' ? JSON.parse(location) : location;
 
-// Function to split locations with multiple cities into separate entries per city with filtered zones
 const splitLocations = (locs) => {
   const result = [];
   
@@ -542,7 +529,6 @@ const splitLocations = (locs) => {
       const cityName = cityObj.name || cityObj.city || null;
       if (!cityName) continue;
 
-      // Filter zones that contain cityName in their name string
       const filteredZones = zonesArray.filter(zoneObj => {
         const zoneName = zoneObj.name || zoneObj.address || '';
         return zoneName.toLowerCase().includes(cityName.toLowerCase());
@@ -561,7 +547,6 @@ const splitLocations = (locs) => {
 
 const normalizedLocations = splitLocations(parsedLocation);
 
-// Now build productLocation with DB data as you did before
 const productLocation = [];
 
 for (const loc of normalizedLocations) {
@@ -604,8 +589,6 @@ for (const loc of normalizedLocations) {
 console.log('Final productLocation:', JSON.stringify(productLocation, null, 2));
 console.log('normalizedLocations', normalizedLocations);
 
-
-    // Parse brand_Name properly
     let brandObj = null;
     if (brand_Name) {
       if (typeof brand_Name === "string") {
@@ -619,7 +602,6 @@ console.log('normalizedLocations', normalizedLocations);
       }
     }
 
-    // Parse category array from request
     let categories = [];
     if (category) {
       try {
@@ -629,11 +611,9 @@ console.log('normalizedLocations', normalizedLocations);
       }
     }
 
-    // Separate category _id's and names to find them
     const categoryIds = categories.filter(c => /^[0-9a-fA-F]{24}$/.test(c));
     const categoryNames = categories.filter(c => !/^[0-9a-fA-F]{24}$/.test(c));
 
-    // Fetch categories from DB
     const foundCategories = await Category.find({
       $or: [
         { _id: { $in: categoryIds } },
@@ -641,13 +621,11 @@ console.log('normalizedLocations', normalizedLocations);
       ]
     }).lean();
 
-    // Prepare final category objects WITHOUT brand_Name
     const productCategories = foundCategories.map(cat => ({
       _id: cat._id,
       name: cat.name
     }));
 
-    // Handle subCategory & subSubCategory similarly to addProduct
     let foundSubCategory = null;
     if (subCategory && foundCategories.length > 0) {
       foundSubCategory = foundCategories[0].subcat?.find(sub =>
@@ -662,7 +640,6 @@ console.log('normalizedLocations', normalizedLocations);
       );
     }
 
-    // Calculate discounts in variants like addProduct
     const finalVariants = parsedVariants.map(variant => {
       const discount = variant.mrp && variant.sell_price
         ? Math.round(((variant.mrp - variant.sell_price) / variant.mrp) * 100)
@@ -670,7 +647,6 @@ console.log('normalizedLocations', normalizedLocations);
       return { ...variant, discountValue: discount };
     });
 
-    // Prepare update object
     const updateData = {
       ...(productName && { productName }),
       ...(description && { description }),
@@ -700,7 +676,6 @@ console.log('normalizedLocations', normalizedLocations);
       ...(sell_price && { sell_price }),
     };
 
-    // Perform the update
     const updatedProduct = await Products.findByIdAndUpdate(id, updateData, { new: true });
 
     if (!updatedProduct) {

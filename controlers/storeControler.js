@@ -1,50 +1,62 @@
 const Store = require('../modals/store');
 const Products = require('../modals/Product');
-const Category = require('../modals/category');
+const CategoryModel = require('../modals/category'); // renamed to avoid name clash
 
 exports.createStore = async (req, res) => {
   try {
-    console.log(req.body);
+    console.log('Incoming body:', req.body);
 
-    const { storeName, city, zone, Latitude, Longitude, Description, Category: mainCategoryId } = req.body;
+    const { storeName, city, zone, Latitude, Longitude, Description } = req.body;
+    let { Category: categoryInput } = req.body;
 
-    // Get image path if uploaded
-    const image = req.files?.image?.[0]?.path || '';
-
-    // Find main category with subcategories and sub-subcategories
-    const mainCategory = await Category.findById(mainCategoryId).lean();
-    console.log(mainCategory);
-    
-    if (!mainCategory) {
-      return res.status(400).json({ message: "Selected main category not found" });
+    // ✅ Convert input to array if it's string
+    if (typeof categoryInput === 'string') {
+      categoryInput = [categoryInput]; // for single
     }
 
-    // Gather all IDs: main + sub + subsub
-    const allCategoryIds = [mainCategory._id.toString()];
+    // ✅ Normalize for Postman multiple field case
+    if (!Array.isArray(categoryInput)) {
+      categoryInput = [];
+    }
 
-    // If subcategories exist, add their IDs + their subsub IDs
-    if (mainCategory.subcat && mainCategory.subcat.length > 0) {
-      for (const subcat of mainCategory.subcat) {
-        allCategoryIds.push(subcat._id.toString());
+    // ✅ Clean up each ID string
+    categoryInput = categoryInput.map(id => id.trim());
 
-        if (subcat.subsubcat && subcat.subsubcat.length > 0) {
-          for (const subsubcat of subcat.subsubcat) {
-            allCategoryIds.push(subsubcat._id.toString());
-          }
+    // ✅ Final category IDs array to store
+    const finalCategoryIds = [];
+    const allProductCategoryIds = [];
+
+    for (const categoryId of categoryInput) {
+      const category = await CategoryModel.findById(categoryId).lean();
+      if (!category) continue;
+
+      finalCategoryIds.push(category._id.toString());
+
+      // Push main category ID
+      allProductCategoryIds.push(category._id.toString());
+
+      // Add subcategory and sub-subcategory IDs
+      if (category.subcat?.length) {
+        for (const sub of category.subcat) {
+          allProductCategoryIds.push(sub._id.toString());
+          sub.subsubcat?.forEach(subsub => allProductCategoryIds.push(subsub._id.toString()));
         }
       }
     }
 
-    // Find all products matching any of these category IDs
+    // ✅ Image path
+    const image = req.files?.image?.[0]?.path || '';
+
+    // ✅ Fetch matching products
     const products = await Products.find({
       $or: [
-        { "category._id": { $in: allCategoryIds } },
-        { subCategoryId: { $in: allCategoryIds } },
-        { subSubCategoryId: { $in: allCategoryIds } }
+        { "category._id": { $in: allProductCategoryIds } },
+        { subCategoryId: { $in: allProductCategoryIds } },
+        { subSubCategoryId: { $in: allProductCategoryIds } }
       ]
     });
 
-    // Create the store, store only main category ID in Category field
+    // ✅ Save new store
     const newStore = await Store.create({
       storeName,
       city,
@@ -52,9 +64,8 @@ exports.createStore = async (req, res) => {
       Latitude,
       Longitude,
       Description,
-      Category: mainCategory._id,
+      Category: finalCategoryIds, // ✅ now it's full array
       image,
-      // optional: you can store product IDs in the store if you want
       products: products.map(p => p._id)
     });
 

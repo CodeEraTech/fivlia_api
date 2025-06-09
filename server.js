@@ -19,6 +19,7 @@ app.use(express.json())
 //   next();
 // });
 const PORT = process.env.PORT || 5000;
+const host = process.env.HOST || undefined
 const authRoutes = require('./routes/route');
 const zonesRoute = require('./routes/route');
 app.get('/',(req,res)=>{
@@ -26,4 +27,4 @@ app.get('/',(req,res)=>{
 })
 app.use('/fivlia',authRoutes);
 app.use('/',zonesRoute);
-app.listen(PORT,()=> console.log(`Server Running On ${PORT}`))
+app.listen(PORT,host,()=> console.log(`Server Running On http://${host}:${PORT}`))

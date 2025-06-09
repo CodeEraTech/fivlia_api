@@ -751,7 +751,7 @@ exports.getRelatedProducts = async (req, res) => {
       .sort((a, b) => b.relevanceScore - a.relevanceScore)
       .slice(0, 10); // limit to 10
 
-    return res.status(200).json({ relatedProducts: sorted });
+    return res.status(200).json({message:"Related Product", relatedProducts: sorted });
 
   } catch (err) {
     console.error("Error fetching related products:", err);

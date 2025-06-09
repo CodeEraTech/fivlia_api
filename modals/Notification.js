@@ -7,7 +7,8 @@ const notificationSchema = new mongoose.Schema({
  time: { type: Date },
  zone:[{type:mongoose.Schema.Types.ObjectId,ref:'Locations'}],
  read:{ type: Boolean, default: false },
- sent: { type: Boolean, default: false }
+ sent: { type: Boolean, default: false },
+ global: { type: Boolean, default: false }  // 🔥 This field
 });
 
 module.exports = mongoose.model('notification', notificationSchema);

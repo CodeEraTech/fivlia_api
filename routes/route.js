@@ -10,7 +10,7 @@ const { intro, getIntro } = require('../controlers/controlers')
 const { placeOrder, getOrders,orderStatus } = require('../controlers/orderControler')
 const { addCart,getCart,getDicount,discount,quantity,deleteCart } = require('../controlers/cartControler')
 const { update, banner, getBanner, getAllBanner, updateBannerStatus, addCategory, getCategories, brand, getBrand, editCat,updateAt,editBrand } = require('../controlers/categorycontroler');
-const { addProduct, addAtribute, getAttributes, getProduct, getFeatureProduct, searchProduct, bestSelling,editAttributes,unit,getUnit,getVarients,filter,bulkProductUpload,updateProduct,deleteProduct,getAttributesId,notification,getNotification } = require('../controlers/ProductControler')
+const { addProduct, addAtribute, getAttributes, getProduct, getFeatureProduct, searchProduct, bestSelling,editAttributes,unit,getUnit,getVarients,filter,bulkProductUpload,updateProduct,deleteProduct,getAttributesId,notification,getNotification,getRelatedProducts } = require('../controlers/ProductControler')
 const cityZone = require('../modals/cityZone');
 const { addCity, updateCityStatus, getAviableCity, getCity, updateZoneStatus, getAllZone, getZone, location,addAddress,getAddress } = require('../controlers/areaControler');
 
@@ -59,6 +59,7 @@ router.get('/orders', getOrders);
 router.get('/settings/:id',settings);
 router.get('/getAddress',getAddress);
 router.get('/getStore',getStore);
+router.get('/relatedProduct/:productId',getRelatedProducts)
 
 router.put('/editBrand/:id', upload, editBrand)
 router.post('/addUser', upload, addUser)

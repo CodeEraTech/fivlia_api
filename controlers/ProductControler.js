@@ -714,3 +714,47 @@ exports.getNotification=async (req,res) => {
     res.status(500).json({ message: "Notification Not Found", error: error.message }); 
   }
 }
+
+exports.getRelatedProducts = async (req, res) => {
+  try {
+    const { productId } = req.params;
+
+    if (!productId) {
+      return res.status(400).json({ message: "Product ID is required" });
+    }
+
+    const product = await Products.findById(productId).lean();
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    const allProducts = await Products.find({ _id: { $ne: product._id } }).lean();
+
+    const scoredProducts = allProducts.map((p) => {
+      let score = 0;
+
+      if (String(p.category) === String(product.category)) score += 1;
+      if (String(p.brand) === String(product.brand_Name)) score += 1;
+
+      // Check if type is array and has intersection
+      if (Array.isArray(p.type) && Array.isArray(product.type)) {
+        const matchedTypes = p.type.filter((t) => product.type.includes(t));
+        if (matchedTypes.length > 0) score += 2;
+      }
+
+      return { ...p, relevanceScore: score };
+    });
+
+    // Sort by highest score first
+    const sorted = scoredProducts
+      .filter(p => p.relevanceScore > 0)
+      .sort((a, b) => b.relevanceScore - a.relevanceScore)
+      .slice(0, 10); // limit to 10
+
+    return res.status(200).json({ relatedProducts: sorted });
+
+  } catch (err) {
+    console.error("Error fetching related products:", err);
+    return res.status(500).json({ message: "Server error", error: err.message });
+  }
+};

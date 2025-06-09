@@ -1,79 +1,125 @@
-const Store = require('../modals/store');
-const Products = require('../modals/Product');
-const CategoryModel = require('../modals/category'); // renamed to avoid name clash
+const Store         = require('../modals/store');
+const Products      = require('../modals/Product');
+const CategoryModel = require('../modals/category');
+const {ZoneData}      = require('../modals/cityZone'); // your Locations model
 
 exports.createStore = async (req, res) => {
   try {
     console.log('Incoming body:', req.body);
 
-    const { storeName, city, zone, Latitude, ownerName, PhoneNumber, Longitude, Description } = req.body;
-    let { Category: categoryInput } = req.body;
+    let {
+      storeName,
+      city,         // <-- e.g. "683eb89e207e54373548fa4f"
+      zone,         // <-- e.g. '["683ec5b9bda160427cb853ba","683ec601bda160427cb853bb"]'
+      Latitude,
+      Longitude,
+      ownerName,
+      PhoneNumber,
+      Description,
+      Category: categoryInput
+    } = req.body;
 
-    // ✅ Convert input to array if it's string
+    //
+    // 1️⃣ Parse `Category` string → array
+    //
     if (typeof categoryInput === 'string') {
-      categoryInput = [categoryInput]; // for single
-    }
-
-    // ✅ Normalize for Postman multiple field case
-    if (!Array.isArray(categoryInput)) {
-      categoryInput = [];
-    }
-
-    // ✅ Clean up each ID string
-    categoryInput = categoryInput.map(id => id.trim());
-
-    // ✅ Final category IDs array to store
-    const finalCategoryIds = [];
-    const allProductCategoryIds = [];
-
-    for (const categoryId of categoryInput) {
-      const category = await CategoryModel.findById(categoryId).lean();
-      if (!category) continue;
-
-      finalCategoryIds.push(category._id.toString());
-
-      // Push main category ID
-      allProductCategoryIds.push(category._id.toString());
-
-      // Add subcategory and sub-subcategory IDs
-      if (category.subcat?.length) {
-        for (const sub of category.subcat) {
-          allProductCategoryIds.push(sub._id.toString());
-          sub.subsubcat?.forEach(subsub => allProductCategoryIds.push(subsub._id.toString()));
-        }
+      try {
+        const parsed = JSON.parse(categoryInput);
+        categoryInput = Array.isArray(parsed) ? parsed : [categoryInput];
+      } catch {
+        categoryInput = [categoryInput];
       }
     }
 
-    // ✅ Image path
+    //
+    // 2️⃣ Parse `zone` string → array
+    //
+    if (typeof zone === 'string') {
+      try {
+        const parsedZone = JSON.parse(zone);
+        zone = Array.isArray(parsedZone) ? parsedZone : [zone];
+      } catch {
+        zone = [zone];
+      }
+    }
+
+    //
+    // 3️⃣ Resolve `city` → { _id, name }
+    //
+    const cityDoc = await ZoneData.findById(city).lean();
+    if (!cityDoc) {
+      return res.status(400).json({ message: `City not found: ${city}` });
+    }
+    const cityObj = { _id: cityDoc._id, name: cityDoc.city };
+
+    //
+    // 4️⃣ Resolve each `zone` ID → { _id, name }
+    //
+    const zoneObjs = [];
+    for (let zones of zone) {
+      zones = zones.toString().trim();
+      const zdoc =cityDoc.zones.find(z => z._id.toString() === zones) ;
+      if (zdoc) zoneObjs.push({ _id: zdoc._id, name: zdoc.address,title: zdoc.zoneTitle });
+    }
+console.log('city',cityObj);
+console.log('zone',zoneObjs);
+
+    //
+    // 5️⃣ Category → full list + sub/subsub for product lookup
+    //
+    categoryInput = categoryInput.map(id => id.trim());
+    const finalCategoryIds    = [];
+    const allProductCategoryIds = [];
+
+    for (const cid of categoryInput) {
+      const cat = await CategoryModel.findById(cid).lean();
+      if (!cat) continue;
+      finalCategoryIds.push(cat._id);
+      allProductCategoryIds.push(cat._id);
+      if (cat.subcat?.length) {
+        cat.subcat.forEach(sub => {
+          allProductCategoryIds.push(sub._id);
+          sub.subsubcat?.forEach(ss => allProductCategoryIds.push(ss._id));
+        });
+      }
+    }
+
+    //
+    // 6️⃣ Image upload
+    //
     const image = req.files?.image?.[0]?.path || '';
 
-    // ✅ Fetch matching products
+    //
+    // 7️⃣ Find matching products
+    //
     const products = await Products.find({
       $or: [
-        { "category._id": { $in: allProductCategoryIds } },
-        { subCategoryId: { $in: allProductCategoryIds } },
-        { subSubCategoryId: { $in: allProductCategoryIds } }
+        { "category._id":   { $in: allProductCategoryIds } },
+        { subCategoryId:     { $in: allProductCategoryIds } },
+        { subSubCategoryId:  { $in: allProductCategoryIds } }
       ]
     });
 
-    // ✅ Save new store
+    //
+    // 8️⃣ Create store
+    //
     const newStore = await Store.create({
       storeName,
-      city,
-      zone,
-      Latitude,
-      Longitude,
-      Description,
+      city:       cityObj,
+      zone:       zoneObjs,
+      Latitude:   parseFloat(Latitude),
+      Longitude:  parseFloat(Longitude),
       ownerName,
       PhoneNumber,
-      Category: finalCategoryIds, // ✅ now it's full array
+      Description,
+      Category:   finalCategoryIds,
       image,
-      products: products.map(p => p._id)
+      products:   products.map(p => p._id)
     });
 
     return res.status(201).json({
       message: "Store created successfully",
-      store: newStore,
+      store:   newStore,
       products
     });
 

@@ -6,6 +6,7 @@ const notificationSchema = new mongoose.Schema({
  image:String,
  time: { type: Date },
  zone:[{type:mongoose.Schema.Types.ObjectId,ref:'Locations'}],
+ read:{ type: Boolean, default: false },
  sent: { type: Boolean, default: false }
 });
 

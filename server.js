@@ -27,4 +27,4 @@ app.get('/',(req,res)=>{
 })
 app.use('/fivlia',authRoutes);
 app.use('/',zonesRoute);
-app.listen(PORT,()=> console.log(`Server Running On http://${host}:${PORT}`))
+app.listen(PORT,host,()=> console.log(`Server Running On http://${host}:${PORT}`))

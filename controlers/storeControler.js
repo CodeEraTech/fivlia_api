@@ -6,7 +6,7 @@ exports.createStore = async (req, res) => {
   try {
     console.log('Incoming body:', req.body);
 
-    const { storeName, city, zone, Latitude, Longitude, Description } = req.body;
+    const { storeName, city, zone, Latitude, ownerName, PhoneNumber, Longitude, Description } = req.body;
     let { Category: categoryInput } = req.body;
 
     // ✅ Convert input to array if it's string
@@ -64,6 +64,8 @@ exports.createStore = async (req, res) => {
       Latitude,
       Longitude,
       Description,
+      ownerName,
+      PhoneNumber,
       Category: finalCategoryIds, // ✅ now it's full array
       image,
       products: products.map(p => p._id)

@@ -3,7 +3,9 @@ const mongoose = require('mongoose');
 const storeScheema = new mongoose.Schema({
     storeName:String,
     city:String,
-    zone:String,
+    ownerName:String,
+    PhoneNumber:String,
+    zone:[String],
     Latitude:String,
     Longitude:String,
     Description:String,

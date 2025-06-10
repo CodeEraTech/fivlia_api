@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Products = require('../modals/Product');
 const Attribute = require('../modals/attribute');
+const Filters = require('../modals/filter')
 const Category = require('../modals/category');
 const Unit = require('../modals/unit');
 const {CityData, ZoneData } = require('../modals/cityZone');
@@ -76,7 +77,7 @@ exports.getAttributesId=async (req,res) => {
 exports.addProduct = async (req, res) => {
   try {
     const {
-      productName, description, category, subCategory, subSubCategory,
+      productName, description, category, subCategory, subSubCategory,rating,
       sku, ribbon, brand_Name, sold_by, type, location, online_visible,
       inventory, tax, feature_product, fulfilled_by, variants, minQuantity,
       maxQuantity, ratings, unit, mrp, sell_price,filter
@@ -134,7 +135,6 @@ if (req.body.filter) {
       }
     }
 
-console.log("Parsed location:", JSON.stringify(parsedLocation, null, 2));
 const productLocation = [];
 
 for (let loc of parsedLocation) {
@@ -223,6 +223,7 @@ for (let loc of parsedLocation) {
     const newProduct = await Products.create({
       ...(productName && { productName }),
       ...(description && { description }),
+      ...(rating && {rating}),
       ...(image && { productThumbnailUrl: image }),
       ...(MultipleImage.length && { productImageUrl: MultipleImage }),
       ...(productCategories.length && { category: productCategories }),

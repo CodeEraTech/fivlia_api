@@ -47,9 +47,11 @@ const productSchema = new mongoose.Schema({
   feature_product: { type: Boolean, default: false },
   fulfilled_by: String,
   inventory: { type: String, enum: ['InStock', 'OutOfStock'],default:'OutOfStock' },
+  rating:{rate:{type:Number, default:4.5},users:{type:Number,default:10},_id:{type:mongoose.Schema.Types.ObjectId,auto: true}},//object with user count
   variants: [variantSchema],
-filter: [{_id: { type: mongoose.Schema.Types.ObjectId },Filter_name: { type: String },
-selected: {_id: { type: mongoose.Schema.Types.ObjectId },name: { type: String }}
+  filter: [{_id: { type: mongoose.Schema.Types.ObjectId },Filter_name: { type: String },
+selected: {_id: { type: mongoose.Schema.Types.ObjectId },name: { type: String }},
+
 }],
  //ye chakni hai category se
   purchases:{type:Number,default:0},

@@ -315,3 +315,24 @@ feature  =>[]
     ]
   }
 ]
+
+
+#!/bin/bash
+
+cd /home/msggo/public_html/wapp
+
+# Kill old node app if running on port 8000
+PID=$(sudo lsof -t -i:8000)
+if [ ! -z "$PID" ]; then
+  echo "$(date): Killing old node app PID $PID" >> node_start.log
+  sudo kill -9 $PID
+fi
+
+# Start node app if not running
+if ! pgrep -f "node app.js" > /dev/null
+then
+  echo "$(date): Node app not running. Starting..." >> node_start.log
+  /bin/node app.js >> node_start.log 2>&1 &
+else
+  echo "$(date): Node app already running." >> node_start.log
+fi

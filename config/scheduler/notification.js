@@ -11,7 +11,6 @@ cron.schedule('* * * * *', async () => {
     const nowIST = moment().tz("Asia/Kolkata");
     console.log("⏰ Cron job running (IST):", nowIST.format("YYYY-MM-DD HH:mm:ss"));
 
-    // Convert to UTC to match stored notification time
     const nowUTC = nowIST.utc().toDate();
 
     const notificationsToSend = await Notification.find({

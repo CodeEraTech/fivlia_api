@@ -41,12 +41,13 @@ const productSchema = new mongoose.Schema({
   minQuantity:Number,
   type:String,
   maxQuantity:Number,
-  unit:[String],
+  unit:{type:String},  //isme id create krni hai
   online_visible: { type: Boolean, default: true },
   feature_product: { type: Boolean, default: false },
   fulfilled_by: String,
   inventory: { type: String, enum: ['InStock', 'OutOfStock'],default:'OutOfStock' },
   variants: [variantSchema],
+  filter:String, //ye chakni hai category se
   purchases:{type:Number,default:0},
   status:{type:Boolean,default:true}
 }, { timestamps: true });

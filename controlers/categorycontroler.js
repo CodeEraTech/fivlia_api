@@ -1,7 +1,9 @@
+const mongoose = require('mongoose');
 const Category = require('../modals/category');
 const Banner = require('../modals/banner');
 const brand = require('../modals/brand')
 const Products = require('../modals/Product')
+const Filters = require('../modals/filter')
 const slugify = require('slugify');
 const { ZoneData } = require('../modals/cityZone');
 const { error } = require('zod/v4/locales/ar.js');
@@ -499,6 +501,59 @@ const newUpdate = await Category.findByIdAndUpdate(
     return res.status(500).json({ message: "An error occurred", error: error.message }); 
   }
 }
+
+exports.addFilter=async (req,res) => {
+    try {
+    const {Filter_name,Filter}=req.body
+    const newFilter = await Filters.create({Filter_name,Filter})
+     return res.status(200).json({message:"Filter Created", newFilter})   
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({message:"An error occured"})   
+    }
+}
+exports.editFilter = async (req, res) => {
+ try {
+     const { id } = req.params;
+     const { Filter_name, Filter } = req.body;
+ 
+     const filter = await Filters.findById(id);
+     if (!filter) {
+       return res.status(404).json({ message: "Attribute not found" });
+     }
+ 
+     if (Filter_name) {
+       filter.Filter_name = Filter_name;
+     }
+ 
+     if (Array.isArray(Filter)) {
+       Filter.forEach(newFil => {
+         const exists = filter.Filter.some(f => f.name === newFil.name);
+         if (!exists) {
+           filter.Filter.push({ _id: new mongoose.Types.ObjectId(), ...newFil });
+         }
+       });
+     }
+ 
+     const updated = await filter.save();
+     return res.status(200).json({ message: "Attributes Updated", updated });
+   } catch (error) {
+     console.error(error);
+     return res.status(500).json({ message: "An error occurred" });
+   }
+ };
+
+
+exports.getFilter=async (req,res) => {
+  try {
+  const Filter=await Filters.find()
+  res.json(Filter)
+} catch (error) {
+  console.error(error);
+  return res.status(500).json({message:"An error occured"})   
+  }
+}
+
 
 // if (req.file && req.file.path) {
 //       updateData.image = req.file.path;

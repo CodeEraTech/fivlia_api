@@ -26,7 +26,10 @@ const categorySchema = new mongoose.Schema({
   description:String,
   subcat: [subCategorySchema],
   attribute:[{type:String}],
+  filter: [{ type: mongoose.Schema.Types.Mixed }],
   status:{type:Boolean,default:true}
 });
 const Category=mongoose.model('Category', categorySchema,'Categories');
 module.exports = Category
+
+//isme filter ka system banana dikhe navi schema banegi shayad

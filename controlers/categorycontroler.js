@@ -554,6 +554,16 @@ exports.getFilter=async (req,res) => {
   }
 }
 
+exports.deleteFilter=async (req,res) => {
+  try {
+  const {id} = req.params
+  const deleted = await Filters.findByIdAndDelete(id)
+  res.status(200).json({ message: "Filter deleted successfully", deleted});
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Product Deleted", error });
+  }
+}
 
 // if (req.file && req.file.path) {
 //       updateData.image = req.file.path;

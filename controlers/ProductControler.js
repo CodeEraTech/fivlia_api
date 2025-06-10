@@ -79,7 +79,7 @@ exports.addProduct = async (req, res) => {
       productName, description, category, subCategory, subSubCategory,
       sku, ribbon, brand_Name, sold_by, type, location, online_visible,
       inventory, tax, feature_product, fulfilled_by, variants, minQuantity,
-      maxQuantity, ratings, unit, mrp, sell_price
+      maxQuantity, ratings, unit, mrp, sell_price,filter
     } = req.body;
 
     const MultipleImage = req.files?.MultipleImage?.map(file => file.path) || [];
@@ -91,6 +91,15 @@ exports.addProduct = async (req, res) => {
         parsedVariants = JSON.parse(variants);
       } catch (e) {
         parsedVariants = [];
+      }
+    }
+
+    let parsedFilter = [];
+    if (filter) {
+      try {
+        parsedFilter = typeof filter === 'string' ? JSON.parse(filter) : filter;
+      } catch {
+        parsedFilter = [];
       }
     }
 
@@ -199,7 +208,7 @@ for (let loc of parsedLocation) {
       ...(foundSubSubCategory && { subSubCategory: { _id: foundSubSubCategory._id, name: foundSubSubCategory.name } }),
       ...(sku && { sku }),
       ...(ribbon && { ribbon }),
-      ...(unit && { unit }),
+      ...(unit && typeof unit === 'string' && {unit: { name: unit }}),
       ...(brandObj && { brand_Name: { _id: brandObj._id, name: brandObj.brandName } }),
       ...(sold_by && { sold_by }),
       ...(type && { type }),
@@ -211,6 +220,7 @@ for (let loc of parsedLocation) {
       ...(fulfilled_by && { fulfilled_by }),
       ...(minQuantity && { minQuantity }),
       ...(maxQuantity && { maxQuantity }),
+      ...(parsedFilter.length && { filter: parsedFilter }),
       ...(finalVariants.length && { variants: finalVariants }),
       ...(ratings && { ratings }),
       ...(mrp && { mrp }),

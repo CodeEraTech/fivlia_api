@@ -94,14 +94,36 @@ exports.addProduct = async (req, res) => {
       }
     }
 
-    let parsedFilter = [];
-    if (filter) {
-      try {
-        parsedFilter = typeof filter === 'string' ? JSON.parse(filter) : filter;
-      } catch {
-        parsedFilter = [];
+  let finalFilterArray = [];
+
+if (req.body.filter) {
+  let parsedFilter;
+  try {
+    parsedFilter = typeof req.body.filter === 'string'
+      ? JSON.parse(req.body.filter)
+      : req.body.filter;
+  } catch {
+    parsedFilter = [];
+  }
+
+  for (let item of parsedFilter) {
+    const filterDoc = await Filters.findById(item._id);
+    if (!filterDoc) continue;
+
+    const selectedObj = filterDoc.Filter.find(f => f._id.toString() === item.selected);
+    if (!selectedObj) continue;
+
+    finalFilterArray.push({
+      _id: filterDoc._id,
+      Filter_name: filterDoc.Filter_name,
+      selected: {
+        _id: selectedObj._id,
+        name: selectedObj.name
       }
-    }
+    });
+  }
+}
+
 
     let parsedLocation = [];
     if (location) {
@@ -220,7 +242,7 @@ for (let loc of parsedLocation) {
       ...(fulfilled_by && { fulfilled_by }),
       ...(minQuantity && { minQuantity }),
       ...(maxQuantity && { maxQuantity }),
-      ...(parsedFilter.length && { filter: parsedFilter }),
+      ...(finalFilterArray.length && { filter: finalFilterArray }),
       ...(finalVariants.length && { variants: finalVariants }),
       ...(ratings && { ratings }),
       ...(mrp && { mrp }),

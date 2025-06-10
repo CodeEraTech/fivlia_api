@@ -48,7 +48,10 @@ const productSchema = new mongoose.Schema({
   fulfilled_by: String,
   inventory: { type: String, enum: ['InStock', 'OutOfStock'],default:'OutOfStock' },
   variants: [variantSchema],
-  filter: [{ type: mongoose.Schema.Types.Mixed },{_id:{type:mongoose.Schema.Types.ObjectId},ref:'filters'}], //ye chakni hai category se
+filter: [{_id: { type: mongoose.Schema.Types.ObjectId },Filter_name: { type: String },
+selected: {_id: { type: mongoose.Schema.Types.ObjectId },name: { type: String }}
+}],
+ //ye chakni hai category se
   purchases:{type:Number,default:0},
   status:{type:Boolean,default:true}
 }, { timestamps: true });

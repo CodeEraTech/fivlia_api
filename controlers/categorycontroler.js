@@ -517,26 +517,9 @@ exports.editFilter = async (req, res) => {
      const { id } = req.params;
      const { Filter_name, Filter } = req.body;
  
-     const filter = await Filters.findById(id);
-     if (!filter) {
-       return res.status(404).json({ message: "Attribute not found" });
-     }
- 
-     if (Filter_name) {
-       filter.Filter_name = Filter_name;
-     }
- 
-     if (Array.isArray(Filter)) {
-       Filter.forEach(newFil => {
-         const exists = filter.Filter.some(f => f.name === newFil.name);
-         if (!exists) {
-           filter.Filter.push({ _id: new mongoose.Types.ObjectId(), ...newFil });
-         }
-       });
-     }
- 
-     const updated = await filter.save();
-     return res.status(200).json({ message: "Attributes Updated", updated });
+     const filter = await Filters.updateOne({ _id:id },{$set:{Filter_name, Filter}});
+
+     return res.status(200).json({ message: "Attributes Updated", filter });
    } catch (error) {
      console.error(error);
      return res.status(500).json({ message: "An error occurred" });

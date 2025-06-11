@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const admin = require("../firebase/firebase");
 const Products = require('../modals/Product');
 const Attribute = require('../modals/attribute');
 const Filters = require('../modals/filter')
@@ -530,7 +531,7 @@ exports.updateProduct = async (req, res) => {
     const id = req.params.id;
     const {
       productName, description, category, subCategory, subSubCategory,
-      sku, ribbon, brand_Name, sold_by, type, location, online_visible,
+      sku, ribbon,rating,filter, brand_Name, sold_by, type, location, online_visible,
       inventory, tax, feature_product, fulfilled_by, variants, minQuantity,
       maxQuantity, ratings, unit, mrp, sell_price,status
     } = req.body;
@@ -546,7 +547,37 @@ exports.updateProduct = async (req, res) => {
         parsedVariants = [];
       }
     }
-    
+
+    let finalFilterArray = [];
+
+if (req.body.filter) {
+  let parsedFilter;
+  try {
+    parsedFilter = typeof req.body.filter === 'string'
+      ? JSON.parse(req.body.filter)
+      : req.body.filter;
+  } catch {
+    parsedFilter = [];
+  }
+
+  for (let item of parsedFilter) {
+    const filterDoc = await Filters.findById(item._id);
+    if (!filterDoc) continue;
+
+    const selectedObj = filterDoc.Filter.find(f => f._id.toString() === item.selected);
+    if (!selectedObj) continue;
+
+    finalFilterArray.push({
+      _id: filterDoc._id,
+      Filter_name: filterDoc.Filter_name,
+      selected: {
+        _id: selectedObj._id,
+        name: selectedObj.name
+      }
+    });
+  }
+}
+
 let parsedLocation = typeof location === 'string' ? JSON.parse(location) : location;
 
 const splitLocations = (locs) => {
@@ -683,6 +714,7 @@ console.log('normalizedLocations', normalizedLocations);
     const updateData = {
       ...(productName && { productName }),
       ...(description && { description }),
+      ...(rating && {rating}),
       ...(image && { productThumbnailUrl: image }),
       ...(MultipleImage.length && { productImageUrl: MultipleImage }),
       ...(productCategories.length && { category: productCategories }),
@@ -702,6 +734,7 @@ console.log('normalizedLocations', normalizedLocations);
       ...(fulfilled_by && { fulfilled_by }),
       ...(minQuantity && { minQuantity }),
       ...(maxQuantity && { maxQuantity }),
+      ...(finalFilterArray.length && { filter: finalFilterArray }),
       ...(finalVariants.length && { variants: finalVariants }),
       ...(ratings && { ratings }),
       ...(mrp && { mrp }),

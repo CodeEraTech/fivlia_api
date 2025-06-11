@@ -381,11 +381,19 @@ exports.getBrand = async (req, res) => {
   try {
     const { id } = req.query;
 
+    const db = mongoose.connection.db;
+
     if (id) {
       const b = await brand.findById(id);
       if (!b) return res.status(404).json({ message: "Brand not found" });
 
-      const products = await Products.find({ 'brand_Name._id': b._id });
+      const rawProducts = await db.collection("products").find({}).toArray();
+
+      const products = rawProducts.filter(
+        (p) =>
+          typeof p.brand_Name === "object" &&
+          p.brand_Name._id?.toString() === b._id.toString()
+      );
 
       return res.json({
         ...b.toObject(),
@@ -397,7 +405,12 @@ exports.getBrand = async (req, res) => {
 
     const brandsWithProducts = await Promise.all(
       brands.map(async (b) => {
-        const products = await Products.find({ 'brand_Name._id': b._id });
+        const rawProducts = await db.collection("products").find({}).toArray();
+        const products = rawProducts.filter(
+          (p) =>
+            typeof p.brand_Name === "object" &&
+            p.brand_Name._id?.toString() === b._id.toString()
+        );
 
         return {
           ...b.toObject(),
@@ -409,9 +422,14 @@ exports.getBrand = async (req, res) => {
     res.json(brandsWithProducts);
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "An error occurred!", error: error.message });
+    return res.status(500).json({
+      message: "An error occurred!",
+      error: error.message,
+    });
   }
 };
+
+
 
 exports.editBrand = async (req, res) => {
   try {

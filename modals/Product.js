@@ -18,7 +18,6 @@ const productSchema = new mongoose.Schema({
   description: String,
    mrp: { type: Number },
   sell_price: { type: Number},
-   discountValue: { type: Number, default: 0 },
    sku: { type: String },
   productImageUrl: [{ type: String }],
   productThumbnailUrl:{type:String},

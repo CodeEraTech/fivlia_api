@@ -101,20 +101,40 @@ exports.orderStatus=async (req,res) => {
   try {
    const{id}=req.params
   const {orderStatus,paymentStatus}=req.body
-  const update = await Order.findByIdAndUpdate(id,{orderStatus,paymentStatus})
+  const update = await Order.findByIdAndUpdate(id,{orderStatus,paymentStatus}).populate('user');
 
-  if (update.user?.fcmToken) {
-  await sendPushNotification(
-    update.user.fcmToken,
-    'Order Update',
-    `Your order status is now "${orderStatus}"`,
-    { orderId: update._id.toString() }
-  );
-}
+    if (update?.user?.fcmToken) {
+      console.log("FCM Token:", update.user.fcmToken);
+      const response = await sendPushNotification(
+        update.user.fcmToken,
+        'Order Update',
+        `Your order status is now "${orderStatus}"`,
+        { orderId: update._id.toString() }
+      );
+      console.log("Push Notification Response:", response);
+    } else {
+      console.log("No FCM token found for this user.");
+    }
 
-  return res.status(200).json({message:'Status Updated',update})
+console.log('Order Status Updated');
+
+  return res.status(200).json({message:'Order Status Updated',update})
 } catch (error) {
      console.error('Get orders error:', error.message);
     return res.status(500).json({ message: 'Server Error', error: error.message });
   }
+}
+
+// routes/testRoute.js or controller
+exports.test = async (req, res) => {
+  const testFCMToken = 'your_test_token_here';
+
+  const response = await sendPushNotification(
+    testFCMToken,
+    '🚀 Backend Test',
+    'If you received this, backend FCM works!',
+    { testMode: 'true' }
+  );
+
+  res.json({ message: 'Notification sent', response });
 }

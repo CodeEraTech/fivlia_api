@@ -666,6 +666,20 @@ console.log('normalizedLocations', normalizedLocations);
       }
     }
 
+let unitObj = null;
+if (unit) {
+  if (typeof unit === 'string' && /^[0-9a-fA-F]{24}$/.test(unit)) {
+    unitObj = await Unit.findById(unit);
+  } else if (typeof unit === 'object' && unit._id) {
+    unitObj = await Unit.findById(unit._id);
+  }
+
+  if (!unitObj) {
+    console.warn('Unit not found or invalid:', unit);
+  }
+}
+
+
     let categories = [];
     if (category) {
       try {
@@ -722,7 +736,7 @@ console.log('normalizedLocations', normalizedLocations);
       ...(foundSubSubCategory && { subSubCategory: { _id: foundSubSubCategory._id, name: foundSubSubCategory.name } }),
       ...(sku && { sku }),
       ...(ribbon && { ribbon }),
-      ...(unit && { unit }),
+      ...(unitObj && { unit: { _id: unitObj._id, name: unitObj.unitname } }),
       ...(brandObj && { brand_Name: { _id: brandObj._id, name: brandObj.brandName } }),
       ...(sold_by && { sold_by }),
       ...(type && { type }),

@@ -21,6 +21,7 @@ const sendPushNotification = async (token, title, body, data = {}) => {
   try {
     const response = await admin.messaging().send(message);
     console.log('✅ Push notification sent:', response);
+     return response;
   } catch (error) {
     console.error('❌ Error sending push notification:', error.message);
   }

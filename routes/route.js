@@ -8,7 +8,7 @@ const { createStore,getStore } = require('../controlers/storeControler');
 const { settings,addSettings,adminSetting } = require('../controlers/settingControler');
 const { users, addUser,updateProfile } = require('../controlers/authControler');
 const { intro, getIntro } = require('../controlers/controlers')
-const { placeOrder, getOrders,orderStatus } = require('../controlers/orderControler')
+const { placeOrder, getOrders,orderStatus,test } = require('../controlers/orderControler')
 const { addCart,getCart,getDicount,discount,quantity,deleteCart } = require('../controlers/cartControler')
 const { update, banner, getBanner, getAllBanner, updateBannerStatus, addCategory, getCategories, brand, getBrand, editCat,updateAt,editBrand,addFilter,editFilter,getFilter,deleteFilter,deleteFilterVal } = require('../controlers/categorycontroler');
 const { addProduct, addAtribute, getAttributes, getProduct, getFeatureProduct, searchProduct, bestSelling,editAttributes,unit,getUnit,getVarients,filter,bulkProductUpload,updateProduct,deleteProduct,getAttributesId,notification,getNotification,getRelatedProducts } = require('../controlers/ProductControler')
@@ -64,6 +64,7 @@ router.get('/getStore',getStore);
 router.get('/relatedProduct/:productId',getRelatedProducts)
 router.get('/getFilter',getFilter);
 router.get('/getDeliveryEstimate',verifyToken,getDeliveryEstimate);
+router.get('/send-test-notification',test)
 
 router.put('/editBrand/:id', upload, editBrand)
 router.post('/addUser', upload, addUser)

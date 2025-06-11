@@ -8,7 +8,9 @@ const notificationSchema = new mongoose.Schema({
  city:[{type:mongoose.Schema.Types.ObjectId,ref:'Locations'}],
 readBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Login' }],
  sent: { type: Boolean, default: false },
- global: { type: Boolean, default: false }
+ global: { type: Boolean, default: false },
+ fcmToken: { type: String }
+
 });
 
 module.exports = mongoose.model('notification', notificationSchema);

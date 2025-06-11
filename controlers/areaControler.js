@@ -60,21 +60,39 @@ exports.getCity=async (req,res) => {
     res.json(city);
 }
 
-exports.location=async (req, res) => {
+exports.updateLocation = async (req, res) => {
   try {
-  const { longitude, latitude } = req.body;
-  if (!longitude || !latitude ) {
-    console.log(req.body);
-    
-    return res.status(400).json({message: "Missing parameters"});
-  }
-  const newLocation = await Location.create({longitude, latitude })
-  console.log(newLocation);
-  
-  return res.status(200).json({message: "Location update successfully!"},newLocation);
-   } catch (error) {
-    console.error(error);
-     return res.status(500).json({ResponseMsg: "An Error Occured"});
+    const { id } = req.user; // get from token or body
+    const { latitude, longitude } = req.body;
+
+    if (!latitude || !longitude || !id) {
+      return res.status(400).json({ message: "Missing userId or coordinates" });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      id,
+      {
+        $set: {
+          location: {
+            latitude,
+            longitude,
+          }
+        }
+      },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.status(200).json({
+      message: "Location updated successfully!",
+      location: updatedUser.location
+    });
+  } catch (error) {
+    console.error("❌ Location update error:", error);
+    return res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 

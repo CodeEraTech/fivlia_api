@@ -1,6 +1,8 @@
 // controllers/orderController.js
 const Order = require('../modals/order');
 const {ZoneData} = require('../modals/cityZone');
+const sendPushNotification = require('../firebase/pushnotification');
+
 const User = require('../modals/User') 
 exports.placeOrder = async (req, res) => {
   try {
@@ -41,7 +43,14 @@ exports.placeOrder = async (req, res) => {
         }
       }
     }
-
+if (userData?.fcmToken) {
+  await sendPushNotification(
+    userData.fcmToken,
+    'Order Placed',
+    `Your order has been placed successfully! Total: ₹${finalAmount}`,
+    { orderId: savedOrder._id.toString() }
+  );
+}
     const finalCOD = codAllowed && cashOnDelivery ? true : false;
 
     const newOrder = new Order({
@@ -75,9 +84,6 @@ exports.placeOrder = async (req, res) => {
   }
 };
 
-
-
-
 exports.getOrders = async (req, res) => {
   try {
     const orders = await Order.find()
@@ -96,6 +102,16 @@ exports.orderStatus=async (req,res) => {
    const{id}=req.params
   const {orderStatus,paymentStatus}=req.body
   const update = await Order.findByIdAndUpdate(id,{orderStatus,paymentStatus})
+
+  if (update.user?.fcmToken) {
+  await sendPushNotification(
+    update.user.fcmToken,
+    'Order Update',
+    `Your order status is now "${orderStatus}"`,
+    { orderId: update._id.toString() }
+  );
+}
+
   return res.status(200).json({message:'Status Updated',update})
 } catch (error) {
      console.error('Get orders error:', error.message);

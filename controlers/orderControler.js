@@ -127,10 +127,10 @@ console.log('Order Status Updated');
 
 // routes/testRoute.js or controller
 exports.test = async (req, res) => {
-  const testFCMToken = 'your_test_token_here';
+  const token = 'eqsBhhyMSU6fR7nxfuUCvF:APA91bHqBINgsIXAz1M258dBS2hJFv7DCMoHuuWVICdOtnNSJ8Ee4RH2KxYx9USi_xxIM9DnGEAZlDjGStREwIf3A1B3mz00AZMjJGMTQHvaz93GLsBAhdU';
 
   const response = await sendPushNotification(
-    testFCMToken,
+    token,
     '🚀 Backend Test',
     'If you received this, backend FCM works!',
     { testMode: 'true' }

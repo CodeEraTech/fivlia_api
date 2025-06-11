@@ -531,18 +531,26 @@ exports.addFilter=async (req,res) => {
     }
 }
 exports.editFilter = async (req, res) => {
- try {
-     const { id } = req.params;
-     const { Filter_name, Filter } = req.body;
- 
-     const filter = await Filters.updateOne({ _id:id },{$set:{Filter_name, Filter}});
+  try {
+    const { id } = req.params;
+    const { Filter_name, Filter } = req.body;
 
-     return res.status(200).json({ message: "Attributes Updated", filter });
-   } catch (error) {
-     console.error(error);
-     return res.status(500).json({ message: "An error occurred" });
-   }
- };
+    const filter = await Filters.findByIdAndUpdate(
+      id, // ✅ pass ID directly
+      {
+        $set: { Filter_name },          // update name
+        $push: { Filter: { $each: Filter } } // ✅ append to Filter array
+      },
+      { new: true } // ✅ return the updated document
+    );
+
+    return res.status(200).json({ message: "Attributes Updated", filter });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "An error occurred" });
+  }
+};
+
 
 
 exports.getFilter=async (req,res) => {

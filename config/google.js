@@ -1,14 +1,8 @@
 require('dotenv').config();
-const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args)); // Fix ESM issue
+const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
-
-
-const calculateDeliveryTime = async (
-  storeLat,
-  storeLng,
-  userLat ,
-  userLng
-) => {
+// 🧮 Calculate delivery time between store and user
+const calculateDeliveryTime = async (storeLat, storeLng, userLat, userLng) => {
   const apiKey = process.env.GOOGLE_MAPS_API_KEY;
 
   const url = `https://maps.googleapis.com/maps/api/distancematrix/json?units=metric&origins=${storeLat},${storeLng}&destinations=${userLat},${userLng}&departure_time=now&mode=driving&key=${apiKey}`;
@@ -49,4 +43,34 @@ const calculateDeliveryTime = async (
   }
 };
 
-module.exports = calculateDeliveryTime;
+// 🌍 Reverse geocode user's lat/lng to get city + zone
+const reverseGeocode = async (lat, lng) => {
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+  const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}`;
+
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    
+    console.log('🧭 Geocode API response:', JSON.stringify(data, null, 2))
+
+    if (data.status !== 'OK') throw new Error('Reverse geocoding failed');
+
+    const components = data.results[0].address_components;
+
+    const city = components.find(c => c.types.includes('locality'))?.long_name;
+    const zone = components.find(c =>
+      c.types.includes('sublocality') || c.types.includes('sublocality_level_1')
+    )?.long_name;
+
+    return { city, zone };
+  } catch (err) {
+    console.error('❌ Reverse geocoding error:', err.message);
+    return null;
+  }
+};
+
+module.exports = {
+  calculateDeliveryTime,
+  reverseGeocode
+};

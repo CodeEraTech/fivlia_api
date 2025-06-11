@@ -3,6 +3,7 @@ const upload = require('../midllerware/multer');
 const router = express.Router()
 const verifyToken = require('../midllerware/authToken');
 
+const {getDeliveryEstimate} = require('../controlers/DeliveryControler')
 const { createStore,getStore } = require('../controlers/storeControler');
 const { settings,addSettings,adminSetting } = require('../controlers/settingControler');
 const { users, addUser,updateProfile } = require('../controlers/authControler');
@@ -62,6 +63,7 @@ router.get('/getAddress',getAddress);
 router.get('/getStore',getStore);
 router.get('/relatedProduct/:productId',getRelatedProducts)
 router.get('/getFilter',getFilter);
+router.get('/getDeliveryEstimate',getDeliveryEstimate);
 
 router.put('/editBrand/:id', upload, editBrand)
 router.post('/addUser', upload, addUser)

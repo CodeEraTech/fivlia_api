@@ -674,7 +674,7 @@ if (location) {
 
 
 console.log('Final productLocation:', JSON.stringify(productLocation, null, 2));
-console.log('normalizedLocations', normalizedLocations);
+
 
     let brandObj = null;
     if (brand_Name) {

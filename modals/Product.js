@@ -49,7 +49,7 @@ const productSchema = new mongoose.Schema({
   rating:{rate:{type:Number, default:4.5},users:{type:Number,default:10},_id:{type:mongoose.Schema.Types.ObjectId,auto: true}},//object with user count
   variants: [variantSchema],
   filter: [{_id: { type: mongoose.Schema.Types.ObjectId },Filter_name: { type: String },
-selected: {_id: { type: mongoose.Schema.Types.ObjectId },name: { type: String }},
+selected: [{_id: { type: mongoose.Schema.Types.ObjectId },name: { type: String }}],
 
 }],
  //ye chakni hai category se

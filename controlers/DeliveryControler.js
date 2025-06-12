@@ -38,7 +38,6 @@ exports.getDeliveryEstimate = async (req, res) => {
     if (!matchedZone)
       return res.json({ message: "Sorry, we are not available in your zone yet." });
 
-    // 🏪 Find stores matching this zone ID inside their array
     const stores = await Store.find({
       zone: { $elemMatch: { _id: matchedZone._id } }
     });

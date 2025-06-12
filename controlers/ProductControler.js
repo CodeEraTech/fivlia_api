@@ -109,21 +109,31 @@ if (req.body.filter) {
   }
 
   for (let item of parsedFilter) {
-    const filterDoc = await Filters.findById(item._id);
-    if (!filterDoc) continue;
+  const filterDoc = await Filters.findById(item._id);
+  if (!filterDoc) continue;
 
-    const selectedObj = filterDoc.Filter.find(f => f._id.toString() === item.selected);
-    if (!selectedObj) continue;
+  let selectedArray = [];
 
+  const selectedIds = Array.isArray(item.selected) ? item.selected : [item.selected];
+
+  for (const selId of selectedIds) {
+    const selectedObj = filterDoc.Filter.find(f => f._id.toString() === selId);
+    if (selectedObj) {
+      selectedArray.push({
+        _id: selectedObj._id,
+        name: selectedObj.name
+      });
+    }
+  }
+
+  if (selectedArray.length > 0) {
     finalFilterArray.push({
       _id: filterDoc._id,
       Filter_name: filterDoc.Filter_name,
-      selected: {
-        _id: selectedObj._id,
-        name: selectedObj.name
-      }
+      selected: selectedArray
     });
   }
+}
 }
 
 
@@ -560,22 +570,32 @@ if (req.body.filter) {
     parsedFilter = [];
   }
 
-  for (let item of parsedFilter) {
-    const filterDoc = await Filters.findById(item._id);
-    if (!filterDoc) continue;
+ for (let item of parsedFilter) {
+  const filterDoc = await Filters.findById(item._id);
+  if (!filterDoc) continue;
 
-    const selectedObj = filterDoc.Filter.find(f => f._id.toString() === item.selected);
-    if (!selectedObj) continue;
+  let selectedArray = [];
 
+  const selectedIds = Array.isArray(item.selected) ? item.selected : [item.selected];
+
+  for (const selId of selectedIds) {
+    const selectedObj = filterDoc.Filter.find(f => f._id.toString() === selId);
+    if (selectedObj) {
+      selectedArray.push({
+        _id: selectedObj._id,
+        name: selectedObj.name
+      });
+    }
+  }
+
+  if (selectedArray.length > 0) {
     finalFilterArray.push({
       _id: filterDoc._id,
       Filter_name: filterDoc.Filter_name,
-      selected: {
-        _id: selectedObj._id,
-        name: selectedObj.name
-      }
+      selected: selectedArray
     });
   }
+}
 }
 
 let parsedLocation = typeof location === 'string' ? JSON.parse(location) : location;

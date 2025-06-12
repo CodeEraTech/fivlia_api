@@ -536,12 +536,12 @@ exports.editFilter = async (req, res) => {
     const { Filter_name, Filter } = req.body;
 
     const filter = await Filters.findByIdAndUpdate(
-      id, // ✅ pass ID directly
+      id,
       {
-        $set: { Filter_name },          // update name
-        $push: { Filter: { $each: Filter } } // ✅ append to Filter array
+        $set: { Filter_name },        
+        $push: { Filter: { $each: Filter } }
       },
-      { new: true } // ✅ return the updated document
+      { new: true }
     );
 
     return res.status(200).json({ message: "Attributes Updated", filter });

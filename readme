@@ -336,3 +336,14 @@ then
 else
   echo "$(date): Node app already running." >> node_start.log
 fi
+
+
+gm = 683ecc5af33a9f32a48f6b18
+
+683ec4d8aa557f434c120e90="Kg"
+
+683ecc6ef33a9f32a48f6b1e="ML"
+
+683ecc7af33a9f32a48f6b21="Ltr"
+
+6842f0f9cf0718ce21b784e2="Pcs"

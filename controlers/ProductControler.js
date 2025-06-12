@@ -598,77 +598,80 @@ if (req.body.filter) {
 }
 }
 
-let parsedLocation = typeof location === 'string' ? JSON.parse(location) : location;
-
-const splitLocations = (locs) => {
-  const result = [];
-  
-  for (const loc of locs) {
-    if (!Array.isArray(loc.city)) continue;
-    if (!Array.isArray(loc.zone) && !Array.isArray(loc.zones)) continue;
-    
-    const zonesArray = loc.zone || loc.zones || [];
-
-    for (const cityObj of loc.city) {
-      const cityName = cityObj.name || cityObj.city || null;
-      if (!cityName) continue;
-
-      const filteredZones = zonesArray.filter(zoneObj => {
-        const zoneName = zoneObj.name || zoneObj.address || '';
-        return zoneName.toLowerCase().includes(cityName.toLowerCase());
-      });
-
-      if (filteredZones.length === 0) continue;
-
-      result.push({
-        city: cityName,
-        zones: filteredZones
-      });
-    }
-  }
-  return result;
-};
-
-const normalizedLocations = splitLocations(parsedLocation);
-
 const productLocation = [];
 
-for (const loc of normalizedLocations) {
+if (location) {
+  let parsedLocation;
   try {
-    const cityData = await ZoneData.findOne({ city: loc.city });
-    if (!cityData) {
-      console.log(`No city data found for city: ${loc.city}`);
-      continue;
-    }
-
-    const zoneAddresses = loc.zones
-      .map(z => (z.name || z.address || '').trim())
-      .filter(z => z.length > 0);
-
-    console.log(`City: ${loc.city}`);
-    console.log('Client zones:', zoneAddresses);
-    console.log('DB zones:', cityData.zones.map(z => z.address.trim()));
-
-    const matchedZones = cityData.zones.filter(z => 
-      zoneAddresses.some(addr => addr.toLowerCase() === z.address.trim().toLowerCase())
-    );
-
-    console.log('Matched zones:', matchedZones.map(z => z.address));
-
-    if (matchedZones.length === 0) {
-      console.log(`No matched zones found for city: ${loc.city}`);
-      continue;
-    }
-
-    productLocation.push({
-      city: { _id: cityData._id, name: cityData.city },
-      zone: matchedZones.map(z => ({ _id: z._id, name: z.address }))
-    });
-
+    parsedLocation = typeof location === 'string' ? JSON.parse(location) : location;
   } catch (err) {
-    console.error("Error processing location:", err);
+    console.warn('Invalid location format:', location);
+    parsedLocation = [];
+  }
+
+  const splitLocations = (locs) => {
+    const result = [];
+
+    for (const loc of locs) {
+      if (!Array.isArray(loc.city)) continue;
+      if (!Array.isArray(loc.zone) && !Array.isArray(loc.zones)) continue;
+
+      const zonesArray = loc.zone || loc.zones || [];
+
+      for (const cityObj of loc.city) {
+        const cityName = cityObj.name || cityObj.city || null;
+        if (!cityName) continue;
+
+        const filteredZones = zonesArray.filter(zoneObj => {
+          const zoneName = zoneObj.name || zoneObj.address || '';
+          return zoneName.toLowerCase().includes(cityName.toLowerCase());
+        });
+
+        if (filteredZones.length === 0) continue;
+
+        result.push({
+          city: cityName,
+          zones: filteredZones
+        });
+      }
+    }
+    return result;
+  };
+
+  const normalizedLocations = splitLocations(parsedLocation);
+
+  for (const loc of normalizedLocations) {
+    try {
+      const cityData = await ZoneData.findOne({ city: loc.city });
+      if (!cityData) {
+        console.log(`No city data found for city: ${loc.city}`);
+        continue;
+      }
+
+      const zoneAddresses = loc.zones
+        .map(z => (z.name || z.address || '').trim())
+        .filter(z => z.length > 0);
+
+      const matchedZones = cityData.zones.filter(z =>
+        zoneAddresses.some(addr => addr.toLowerCase() === z.address.trim().toLowerCase())
+      );
+
+      if (matchedZones.length === 0) {
+        console.log(`No matched zones found for city: ${loc.city}`);
+        continue;
+      }
+
+      productLocation.push({
+        city: { _id: cityData._id, name: cityData.city },
+        zone: matchedZones.map(z => ({ _id: z._id, name: z.address }))
+      });
+
+    } catch (err) {
+      console.error("Error processing location:", err);
+    }
   }
 }
+
 
 console.log('Final productLocation:', JSON.stringify(productLocation, null, 2));
 console.log('normalizedLocations', normalizedLocations);

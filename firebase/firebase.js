@@ -1,7 +1,7 @@
 // firebaseConfig.js
 const admin = require('firebase-admin');
-const serviceAccount =  process.env.NODE_ENV === 'production'  ? require('/etc/secrets/fivlianotification-firebase-adminsdk-fbsvc-62ad3d58d3.json')
-  : require('./fivlianotification-firebase-adminsdk-fbsvc-62ad3d58d3.json');
+const serviceAccount =  process.env.NODE_ENV === 'production'  ? require('/etc/secrets/fivlia-firebase-adminsdk-fbsvc-983c02ca3c.json')
+  : require('./fivlia-firebase-adminsdk-fbsvc-983c02ca3c.json');
 
 
 admin.initializeApp({

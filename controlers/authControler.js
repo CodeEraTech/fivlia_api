@@ -91,13 +91,6 @@ if(!mobileNumber || !userId || !fcmToken){
 return res.status(400).json({message:"Pls Provide All Credentials",status:false})
 }
 
-const exist =await User.findOne({mobileNumber})
-console.log(exist);
-
-if(!exist){
-const newUser = await User.create({mobileNumber,userId,fcmToken})
- return res.status(200).json({status:true,message:"Registration Successfuly",newUser})
-}
 
    let firebaseUser;
 try {
@@ -112,14 +105,24 @@ try {
 
     // 2. Match mobileNumber with Firebase phoneNumber
     if (firebaseUser.phoneNumber !== mobileNumber || !firebaseUser) {
-      return res.status(401).json({status:true, message: "Firebase UID and mobile number do not match" });
+      return res.status(401).json({status:false, message: "Firebase UID and mobile number do not match" });
     }
+
+    const exist =await User.findOne({mobileNumber})
+console.log(exist);
+
+if(!exist){
+const newUser = await User.create({mobileNumber,userId,fcmToken})
+const token = jwt.sign({ _id:newUser._id }, process.env.jwtSecretKey);
+ return res.status(200).json({status:true,message:"Login Successfuly",token})
+}
+
 
 
 const data = await User.updateOne({mobileNumber},{$set:{userId,fcmToken}})
 const token = jwt.sign({ _id:exist._id }, process.env.jwtSecretKey);
 console.log(data);
-   return res.status(200).json({status:true,message:"Login Successfuly",token,})
+return res.status(200).json({status:true,message:"Login Successfuly",token})
 } catch (error) {
   console.error(error);
     return res.status(500).json({status:false,message:"Error in login",error:error.message})

@@ -179,7 +179,7 @@ console.log('Order Status Updated');
 // routes/testRoute.js or controller
 exports.test = async (req, res) => {
   try {
-  const token = 'eqsBhhyMSU6fR7nxfuUCvF:APA91bHqBINgsIXAz1M258dBS2hJFv7DCMoHuuWVICdOtnNSJ8Ee4RH2KxYx9USi_xxIM9DnGEAZlDjGStREwIf3A1B3mz00AZMjJGMTQHvaz93GLsBAhdU';
+  const token = 'd4HVM3utRw6dS3eK8J0qUN:APA91bEyK6IHXVqttY8xbhEqckbtvehYD4QaF6LaVzRTuC1Wk0fnCiMTaRNMsV0Sobm9WkDeD0rPnnuQ8SNhtdqO6YcLMvZL1hNBaX3r3Zl2tV8X9UGcOag';
 
   const response = await sendPushNotification(
     token,

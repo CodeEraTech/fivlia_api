@@ -112,7 +112,7 @@ try {
 
     // 2. Match mobileNumber with Firebase phoneNumber
     if (firebaseUser.phoneNumber !== mobileNumber || !firebaseUser) {
-      return res.status(401).json({status:false, message: "Firebase UID and mobile number do not match" });
+      return res.status(401).json({status:true, message: "Firebase UID and mobile number do not match" });
     }
 
 

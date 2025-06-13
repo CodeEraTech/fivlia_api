@@ -68,7 +68,7 @@ router.get('/getDeliveryEstimate',verifyToken,getDeliveryEstimate);
 router.get('/send-test-notification',test)
 
 router.put('/editBrand/:id', upload, editBrand)
-router.put('/addFilterInCategoryjaibabakijaibababhorijaimahakal/:id', addFiltersToCategory)
+router.put('/addFilterInCategory/:id', addFiltersToCategory)
 router.post('/addUser', upload, addUser)
 router.patch('/edit/:id', upload, update)
 router.patch('/updateAt/:id', updateAt);

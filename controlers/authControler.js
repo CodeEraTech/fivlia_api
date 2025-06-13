@@ -88,30 +88,33 @@ exports.sign = async (req,res) => {
   const {mobileNumber, userId, fcmToken} = req.body
 
 if(!mobileNumber || !userId || !fcmToken){
-return res.status(400).json({message:"Pls Provide All Credentials"})
+return res.status(400).json({message:"Pls Provide All Credentials",status:false})
 }
-
-    let firebaseUser;
-    try {
-      firebaseUser = await admin.auth().getUser(userId); // <--- This is key
-    } catch (err) {
-      return res.status(401).json({ message: "Invalid Firebase userId" });
-    }
 
 const exist =await User.findOne({mobileNumber})
 console.log(exist);
 
 if(!exist){
 const newUser = await User.create({mobileNumber,userId,fcmToken})
- return res.status(200).json({message:"Registration Successfuly",newUser})
+ return res.status(200).json({message:"Registration Successfuly",newUser,status:true})
 }
+
+    let firebaseUser;
+    try {
+      firebaseUser = await admin.auth().getUser(userId); // <--- This is key
+    } catch (err) {
+      console.error("Firebase user verification failed:", err);
+      return res.status(401).json({ message: "Invalid Firebase userId",status:false});
+    }
+
+
 
 const data = await User.updateOne({mobileNumber},{$set:{userId,fcmToken}})
 const token = jwt.sign({ userId }, process.env.jwtSecretKey);
 console.log(data);
-   return res.status(200).json({message:"Login Successfuly",token})
+   return res.status(200).json({message:"Login Successfuly",token,status:true})
 } catch (error) {
   console.error(error);
-    return res.status(500).json({message:"Error in login"})
+    return res.status(500).json({message:"Error in login",status:false})
   }
 }

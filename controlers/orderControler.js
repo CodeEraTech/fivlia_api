@@ -178,6 +178,7 @@ console.log('Order Status Updated');
 
 // routes/testRoute.js or controller
 exports.test = async (req, res) => {
+  try {
   const token = 'eqsBhhyMSU6fR7nxfuUCvF:APA91bHqBINgsIXAz1M258dBS2hJFv7DCMoHuuWVICdOtnNSJ8Ee4RH2KxYx9USi_xxIM9DnGEAZlDjGStREwIf3A1B3mz00AZMjJGMTQHvaz93GLsBAhdU';
 
   const response = await sendPushNotification(
@@ -188,4 +189,8 @@ exports.test = async (req, res) => {
   );
 
   res.json({ message: 'Notification sent', response });
+  } catch (error) {
+    console.error(error);
+   return res.status(500).json({ message: '❌ Failed to send notification', error: error.message}); 
+  }
 }

@@ -589,3 +589,47 @@ exports.deleteFilterVal=async (req,res) => {
 // if (req.file && req.file.path) {
 //       updateData.image = req.file.path;
 //     }
+
+exports.addFiltersToCategory = async (req, res) => {
+  try {
+    const { id } = req.params; // category id
+    const { filterIds } = req.body; // array of filter _ids
+
+    // Convert to ObjectId
+    const objectIds = filterIds.map(fid => new mongoose.Types.ObjectId(fid));
+
+    // Get filter docs
+    const filters = await Filters.find({ _id: { $in: objectIds } });
+
+    if (!filters.length) {
+      return res.status(404).json({ message: "No valid filters found" });
+    }
+
+    // Construct the filter objects as needed in category
+    const filtersToAdd = filters.map(f => ({
+      _id: f._id,
+      Filter_name: f.Filter_name,
+      selected: [] // 🛠️ important: this puts the actual options in
+    }));
+
+    // Push into category
+    const updatedCategory = await Category.findByIdAndUpdate(
+      id,
+      { $push: { filter: { $each: filtersToAdd } } },
+      { new: true }
+    );
+
+    if (!updatedCategory) {
+      return res.status(404).json({ message: "Category not found" });
+    }
+
+    res.status(200).json({
+      message: "✅ Filters added to category",
+      category: updatedCategory
+    });
+
+  } catch (error) {
+    console.error("❌ Error adding filters to category:", error.message);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};

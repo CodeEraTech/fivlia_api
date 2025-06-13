@@ -108,7 +108,7 @@ const newUser = await User.create({mobileNumber,userId,fcmToken})
 
 
 const data = await User.updateOne({mobileNumber},{$set:{userId,fcmToken}})
-const token = jwt.sign({ userId }, process.env.jwtSecretKey);
+const token = jwt.sign({ _id:exist._id }, process.env.jwtSecretKey);
 console.log(data);
    return res.status(200).json({status:true,message:"Login Successfuly",token,})
 } catch (error) {

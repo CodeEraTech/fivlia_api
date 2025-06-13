@@ -26,7 +26,10 @@ const categorySchema = new mongoose.Schema({
   description:String,
   subcat: [subCategorySchema],
   attribute:[{type:String}],
-  filter: [{ type: mongoose.Schema.Types.Mixed }],
+  filter: [{_id: { type: mongoose.Schema.Types.ObjectId },Filter_name: { type: String },
+ selected: [{_id: { type: mongoose.Schema.Types.ObjectId },name: { type: String }}],
+ 
+ }],
   status:{type:Boolean,default:true}
 });
 const Category=mongoose.model('Category', categorySchema,'Categories');

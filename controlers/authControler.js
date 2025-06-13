@@ -99,10 +99,19 @@ const newUser = await User.create({mobileNumber,userId,fcmToken})
  return res.status(200).json({status:true,message:"Registration Successfuly",newUser})
 }
 
-    const firebaseUser = await admin.auth().getUser(userId);
+   let firebaseUser;
+try {
+  firebaseUser = await admin.auth().getUser(userId);
+} catch (err) {
+  return res.status(404).json({
+    status: false,
+    message: "Firebase UID not found",
+    error: err.message,
+  });
+}
 
     // 2. Match mobileNumber with Firebase phoneNumber
-    if (firebaseUser.phoneNumber !== mobileNumber) {
+    if (firebaseUser.phoneNumber !== mobileNumber || !firebaseUser) {
       return res.status(401).json({status:false, message: "Firebase UID and mobile number do not match" });
     }
 
@@ -113,6 +122,6 @@ console.log(data);
    return res.status(200).json({status:true,message:"Login Successfuly",token,})
 } catch (error) {
   console.error(error);
-    return res.status(500).json({status:false,message:"Error in login"})
+    return res.status(500).json({status:false,message:"Error in login",error:error.message})
   }
 }

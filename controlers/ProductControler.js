@@ -343,7 +343,7 @@ zoneDocs.forEach(doc => {
 exports.bestSelling=async (req,res) => {
   try {
   const best = await Products.find().sort({purchases: -1}).limit(10);
-   return res.status(200).json({ message: "Jai Baba ki", best });
+   return res.status(200).json({ message: "Success", best });
   } catch (error) {
      return res.status(500).json({ message: "An error occured!", error: error.message });
   }

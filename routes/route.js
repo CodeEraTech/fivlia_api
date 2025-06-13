@@ -23,7 +23,7 @@ router.post('/brand', upload, brand)
 router.post('/addAtribute', addAtribute)
 router.post('/unit', unit)
 router.post('/addCart',upload, addCart)
-router.post('/placeOrder', placeOrder);
+router.post('/placeOrder/:id', placeOrder);
 router.post('/filter',filter)
 router.post('/addSettings',addSettings)
 router.post('/createStore',upload,createStore)
@@ -54,7 +54,7 @@ router.get('/getFeatureProduct', getFeatureProduct)
 router.get('/bestSelling', bestSelling)
 router.get('/search', searchProduct)
 router.get('/getUnit', getUnit)
-router.get('/getCart', getCart)
+router.get('/getCart/:id', getCart)
 router.get('/getDiscount', getDicount)
 router.get('/getVarients/:id', getVarients)
 router.get('/orders', getOrders);

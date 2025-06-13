@@ -1,20 +1,32 @@
 const {Cart,Discount} = require('../modals/cart');
 
-exports.addCart=async (req,res) => {
+exports.addCart = async (req, res) => {
   try {
-  const{name,quantity,price}=req.body
-  const image = req.files.image?.[0].path
-  const items = await Cart.create({image,name,quantity,price})
-  return res.status(200).json({ message: 'Item Added To Database', items });
-} catch (error) {
+    const { name, quantity, price, productId, varientId, userId } = req.body;
+    const image = req.files?.image?.[0]?.path; // assuming multer is used
+
+    const cartItem = await Cart.create({
+      image,
+      name,
+      quantity,
+      price,
+      productId,
+      varientId,
+      userId,
+    });
+
+    return res.status(200).json({ message: 'Item Added To Database', item: cartItem });
+  } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "An error occured!", error: error.message });
+    return res.status(500).json({ message: 'An error occurred!', error: error.message });
   }
-}
+};
+
 
 exports.getCart=async (req,res) => {
   try {
-    const items = await Cart.find()
+    const {id} = req.params
+    const items = await Cart.find({userId:id})
     return res.status(200).json({ message: 'Cart Items:', items });
   } catch (error) {
     console.error(error);

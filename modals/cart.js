@@ -2,9 +2,12 @@ const mongoose = require('mongoose');
 
 const cartSchema = new mongoose.Schema({
    image:String,
-   price:String,
+   price: { type: Number},
    name:String,
-   quantity:Number
+   quantity:Number,
+   productId:{type:mongoose.Schema.ObjectId,ref:'products'},
+   varientId:{type:mongoose.Schema.ObjectId},
+   userId:{type:mongoose.Schema.ObjectId,ref:'Login'}
 },{timestamps:true})
 
 const discountSchema=new mongoose.Schema({

@@ -126,27 +126,13 @@ exports.getBanner = async (req, res) => {
       filters.type = type;
     }
 
-    const banners = await Banner.find(filters).lean();
+    const data = await Banner.find(filters);
 
-for (const banner of banners) {
-      if (banner.mainCategory?._id || banner.mainCategory) {
-        const catId = banner.mainCategory._id || banner.mainCategory;
-
-        const fullCategory = await Category.findById(catId).lean();
-
-        if (fullCategory) {
-          banner.mainCategory = fullCategory;
-        } else {
-          banner.mainCategory = null;
-        }
-      }
-    }
-
-    if (banners.length === 0) {
+    if (data.length === 0) {
       return res.status(404).json({ message: 'No banners found matching the criteria.' });
     }
 
-    return res.status(200).json({ message: 'Banners fetched successfully.', count: banners.length, banners });
+    return res.status(200).json({ message: 'Banners fetched successfully.', count: data.length, data });
     
   } catch (error) {
     console.error('Error fetching banners:', error.message);

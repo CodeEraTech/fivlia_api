@@ -6,7 +6,7 @@ const verifyToken = require('../midllerware/authToken');
 const {getDeliveryEstimate} = require('../controlers/DeliveryControler')
 const { createStore,getStore } = require('../controlers/storeControler');
 const { settings,addSettings,adminSetting } = require('../controlers/settingControler');
-const { users, addUser,updateProfile,sign } = require('../controlers/authControler');
+const { users, addUser,updateProfile,Login,register,verifyMobile } = require('../controlers/authControler');
 const { intro, getIntro } = require('../controlers/controlers')
 const { placeOrder, getOrders,orderStatus,test } = require('../controlers/orderControler')
 const { addCart,getCart,getDicount,discount,quantity,deleteCart } = require('../controlers/cartControler')
@@ -15,7 +15,9 @@ const { addProduct, addAtribute, getAttributes, getProduct, getFeatureProduct, s
 const cityZone = require('../modals/cityZone');
 const { addCity, updateCityStatus, getAviableCity, getCity, updateZoneStatus, getAllZone, getZone, updateLocation,addAddress,getAddress } = require('../controlers/areaControler');
 
-router.post('/sign', sign)
+router.post('/Login', Login)
+router.post('/register', register)
+router.post('/verifyMobile', verifyMobile)
 router.post('/add-category', upload, addCategory)
 router.post('/products', upload, addProduct)
 router.post('/intro', upload, intro)

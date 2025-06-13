@@ -83,7 +83,7 @@ const image = req.files?.image?.[0].path
   }
 };
 
-exports.sign = async (req,res) => {
+exports.Login = async (req,res) => {
   try {
   const {mobileNumber, userId, fcmToken} = req.body
 
@@ -91,6 +91,40 @@ if(!mobileNumber || !userId || !fcmToken){
 return res.status(400).json({message:"Pls Provide All Credentials",status:false})
 }
 
+   let firebaseUser;
+try {
+  firebaseUser = await admin.auth().getUser(userId);
+} catch (err) {
+  return res.status(404).json({
+    status: false,
+    message: "Firebase UID not found",
+    error: err.message,
+  });
+}
+    if (firebaseUser.phoneNumber !== mobileNumber || !firebaseUser) {
+      return res.status(401).json({status:false, message: "Firebase UID and mobile number do not match" });
+    }
+
+ const exist =await User.findOne({mobileNumber})
+console.log(exist);
+
+const data = await User.updateOne({mobileNumber},{$set:{userId,fcmToken}})
+const token = jwt.sign({ _id:exist._id }, process.env.jwtSecretKey);
+console.log(data);
+return res.status(200).json({status:true,message:"Login Successfuly",token})
+} catch (error) {
+  console.error(error);
+    return res.status(500).json({status:false,message:"Error in login",error:error.message})
+  }
+}
+
+exports.register = async (req,res) => {
+ try {
+ const {mobileNumber, userId, fcmToken} = req.body
+
+if(!mobileNumber || !userId || !fcmToken){
+return res.status(400).json({message:"Pls Provide All Credentials",status:false})
+}
 
    let firebaseUser;
 try {
@@ -103,28 +137,45 @@ try {
   });
 }
 
-    // 2. Match mobileNumber with Firebase phoneNumber
-    if (firebaseUser.phoneNumber !== mobileNumber || !firebaseUser) {
+ if (firebaseUser.phoneNumber !== mobileNumber || !firebaseUser) {
       return res.status(401).json({status:false, message: "Firebase UID and mobile number do not match" });
     }
 
-    const exist =await User.findOne({mobileNumber})
-console.log(exist);
-
-if(!exist){
 const newUser = await User.create({mobileNumber,userId,fcmToken})
 const token = jwt.sign({ _id:newUser._id }, process.env.jwtSecretKey);
  return res.status(200).json({status:true,message:"Login Successfuly",token})
-}
 
-
-
-const data = await User.updateOne({mobileNumber},{$set:{userId,fcmToken}})
-const token = jwt.sign({ _id:exist._id }, process.env.jwtSecretKey);
-console.log(data);
-return res.status(200).json({status:true,message:"Login Successfuly",token})
-} catch (error) {
-  console.error(error);
+ } catch (error) {
+    console.error(error);
     return res.status(500).json({status:false,message:"Error in login",error:error.message})
-  }
+ } 
 }
+
+exports.verifyMobile = async (req, res) => {
+  try {
+    let { mobileNumber } = req.body;
+
+    // Remove all non-digit characters
+    mobileNumber = mobileNumber.replace(/\D/g, '');
+
+    // Validate mobile number (Indian format: 10 digits)
+    if (!/^[6-9]\d{9}$/.test(mobileNumber)) {
+      return res.status(400).json({ status: 2, message: 'Invalid mobile number format' });
+    }
+
+    // Add +91 if not already present
+    const formattedNumber = `+91${mobileNumber}`;
+
+    // Check if user exists
+    const exist = await User.findOne({ mobileNumber: formattedNumber });
+    console.log('Formatted:', formattedNumber, 'User:', exist);
+
+    if (!exist) {
+      return res.status(200).json({ status: 0, message: 'User Not Found' });
+    }
+
+    return res.status(200).json({ status: 1, message: 'User Found' });
+  } catch (error) {
+    return res.status(500).json({ status: 2, message: 'Server Error', error: error.message });
+  }
+};

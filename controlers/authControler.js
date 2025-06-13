@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const admin = require('../firebase/firebase');
 const mongoose = require("mongoose");
 const Login = mongoose.model("Login", new mongoose.Schema({}, { strict: false }), "Login");
-require('dotenv').confi()
+require('dotenv').config()
 // exports.sign = async (req,res) => {
 //     const{mobileNumber}=req.body
 //     const exist = User.find({mobileNumber})

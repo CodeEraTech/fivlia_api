@@ -1,26 +1,28 @@
 const mongoose = require('mongoose');
 
 const addressSchema = new mongoose.Schema({
-  fullName: { type: String, required: true },
-  mobileNumber: { type: String, required: true },
-  pincode: { type: String, required: true },
-  locality: { type: String, required: true },
-  address: { type: String, required: true },
+  fullName: { type: String},
+  mobileNumber: { type: String},
+  pincode: { type: String},
+  locality: { type: String},
+  address: { type: String},
   zone:{ type: mongoose.Schema.Types.ObjectId, ref: 'Locations'},
-  city: { type: String, required: true },
-  addressType: { type: String, enum: ['home', 'work', 'other'], required: true },
+  city: { type: String},
+  addressType: { type: String, enum: ['home', 'work', 'other'] },
 },{timestamps:true});
 
 const userSchema = new mongoose.Schema({
     name:String,
-    password:{type:String,required:true},
-    mobileNumber:{type:String,required:false,unique:true},
-    email:{type:String,required:true,unique:false},
+    password:{type:String},
+    mobileNumber:{type:String},
+    email:{type:String},
     location:{latitude:{type:Number},longitude:{type:Number}},
-    state: { type: String, required: false },
-    city: { type: String, required: false },
+    state: { type: String},
+    city: { type: String},
     image:String,  
     Address: [addressSchema],
-    otp:{type:String,require:false},
+    userId:String,
+    fcmToken:String,
+    otp:{type:String},
 },{timestamps:true})
 module.exports=mongoose.model('User',userSchema,'Login')

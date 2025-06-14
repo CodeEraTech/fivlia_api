@@ -4,7 +4,7 @@ const router = express.Router()
 const verifyToken = require('../midllerware/authToken');
 //abc
 const {getDeliveryEstimate} = require('../controlers/DeliveryControler')
-const { createStore,getStore,addCategoryInStore } = require('../controlers/storeControler');
+const { createStore,getStore,addCategoryInStore,removeCategoryInStore } = require('../controlers/storeControler');
 const { settings,addSettings,adminSetting } = require('../controlers/settingControler');
 const { users, addUser,updateProfile,Login,register,verifyMobile } = require('../controlers/authControler');
 const { intro, getIntro } = require('../controlers/controlers')
@@ -92,6 +92,7 @@ router.delete('/removeCart/:id',deleteCart)
 router.patch('/editFilter/:id', editFilter);
 router.delete('/deleteFilter/:id',deleteFilter);
 router.delete('/deleteFilterVal/:id',deleteFilterVal)
+router.delete('/removeCategoryInStore/:id',removeCategoryInStore)
 
 router.get('/zones', (req, res) => {
   res.json(cityZone);

@@ -200,4 +200,14 @@ exports.addCategoryInStore=async (req,res) => {
     }
 }
 
-exports.removeCategory
+exports.removeCategoryInStore=async (req,res) => {
+   try {
+    const {id} = req.params
+    const {Category}=req.body
+    const deleted = await Store.findOneAndUpdate({_id:id},{$pull:{ Category: { $in: Category } }},{new:true})
+    res.status(200).json({ message: "Category removed successfuly", deleted});
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error", error });
+    }
+}

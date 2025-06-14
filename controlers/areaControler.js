@@ -159,9 +159,9 @@ exports.updateZoneStatus = async (req, res) => {
 exports.addAddress = async (req, res) => {
   try {
     const {id} = req.params; 
-    const {fullName,mobileNumber,pincode,House_No,locality,address,State,latitude,longitude,city,addressType} = req.body;
+    const {fullName,mobileNumber,pincode,house_No,locality,address,state,latitude,longitude,city,addressType} = req.body;
 
-    if (!fullName || !mobileNumber || !pincode || !House_No || !locality || !address || !city || !addressType || !State ||!latitude || !longitude) {
+    if (!fullName || !mobileNumber || !pincode || !house_No || !locality || !address || !city || !addressType || !state ||!latitude || !longitude) {
       return res.status(400).json({message: "All fields are required" });
     }
 
@@ -173,10 +173,10 @@ exports.addAddress = async (req, res) => {
         fullName,
         mobileNumber,
         pincode,
-        House_No,
+        house_No,
         locality,
         address,
-        State,
+        state,
         latitude,
         longitude,
         city,
@@ -205,9 +205,9 @@ exports.getAddress = async (req,res) => {
 exports.EditAddress=async (req,res) => {
   try {
   const {id} = req.params
-  const { userId,fullName,mobileNumber,pincode,House_No,locality,address,State,latitude,longitude,city,addressType }=req.body
+  const { userId,fullName,mobileNumber,pincode,house_No,locality,address,state,latitude,longitude,city,addressType }=req.body
 
-  const edit = await Address.findByIdAndUpdate(id,{userId,fullName,mobileNumber,pincode,House_No,locality,address,State,latitude,longitude,city,addressType})
+  const edit = await Address.findByIdAndUpdate(id,{userId,fullName,mobileNumber,pincode,house_No,locality,address,state,latitude,longitude,city,addressType})
 
 return res.status(200).json({message:"Address Updated Successfuly"})
 

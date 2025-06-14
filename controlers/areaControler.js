@@ -160,6 +160,7 @@ exports.addAddress = async (req, res) => {
   try {
     const {id} = req.params; 
     const {fullName,mobileNumber,pincode,house_No,address,state,latitude,longitude,city,addressType,floor,landmark} = req.body;
+console.log(req.body);
 
     if (!fullName || !mobileNumber || !pincode || !house_No || !address || !city || !addressType || !state ||!latitude || !longitude) {
       return res.status(400).json({message: "All fields are required" });
@@ -184,7 +185,7 @@ exports.addAddress = async (req, res) => {
         landmark
         })
 
-    return res.status(200).json({message:"Address added or updated successfully",newAddress});
+    return res.status(200).json({message:"Address added successfully",newAddress});
 
   } catch (error) {
     console.error("Error adding address:", error);

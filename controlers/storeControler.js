@@ -187,3 +187,17 @@ exports.getStore = async (req, res) => {
   }
 };
 
+exports.addCategoryInStore=async (req,res) => {
+    try {
+      const {id}=req.params
+    const {Category}=req.body
+    const CategoryId = await Store.findByIdAndUpdate(id, { $addToSet: { Category: Category } },{new:true})
+
+     return res.status(200).json({message:"Category Updated", CategoryId})   
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({message:"An error occured"})   
+    }
+}
+
+exports.removeCategory

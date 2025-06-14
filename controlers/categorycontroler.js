@@ -530,6 +530,7 @@ exports.addFilter=async (req,res) => {
       return res.status(500).json({message:"An error occured"})   
     }
 }
+
 exports.editFilter = async (req, res) => {
   try {
     const { id } = req.params;

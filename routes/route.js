@@ -4,7 +4,7 @@ const router = express.Router()
 const verifyToken = require('../midllerware/authToken');
 //abc
 const {getDeliveryEstimate} = require('../controlers/DeliveryControler')
-const { createStore,getStore } = require('../controlers/storeControler');
+const { createStore,getStore,addCategoryInStore } = require('../controlers/storeControler');
 const { settings,addSettings,adminSetting } = require('../controlers/settingControler');
 const { users, addUser,updateProfile,Login,register,verifyMobile } = require('../controlers/authControler');
 const { intro, getIntro } = require('../controlers/controlers')
@@ -81,6 +81,7 @@ router.patch('/admin/banner/:id/status',upload, updateBannerStatus);
 router.put('/updateZoneStatus/:id', updateZoneStatus);
 router.patch('/editAttributes/:id', editAttributes);
 router.put('/editCat/:id',upload, editCat);
+router.put('/addCategoryInStore/:id',addCategoryInStore)
 router.put('/updateCart/:id',quantity)
 router.put('/orderStatus/:id', orderStatus);
 router.patch('/update-profile',upload, verifyToken, updateProfile);

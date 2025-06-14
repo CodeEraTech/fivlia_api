@@ -196,20 +196,27 @@ exports.register = async (req, res) => {
   }
 };
 
-
 exports.verifyMobile = async (req, res) => {
   try {
     let { mobileNumber } = req.body;
 
-    // Remove all non-digit characters
-    mobileNumber = mobileNumber.replace(/\D/g, '');
+    if (!mobileNumber) {
+      return res.status(400).json({ status: 2, message: 'Mobile number is required' });
+    }
 
-    // Validate mobile number (Indian format: 10 digits)
+    // Clean the number: remove +91 or 91 if present
+    if (mobileNumber.startsWith('+91')) {
+      mobileNumber = mobileNumber.slice(3);
+    } else if (mobileNumber.startsWith('91') && mobileNumber.length === 12) {
+      mobileNumber = mobileNumber.slice(2);
+    }
+
+    // Now validate if it's proper Indian format (starts 6-9 and 10 digits)
     if (!/^[6-9]\d{9}$/.test(mobileNumber)) {
       return res.status(400).json({ status: 2, message: 'Invalid mobile number format' });
     }
 
-    // Add +91 if not already present
+    // Format with +91 to match DB
     const formattedNumber = `+91${mobileNumber}`;
 
     // Check if user exists
@@ -221,6 +228,7 @@ exports.verifyMobile = async (req, res) => {
     }
 
     return res.status(200).json({ status: 1, message: 'User Found' });
+
   } catch (error) {
     return res.status(500).json({ status: 2, message: 'Server Error', error: error.message });
   }

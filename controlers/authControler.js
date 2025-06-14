@@ -82,51 +82,54 @@ const image = req.files?.image?.[0].path
     });
   }
 };
-
 exports.Login = async (req,res) => {
   try {
-  let {mobileNumber, userId, fcmToken} = req.body
+    let { mobileNumber, userId, fcmToken } = req.body;
 
-if(!mobileNumber || !userId || !fcmToken){
-return res.status(400).json({message:"Pls Provide All Credentials",status:2})
-}
+    if (!mobileNumber || !userId || !fcmToken) {
+      return res.status(400).json({ message: "Pls Provide All Credentials", status: 2 });
+    }
 
-   mobileNumber = mobileNumber.replace(/\D/g, '');
+    // Clean mobile number
+    if (mobileNumber.startsWith('+91')) {
+      mobileNumber = mobileNumber.slice(3);
+    } else if (mobileNumber.startsWith('91') && mobileNumber.length === 12) {
+      mobileNumber = mobileNumber.slice(2);
+    }
 
-    // Validate format: must start with 6-9 and be exactly 10 digits
     if (!/^[6-9]\d{9}$/.test(mobileNumber)) {
       return res.status(400).json({ status: 2, message: 'Invalid mobile number format' });
     }
 
-    // Format number with +91
     const formattedNumber = `+91${mobileNumber}`;
 
-   let firebaseUser;
-try {
-  firebaseUser = await admin.auth().getUser(userId);
-} catch (err) {
-  return res.status(404).json({
-    status: 2,
-    message: "Firebase UID not found",
-    error: err.message,
-  });
-}
-    if (firebaseUser.phoneNumber !== formattedNumber || !firebaseUser) {
-      return res.status(401).json({status:2, message: "Firebase UID and mobile number do not match" });
+    let firebaseUser;
+    try {
+      firebaseUser = await admin.auth().getUser(userId);
+    } catch (err) {
+      return res.status(404).json({
+        status: 2,
+        message: "Firebase UID not found",
+        error: err.message,
+      });
     }
 
- const exist =await User.findOne({mobileNumber:formattedNumber})
-console.log(exist);
+    if (!firebaseUser || firebaseUser.phoneNumber !== formattedNumber) {
+      return res.status(401).json({ status: 2, message: "Firebase UID and mobile number do not match" });
+    }
 
-const data = await User.updateOne({mobileNumber:formattedNumber},{$set:{userId,fcmToken}})
-const token = jwt.sign({ _id:exist._id }, process.env.jwtSecretKey);
-console.log(data);
-return res.status(200).json({status:1,message:"Login Successfuly",token})
-} catch (error) {
-  console.error(error);
-    return res.status(500).json({status:2,message:"Error in login",error:error.message})
+    const exist = await User.findOne({ mobileNumber: formattedNumber });
+    console.log(exist);
+
+    await User.updateOne({ mobileNumber: formattedNumber }, { $set: { userId, fcmToken } });
+
+    const token = jwt.sign({ _id: exist._id }, process.env.jwtSecretKey);
+    return res.status(200).json({ status: 1, message: "Login Successfully", token });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ status: 2, message: "Error in login", error: error.message });
   }
-}
+};
 
 exports.register = async (req, res) => {
   try {

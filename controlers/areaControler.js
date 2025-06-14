@@ -1,6 +1,7 @@
 const {CityData,ZoneData} = require('../modals/cityZone');
 const Location = require('../modals/location');
 const User = require('../modals/User');
+const Address = require('../modals/Address');
 exports.addCity = async (req, res) => {
   try {
     const { city, zone } = req.body;
@@ -158,44 +159,31 @@ exports.updateZoneStatus = async (req, res) => {
 exports.addAddress = async (req, res) => {
   try {
     const {id} = req.params; 
-    const {fullName,mobileNumber,pincode,locality,address,city,addressType} = req.body;
+    const {fullName,mobileNumber,pincode,House_No,locality,address,State,latitude,longitude,city,addressType} = req.body;
 
-    if (!fullName || !mobileNumber || !pincode || !locality || !address || !city || !addressType) {
-      return res.status(400).json({ message: "All fields are required" });
+    if (!fullName || !mobileNumber || !pincode || !House_No || !locality || !address || !city || !addressType || !State ||!latitude || !longitude) {
+      return res.status(400).json({message: "All fields are required" });
     }
 
     const user = await User.findById(id);
-    
-    if (!user) return res.status(404).json({ message: "User not found" });
 
-    const existing = user.Address.find(a => a.addressType === addressType);
+    if (!user) return res.status(404).json({message: "User not found" });
 
-    if (existing) {
-      // Update the existing address
-      existing.set({
+    const newAddress = await  Address.create({  userId:user._id,
         fullName,
         mobileNumber,
         pincode,
+        House_No,
         locality,
         address,
+        State,
+        latitude,
+        longitude,
         city,
         addressType
-      });
-    } else {
-      user.Address.push({
-        fullName,
-        mobileNumber,
-        pincode,
-        locality,
-        address,
-        city,
-        addressType
-      });
-    }
+        })
 
-    await user.save();
-
-    return res.status(200).json({message:"Address added or updated successfully"});
+    return res.status(200).json({message:"Address added or updated successfully",newAddress});
 
   } catch (error) {
     console.error("Error adding address:", error);
@@ -205,10 +193,38 @@ exports.addAddress = async (req, res) => {
 
 exports.getAddress = async (req,res) => {
  try {
-  const address =await User.find({},'Address')
+  const {id} = req.params
+  const address =await Address.find({userId:id })
   res.json(address)
   } catch (error) {
    console.error("Error adding address:", error);
     return res.status(500).json({ message: "Server error" });
  }
+}
+
+exports.EditAddress=async (req,res) => {
+  try {
+  const {id} = req.params
+  const { userId,fullName,mobileNumber,pincode,House_No,locality,address,State,latitude,longitude,city,addressType }=req.body
+
+  const edit = await Address.findByIdAndUpdate(id,{userId,fullName,mobileNumber,pincode,House_No,locality,address,State,latitude,longitude,city,addressType})
+
+return res.status(200).json({message:"Address Updated Successfuly"})
+
+  } catch (error) {
+    return res.status(500).json({ message: "Server error" });
+  }
+}
+
+exports.deleteAddress = async (req,res) => {
+try {
+  const {id} = req.params
+  const deleteAddress = await Address.findByIdAndDelete(id) 
+  return res.status(200).json({message:"Address Delete Successfuly",deleteAddress})
+} catch (error) {
+  console.error(error);
+  
+  return res.status(500).json({ message: "Server error" }); 
+}
+
 }

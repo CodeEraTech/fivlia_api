@@ -13,7 +13,7 @@ const { addCart,getCart,getDicount,discount,quantity,deleteCart } = require('../
 const { update, banner, getBanner, getAllBanner, updateBannerStatus, addCategory, getCategories, brand, getBrand, editCat,updateAt,editBrand,addFilter,editFilter,getFilter,deleteFilter,deleteFilterVal,addFiltersToCategory } = require('../controlers/categorycontroler');
 const { addProduct, addAtribute, getAttributes, getProduct, getFeatureProduct, searchProduct, bestSelling,editAttributes,unit,getUnit,getVarients,filter,bulkProductUpload,updateProduct,deleteProduct,getAttributesId,notification,getNotification,getRelatedProducts } = require('../controlers/ProductControler')
 const cityZone = require('../modals/cityZone');
-const { addCity, updateCityStatus, getAviableCity, getCity, updateZoneStatus, getAllZone, getZone, updateLocation,addAddress,getAddress } = require('../controlers/areaControler');
+const { addCity, updateCityStatus, getAviableCity, getCity, updateZoneStatus, getAllZone, getZone, updateLocation,addAddress,getAddress,EditAddress,deleteAddress } = require('../controlers/areaControler');
 
 router.post('/Login', Login)
 router.post('/register', register)
@@ -33,6 +33,7 @@ router.post('/createStore',upload,createStore)
 router.post('/Product/bulk',upload,bulkProductUpload),
 router.post('/adminSetting', adminSetting)
 router.post('/addFilter', addFilter)
+router.post('/address/:id', addAddress);
 
 router.post('/discount', discount)
 router.post('/addCity', addCity)
@@ -62,7 +63,7 @@ router.get('/getDiscount', getDicount)
 router.get('/getVarients/:id', getVarients)
 router.get('/orders', getOrders);
 router.get('/settings/:id',settings);
-router.get('/getAddress',getAddress);
+router.get('/getAddress/:id',getAddress);
 router.get('/getStore',getStore);
 router.get('/relatedProduct/:productId',getRelatedProducts)
 router.get('/getFilter',getFilter);
@@ -70,6 +71,7 @@ router.get('/getDeliveryEstimate',verifyToken,getDeliveryEstimate);
 router.get('/send-test-notification',test)
 
 router.put('/editBrand/:id', upload, editBrand)
+router.put('/EditAddress/:id', EditAddress)
 router.put('/addFilterInCategory/:id', addFiltersToCategory)
 router.post('/addUser', upload, addUser)
 router.patch('/edit/:id', upload, update)
@@ -80,10 +82,10 @@ router.put('/updateZoneStatus/:id', updateZoneStatus);
 router.patch('/editAttributes/:id', editAttributes);
 router.put('/editCat/:id',upload, editCat);
 router.put('/updateCart/:id',quantity)
-router.put('/address/:id', addAddress);
 router.put('/orderStatus/:id', orderStatus);
 router.patch('/update-profile',upload, verifyToken, updateProfile);
 router.patch('/updateProduct/:id',upload, updateProduct);
+router.delete('/deleteAddress/:id',deleteAddress)
 router.delete('/deleteProduct/:id',deleteProduct)
 router.delete('/removeCart/:id',deleteCart)
 router.patch('/editFilter/:id', editFilter);

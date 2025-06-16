@@ -3,6 +3,18 @@ const Store = require('../modals/store');
 const User = require('../modals/User');
 const { ZoneData } = require('../modals/cityZone');
 
+function addFiveMinutes(durationText) {
+  const match = durationText.match(/(\d+)\s*min/); // Extract number
+  if (match) {
+    const originalMinutes = parseInt(match[1]);
+    const newMinutes = originalMinutes + 5;
+    return `${newMinutes} mins`;
+  }
+  return durationText; // fallback in case format is unexpected
+}
+
+
+
 exports.getDeliveryEstimate = async (req, res) => {
   try {
     const { id } = req.user;
@@ -63,7 +75,7 @@ exports.getDeliveryEstimate = async (req, res) => {
           storeName: store.storeName,
           city: store.city?.name || null,
           distance: result.distanceText,
-          duration: result.durationText,
+          duration: addFiveMinutes(result.trafficDurationText),
           raw: result,
         };
       })

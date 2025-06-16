@@ -26,7 +26,7 @@ exports.addCart = async (req, res) => {
 
 exports.getCart=async (req,res) => {
   try {
-    const {id} = req.params
+    const {id} = req.user
     const items = await Cart.find({userId:id})
     return res.status(200).json({ message: 'Cart Items:', items });
   } catch (error) {

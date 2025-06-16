@@ -67,7 +67,7 @@ router.get('/getFeatureProduct', getFeatureProduct)
 router.get('/bestSelling', bestSelling)
 router.get('/search', searchProduct)
 router.get('/getUnit', getUnit)
-router.get('/getCart/:id', getCart)
+router.get('/getCart',verifyToken, getCart)
 router.get('/getDiscount', getDicount)
 router.get('/getVarients/:id', getVarients)
 router.get('/orders', getOrders);

@@ -17,7 +17,6 @@ exports.getDeliveryEstimate = async (req, res) => {
 
     // 🗺️ Reverse geocode to get city and zone
     const geoInfo = await reverseGeocode(userLat, userLng);
-    console.log('geoInfo', geoInfo);
 
     if (!geoInfo?.city || !geoInfo?.zone)
       return res.status(400).json({ message: "Could not determine user's zone" });

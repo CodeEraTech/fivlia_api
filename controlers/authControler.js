@@ -142,6 +142,13 @@ exports.register = async (req, res) => {
     // Remove non-digit characters from mobile
     mobileNumber = mobileNumber.replace(/\D/g, '');
 
+if (mobileNumber.startsWith('+91')) {
+  mobileNumber = mobileNumber.slice(3);
+} else if (mobileNumber.startsWith('91') && mobileNumber.length === 12) {
+  mobileNumber = mobileNumber.slice(2);
+}
+
+
     // Validate format: must start with 6-9 and be exactly 10 digits
     if (!/^[6-9]\d{9}$/.test(mobileNumber)) {
       return res.status(400).json({ status: 2, message: 'Invalid mobile number format' });

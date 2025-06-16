@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const Store = require('../modals/store')
+const admin = require("../firebase/firebase");
 const Products = require('../modals/Product');
 const Attribute = require('../modals/attribute');
 const Filters = require('../modals/filter')
@@ -327,109 +327,110 @@ for (const variant of parsedVariantsArray) {
 exports.getProduct = async (req, res) => {
   try {
     const { id } = req.query;
-    const userId = req.user._id;
+    const userId = req.user._id.toString();
 
-    // 🟢 1. Get user
-    const user = await User.findById(userId).lean();
+
+  const user = await User.findById(userId).lean();
     if (!user || !user.location?.city || !user.location?.zone) {
       return res.status(400).json({ message: "User location not found" });
     }
-
-    const userCity = user.location.city;
+      const userCity = user.location.city;
     const userZone = user.location.zone;
 
-    // 🟢 2. Get active cities (use _id instead of city name)
     const activeCities = await CityData.find({ status: true }, 'city').lean();
-    const activeCityIds = activeCities.map(c => c._id.toString());
+    const activeCityNames = activeCities.map(c =>c.city ? c.city.toString():null);
 
-    // 🟢 3. Get active zones
     const zoneDocs = await ZoneData.find({}, 'zones').lean();
     const activeZoneIds = [];
 
-    zoneDocs.forEach(doc => {
-      if (Array.isArray(doc.zones)) {
-        doc.zones.forEach(zone => {
-          if (zone.status && zone._id) {
-            activeZoneIds.push(zone._id.toString());
-          }
-        });
+zoneDocs.forEach(doc => {
+  if (Array.isArray(doc.zones)) {
+    doc.zones.forEach(zone => {
+      if (zone.status === true && zone._id) {
+        activeZoneIds.push(zone._id.toString());
       }
     });
-
-    // 🟢 4. Get all stores
-    const stores = await Store.find({}).lean();
-
-    // 🔥 5. Match store location with user
-    const allowedStoreIds = stores
-      .filter(store => {
-        const storeCityId = store.city?._id?.toString();
-        const storeCityName = store.city?.name;
-
-        const cityMatch = storeCityName === userCity;
-        console.log('activeCityIds',activeCityIds);
-        console.log('storeCityId',storeCityId);
-        const isCityActive = activeCityIds.includes(storeCityId);
-
-        console.log({ storeCityName, cityMatch, isCityActive });
-
-        if (!cityMatch || !isCityActive) return false;
-
-        const zoneMatch = store.zone?.some(z => {
-          const zoneId = z?._id?.toString();
-          const zoneName = z?.name?.toLowerCase();
-          const isZoneActive = activeZoneIds.includes(zoneId);
-          const isUserZoneMatch = zoneName?.includes(userZone.toLowerCase());
-
-          console.log({ zoneId, zoneName, isZoneActive, isUserZoneMatch });
-
-          return isZoneActive && isUserZoneMatch;
-        });
-
-        return zoneMatch;
-      })
-      .map(store => store._id?.toString());
-
-    if (!allowedStoreIds.length) {
-      return res.status(404).json({ message: "No matching stores found for your location." });
-    }
-
-    // 🔥 6. Fetch products based on allowed stores and category
-    let productQuery = { storeId: { $in: allowedStoreIds } };
-
+  }
+});
+    // Fetch products filtered by category ID or get all
+    let products;
     if (id) {
-      productQuery["$or"] = [
-        { 'category._id': id },
-        { 'subCategory._id': id },
-        { 'subSubCategory._id': id }
-      ];
+      products = await Products.find({
+        $or: [
+          { 'category._id': id },
+          { 'subCategory._id': id },
+          { 'subSubCategory._id': id }
+        ]
+      }).lean();
+    } else {
+      products = await Products.find({}).lean();
     }
 
-    const products = await Products.find(productQuery).lean();
+ const filteredProducts = products.filter(product => {
+  if (!Array.isArray(product.location)) return false;
 
-    if (!products.length) {
-      return res.status(404).json({ message: "No matching products found for your location." });
+  return product.location.some(loc => {
+    const cityName = Array.isArray(loc.city)
+      ? loc.city[0]?.name
+      : loc.city?.name;
+
+    const isCityActive = activeCityNames.includes(cityName);
+    const isUserCityMatch = cityName === userCity;
+
+    if (!isCityActive || !isUserCityMatch) return false;
+
+    const zones = Array.isArray(loc.zone) ? loc.zone : [loc.zone];
+
+    return zones.some(z => {
+      const zoneId = z?._id?.toString();
+      const zoneName = z?.name?.toLowerCase();
+
+      const isZoneActive = activeZoneIds.includes(zoneId);
+      const isUserZoneMatch = zoneName?.includes(userZone.toLowerCase());
+
+   console.log({ zoneId, zoneName, isZoneActive, isUserZoneMatch });
+console.log({ userCity, cityName, isCityActive, isUserCityMatch });
+
+      return isZoneActive && isUserZoneMatch;
+    });
+  });
+});
+
+
+
+// console.log('filteredProducts',filteredProducts);
+// console.log('userCity',userCity);
+// console.log('userZone',userZone);
+
+    // 4. Return early if no match
+    if (filteredProducts.length === 0) {
+      return res.status(404).json({ message: 'No matching products found for your location.' });
     }
 
-    // 🧠 7. Filters
-    let filter = [];
-    if (id) {
-      const matchedCategory = await Category.findById(id).lean();
-      if (matchedCategory?.filter?.length) {
-        const filterIds = matchedCategory.filter.map(f => f._id);
-        filter = await Filters.find({ _id: { $in: filterIds } }).lean();
-      }
-    }
+
+let filter = [];
+
+if (id) {
+  const matchedCategory = await Category.findById(id).lean();
+  if (matchedCategory && Array.isArray(matchedCategory.filter)) {
+    const filterIds = matchedCategory.filter.map(f => f._id);
+    
+    filter = await Filters.find({ _id: { $in: filterIds } }).lean();
+    console.log(filter);
+  }
+}
+
 
     return res.status(200).json({
-      message: "Products fetched successfully.",
+      message: 'Products fetched successfully.',
       filter,
-      products,
-      count: products.length
+      products: filteredProducts,
+      count:products.length
     });
 
   } catch (error) {
-    console.error("getProduct error:", error);
-    return res.status(500).json({ message: "Server error", error: error.message });
+    console.error(error);
+    return res.status(500).json({ message: 'Server error.', error: error.message });
   }
 };
 

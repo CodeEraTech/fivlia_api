@@ -2,7 +2,8 @@ const {Cart,Discount} = require('../modals/cart');
 
 exports.addCart = async (req, res) => {
   try {
-    const { name, quantity, price, productId, varientId, userId } = req.body;
+    const userId = req.user; 
+    const { name, quantity, price, productId, varientId } = req.body;
     const image = req.files?.image?.[0]?.path; // assuming multer is used
 
     const cartItem = await Cart.create({

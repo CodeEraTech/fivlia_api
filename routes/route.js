@@ -4,14 +4,22 @@ const router = express.Router()
 const verifyToken = require('../midllerware/authToken');
 //abc
 const {getDeliveryEstimate} = require('../controlers/DeliveryControler')
+
 const { createStore,getStore,addCategoryInStore,removeCategoryInStore } = require('../controlers/storeControler');
+
 const { settings,addSettings,adminSetting } = require('../controlers/settingControler');
 const { users, addUser,updateProfile,Login,signin,register,verifyMobile } = require('../controlers/authControler');
+
 const { intro, getIntro } = require('../controlers/controlers')
+
 const { placeOrder, getOrders,orderStatus,test } = require('../controlers/orderControler')
+
 const { addCart,getCart,getDicount,discount,quantity,deleteCart } = require('../controlers/cartControler')
+
 const { update, banner, getBanner, getAllBanner, updateBannerStatus, addCategory, getCategories, brand, getBrand, editCat,updateAt,editBrand,addFilter,editFilter,getFilter,deleteFilter,deleteFilterVal,addFiltersToCategory } = require('../controlers/categorycontroler');
+
 const { addProduct, addAtribute, getAttributes, getProduct, getFeatureProduct, searchProduct, bestSelling,editAttributes,unit,getUnit,getVarients,filter,bulkProductUpload,updateProduct,deleteProduct,getAttributesId,notification,getNotification,getRelatedProducts } = require('../controlers/ProductControler')
+
 const cityZone = require('../modals/cityZone');
 const { addCity, updateCityStatus, getAviableCity, getCity, updateZoneStatus, getAllZone, getZone, updateLocation,addAddress,getAddress,EditAddress,deleteAddress } = require('../controlers/areaControler');
 
@@ -26,7 +34,7 @@ router.post('/banner', upload, banner)
 router.post('/brand', upload, brand)
 router.post('/addAtribute', addAtribute)
 router.post('/unit', unit)
-router.post('/addCart',upload, addCart)
+router.post('/addCart',upload,verifyToken, addCart)
 router.post('/placeOrder/:id', placeOrder);
 router.post('/filter',filter)
 router.post('/addSettings',addSettings)

@@ -131,12 +131,61 @@ exports.Login = async (req,res) => {
   }
 };
 
-exports.register = async (req, res) => {
+exports.signin = async (req,res) => {
   try {
     let { mobileNumber, userId, fcmToken } = req.body;
 
     if (!mobileNumber || !userId || !fcmToken) {
-      return res.status(400).json({status: 2, message: "Please provide all credentials", status: false });
+      return res.status(400).json({status: false, message: "Pls Provide All Credentials"});
+    }
+
+    // Clean mobile number
+    if (mobileNumber.startsWith('+91')) {
+      mobileNumber = mobileNumber.slice(3);
+    } else if (mobileNumber.startsWith('91') && mobileNumber.length === 12) {
+      mobileNumber = mobileNumber.slice(2);
+    }
+
+    if (!/^[6-9]\d{9}$/.test(mobileNumber)) {
+      return res.status(400).json({ status: false, message: 'Invalid mobile number format' });
+    }
+
+    const formattedNumber = `+91${mobileNumber}`;
+
+    let firebaseUser;
+    try {
+      firebaseUser = await admin.auth().getUser(userId);
+    } catch (err) {
+      return res.status(404).json({
+        status: false,
+        message: "Firebase UID not found",
+        error: err.message,
+      });
+    }
+
+    if (!firebaseUser || firebaseUser.phoneNumber !== formattedNumber) {
+      return res.status(401).json({ status: false, message: "Firebase UID and mobile number do not match" });
+    }
+
+    const exist = await User.findOne({ mobileNumber: formattedNumber });
+    console.log(exist);
+
+    await User.updateOne({ mobileNumber: formattedNumber }, { $set: { userId, fcmToken } });
+
+    const token = jwt.sign({ _id: exist._id }, process.env.jwtSecretKey);
+    return res.status(200).json({ status: true, message: "Login Successfully", token });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ status: false, message: "Error in login", error: error.message });
+  }
+};
+
+exports.register = async (req, res) => {
+  try {
+    let { mobileNumber, userId, fcmToken } = req.body;
+
+    if (!mobileNumber) {
+      return res.status(400).json({status: false, message: "Please provide all credentials"});
     }
 
     // Remove non-digit characters from mobile
@@ -151,31 +200,11 @@ if (mobileNumber.startsWith('+91')) {
 
     // Validate format: must start with 6-9 and be exactly 10 digits
     if (!/^[6-9]\d{9}$/.test(mobileNumber)) {
-      return res.status(400).json({ status: 2, message: 'Invalid mobile number format' });
+      return res.status(400).json({ status: false, message: 'Invalid mobile number format' });
     }
 
     // Format number with +91
     const formattedNumber = `+91${mobileNumber}`;
-
-    // Get Firebase user data
-    let firebaseUser;
-    try {
-      firebaseUser = await admin.auth().getUser(userId);
-    } catch (err) {
-      return res.status(404).json({
-        status: 2,
-        message: "Firebase UID not found",
-        error: err.message,
-      });
-    }
-
-    // Match phone number exactly
-    if (firebaseUser.phoneNumber !== formattedNumber) {
-      return res.status(401).json({
-        status: 1,
-        message: "Firebase UID and mobile number do not match",
-      });
-    }
 
     // Create new user
     const newUser = await User.create({
@@ -188,7 +217,7 @@ if (mobileNumber.startsWith('+91')) {
     const token = jwt.sign({ _id: newUser._id }, process.env.jwtSecretKey);
 
     return res.status(200).json({
-      status: 1,
+      status: true,
       message: "Login Successfully",
       token,
     });
@@ -196,7 +225,7 @@ if (mobileNumber.startsWith('+91')) {
   } catch (error) {
     console.error(error);
     return res.status(500).json({
-      status: 2,
+      status: false,
       message: "Error in registration",
       error: error.message,
     });

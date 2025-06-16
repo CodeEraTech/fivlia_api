@@ -62,7 +62,7 @@ router.get("/categories", getCategories);
 router.get("/getBrand", getBrand);
 router.get('/getAttributes', getAttributes)
 router.get('/getAttributesId/:id', getAttributesId)
-router.get('/getProducts', getProduct)
+router.get('/getProducts',verifyToken, getProduct)
 router.get('/getFeatureProduct', getFeatureProduct)
 router.get('/bestSelling', bestSelling)
 router.get('/search', searchProduct)

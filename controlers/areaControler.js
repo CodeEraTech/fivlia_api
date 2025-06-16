@@ -82,6 +82,7 @@ exports.updateLocation = async (req, res) => {
       },
       { new: true }
     );
+console.log(updatedUser);
 
     if (!updatedUser) {
       return res.status(404).json({ message: "User not found" });

@@ -1,6 +1,7 @@
 // models/Product.js
 const mongoose = require('mongoose');
 const { required } = require('zod/v4-mini');
+const { quantity } = require('../controlers/cartControler');
 
 const locationSchema=new mongoose.Schema({
   city:[{ _id: { type: mongoose.Schema.Types.ObjectId, ref: 'Locations' },
@@ -45,7 +46,11 @@ const productSchema = new mongoose.Schema({
   online_visible: { type: Boolean, default: true },
   feature_product: { type: Boolean, default: false },
   fulfilled_by: String,
-  inventory: { type: String, enum: ['InStock', 'OutOfStock'],default:'OutOfStock' },
+  returnProduct:{image:String,title:String,  _id: { type: mongoose.Schema.Types.ObjectId, default: () => new mongoose.Types.ObjectId() }},
+ inventory: [{
+  varientId: { type: mongoose.Schema.Types.ObjectId },
+  _id: { type: mongoose.Schema.Types.ObjectId, default: () => new mongoose.Types.ObjectId() },quantity: { type: Number, default: 0 }}],
+
   rating:{rate:{type:Number, default:4.5},users:{type:Number,default:10},_id:{type:mongoose.Schema.Types.ObjectId,auto: true}},//object with user count
   variants: [variantSchema],
   filter: [{_id: { type: mongoose.Schema.Types.ObjectId },Filter_name: { type: String },

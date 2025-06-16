@@ -21,31 +21,36 @@ exports.getDeliveryEstimate = async (req, res) => {
     if (!id) return res.status(400).json({ message: "Missing user ID" });
 
     const user = await User.findById(id);
+
     if (!user?.location?.latitude || !user?.location?.longitude)
       return res.status(400).json({ message: "User location not set" });
 
-    const userLat = parseFloat(user.location.latitude);
-    const userLng = parseFloat(user.location.longitude);
+    let { latitude, longitude, city, zone } = user.location;
 
-    // 🗺️ Reverse geocode to get city and zone
-    const geoInfo = await reverseGeocode(userLat, userLng);
+    // 📍 If city or zone is missing, reverse geocode ONCE
+    if (!city || !zone) {
+      const geoInfo = await reverseGeocode(parseFloat(latitude), parseFloat(longitude));
+      if (!geoInfo?.city || !geoInfo?.zone) {
+        return res.status(400).json({ message: "Could not determine user's zone" });
+      }
 
-    if (!geoInfo?.city || !geoInfo?.zone)
-      return res.status(400).json({ message: "Could not determine user's zone" });
+      // ✅ Save to DB for future reuse
+      user.location.city = geoInfo.city;
+      user.location.zone = geoInfo.zone;
+      await user.save();
 
-    // 🏙️ Get zones from DB based on city
-    const userZoneDoc = await ZoneData.findOne({ city: geoInfo.city });
-    console.log('userZoneDoc', userZoneDoc);
+      city = geoInfo.city;
+      zone = geoInfo.zone;
+    }
 
+    // 🚀 Now use city and zone (from DB or API)
+    const userZoneDoc = await ZoneData.findOne({ city });
     if (!userZoneDoc)
       return res.json({ message: "Sorry, we are not available in your city yet." });
 
-    // 🔍 Fuzzy match zone name inside zones array
     const matchedZone = userZoneDoc.zones.find(z =>
-      z.address.toLowerCase().includes(geoInfo.zone.toLowerCase())
+      z.address.toLowerCase().includes(zone.toLowerCase())
     );
-    console.log('matchedZone', matchedZone);
-
     if (!matchedZone)
       return res.json({ message: "Sorry, we are not available in your zone yet." });
 
@@ -56,7 +61,6 @@ exports.getDeliveryEstimate = async (req, res) => {
     if (!stores.length)
       return res.json({ message: "Sorry, no stores available in your zone." });
 
-    // 🚚 Calculate delivery estimates
     const results = await Promise.all(
       stores.map(async (store) => {
         if (!store.Latitude || !store.Longitude) return null;
@@ -64,8 +68,8 @@ exports.getDeliveryEstimate = async (req, res) => {
         const result = await calculateDeliveryTime(
           parseFloat(store.Latitude),
           parseFloat(store.Longitude),
-          userLat,
-          userLng
+          parseFloat(latitude),
+          parseFloat(longitude)
         );
 
         if (!result) return null;
@@ -89,3 +93,4 @@ exports.getDeliveryEstimate = async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
+

@@ -3,11 +3,13 @@ const admin = require("../firebase/firebase");
 const Products = require('../modals/Product');
 const Attribute = require('../modals/attribute');
 const Filters = require('../modals/filter')
+const User = require('../modals/User')
 const Category = require('../modals/category');
 const Unit = require('../modals/unit');
 const {CityData, ZoneData } = require('../modals/cityZone');
 const brand = require('../modals/brand')
 const Notification = require('../modals/Notification');
+const cloudinary = require('../config/cloudinary');
 const moment = require('moment-timezone');
 
 exports.addAtribute=async (req,res) => {
@@ -81,7 +83,7 @@ exports.addProduct = async (req, res) => {
       productName, description, category, subCategory, subSubCategory,rating,
       sku, ribbon, brand_Name, sold_by, type, location, online_visible,
       inventory, tax, feature_product, fulfilled_by, variants, minQuantity,
-      maxQuantity, ratings, unit, mrp, sell_price,filter
+      maxQuantity, ratings, unit, mrp, sell_price,filter,returnProduct
     } = req.body;
 
     const MultipleImage = req.files?.MultipleImage?.map(file => file.path) || [];
@@ -231,6 +233,58 @@ for (let loc of parsedLocation) {
       return { ...variant, discountValue: discount };
     });
 
+let returnProductData = null;
+
+if (returnProduct) {
+  try {
+    const parsedReturn = typeof returnProduct === 'string'
+  ? JSON.parse(returnProduct)
+  : returnProduct;
+
+returnProductData = {
+  title: parsedReturn.title?.trim() || ""
+};
+
+if (req.files?.file?.[0]?.path) {
+  const cloudUpload = await cloudinary.uploader.upload(req.files.file?.[0].path, {
+    folder: "returnProduct"
+  });
+
+  if (cloudUpload?.secure_url) {
+    returnProductData.image = cloudUpload.secure_url;
+  }
+}
+console.log("🧾 Final returnProductData:", returnProductData);
+
+  } catch (err) {
+    console.warn("❗ Failed to parse returnProduct:", err.message);
+  }
+}
+
+let finalInventoryArray = [];
+
+let parsedVariantsArray = [];
+try {
+  parsedVariantsArray = parsedVariants.map(v => {
+    return {
+      _id: mongoose.Types.ObjectId.isValid(v._id) ? v._id : new mongoose.Types.ObjectId(),
+      ...v
+    }
+  });
+} catch {
+  parsedVariantsArray = [];
+}
+
+// 👇 For each variant, assign default quantity 0
+for (const variant of parsedVariantsArray) {
+  finalInventoryArray.push({
+    varientId: variant._id,
+    quantity: 0,
+    _id: new mongoose.Types.ObjectId()
+  });
+}
+
+
     const newProduct = await Products.create({
       ...(productName && { productName }),
       ...(description && { description }),
@@ -241,6 +295,7 @@ for (let loc of parsedLocation) {
       ...(foundSubCategory && { subCategory: { _id: foundSubCategory._id, name: foundSubCategory.name } }),
       ...(foundSubSubCategory && { subSubCategory: { _id: foundSubSubCategory._id, name: foundSubSubCategory.name } }),
       ...(sku && { sku }),
+      ...(returnProduct && {returnProduct:returnProductData}),
       ...(ribbon && { ribbon }),
       ...(unit && typeof unit === 'string' && {unit: { name: unit }}),
       ...(brandObj && { brand_Name: { _id: brandObj._id, name: brandObj.brandName } }),
@@ -248,7 +303,7 @@ for (let loc of parsedLocation) {
       ...(type && { type }),
       ...(productLocation.length && { location: productLocation }),
       ...(online_visible !== undefined && { online_visible }),
-      ...(inventory && { inventory }),
+      ...(finalInventoryArray.length && { inventory: finalInventoryArray }),
       ...(tax && { tax }),
       ...(feature_product && { feature_product }),
       ...(fulfilled_by && { fulfilled_by }),
@@ -272,8 +327,16 @@ for (let loc of parsedLocation) {
 exports.getProduct = async (req, res) => {
   try {
     const { id } = req.query;
+    const userId = req.user._id.toString();
 
-    // Get active city & zone IDs
+
+  const user = await User.findById(userId).lean();
+    if (!user || !user.location?.city || !user.location?.zone) {
+      return res.status(400).json({ message: "User location not found" });
+    }
+      const userCity = user.location.city;
+    const userZone = user.location.zone;
+
     const activeCities = await CityData.find({ status: true }, 'city').lean();
     const activeCityNames = activeCities.map(c =>c.city ? c.city.toString():null);
 
@@ -303,7 +366,7 @@ zoneDocs.forEach(doc => {
       products = await Products.find({}).lean();
     }
 
-   const filteredProducts = products.filter(product => {
+ const filteredProducts = products.filter(product => {
   if (!Array.isArray(product.location)) return false;
 
   return product.location.some(loc => {
@@ -311,26 +374,58 @@ zoneDocs.forEach(doc => {
       ? loc.city[0]?.name
       : loc.city?.name;
 
-    const zoneId = Array.isArray(loc.zone)
-      ? loc.zone[0]?._id?.toString()
-      : loc.zone?._id?.toString();
+    const isCityActive = activeCityNames.includes(cityName);
+    const isUserCityMatch = cityName === userCity;
 
-    return (
-      cityName &&
-      zoneId &&
-      activeCityNames.includes(cityName) &&
-      activeZoneIds.includes(zoneId)
-    );
+    if (!isCityActive || !isUserCityMatch) return false;
+
+    const zones = Array.isArray(loc.zone) ? loc.zone : [loc.zone];
+
+    return zones.some(z => {
+      const zoneId = z?._id?.toString();
+      const zoneName = z?.name?.toLowerCase();
+
+      const isZoneActive = activeZoneIds.includes(zoneId);
+      const isUserZoneMatch = zoneName?.includes(userZone.toLowerCase());
+
+   console.log({ zoneId, zoneName, isZoneActive, isUserZoneMatch });
+console.log({ userCity, cityName, isCityActive, isUserCityMatch });
+
+      return isZoneActive && isUserZoneMatch;
+    });
   });
 });
 
+
+
+// console.log('filteredProducts',filteredProducts);
+// console.log('userCity',userCity);
+// console.log('userZone',userZone);
+
+    // 4. Return early if no match
     if (filteredProducts.length === 0) {
-      return res.status(404).json({ message: 'No active products found.' });
+      return res.status(404).json({ message: 'No matching products found for your location.' });
     }
+
+
+let filter = [];
+
+if (id) {
+  const matchedCategory = await Category.findById(id).lean();
+  if (matchedCategory && Array.isArray(matchedCategory.filter)) {
+    const filterIds = matchedCategory.filter.map(f => f._id);
+    
+    filter = await Filters.find({ _id: { $in: filterIds } }).lean();
+    console.log(filter);
+  }
+}
+
 
     return res.status(200).json({
       message: 'Products fetched successfully.',
+      filter,
       products: filteredProducts,
+      count:products.length
     });
 
   } catch (error) {

@@ -486,14 +486,110 @@ exports.getProduct = async (req, res) => {
 };
 
 
-exports.bestSelling=async (req,res) => {
+exports.bestSelling = async (req, res) => {
   try {
-  const best = await Products.find().sort({purchases: -1}).limit(10);
-   return res.status(200).json({ message: "Success", best });
+    const userId = req.user;
+    console.log("🔐 Authenticated User ID:", userId);
+
+    const user = await User.findById(userId).lean();
+    if (!user || !user.location?.city || !user.location?.zone) {
+      console.log("❌ User location missing or incomplete");
+      return res.status(400).json({ message: "User location not found" });
+    }
+
+    const userCity = user.location.city;
+    const userZone = user.location.zone.toLowerCase();
+    console.log("✅ User Location =>", { userCity, userZone });
+
+    // 🔵 Active Cities
+    const activeCities = await CityData.find({ status: true }, 'city').lean();
+    console.log("📍 Active City Names:", activeCities.map(c => c.city));
+
+    // 🔵 Active Zones
+    const zoneDocs = await ZoneData.find({}, 'zones').lean();
+    const activeZoneIds = [];
+    zoneDocs.forEach(doc => {
+      (doc.zones || []).forEach(zone => {
+        if (zone.status && zone._id) {
+          activeZoneIds.push(zone._id.toString());
+        }
+      });
+    });
+    console.log("📍 Active Zone IDs:", activeZoneIds);
+
+    // 🔵 All stores
+    const stores = await Store.find().lean();
+    console.log("🛒 Total Stores Fetched:", stores.length);
+
+    // 🔥 Match stores by user location
+    const allowedStores = stores.filter(store => {
+      const storeCityName = store.city?.name;
+      const cityMatch = storeCityName?.toLowerCase() === userCity.toLowerCase();
+      const isCityActive = activeCities.some(
+        c => c.city?.toLowerCase() === storeCityName?.toLowerCase()
+      );
+
+      console.log("🏙️ Store City Check:", {
+        storeCityName,
+        cityMatch,
+        isCityActive
+      });
+
+      if (!cityMatch || !isCityActive) return false;
+
+      const matchedZone = (store.zone || []).some(z => {
+        const zoneId = z?._id?.toString();
+        const zoneName = z?.name?.toLowerCase();
+
+        const isZoneActive = activeZoneIds.includes(zoneId);
+        const isUserZoneMatch = zoneName?.includes(userZone);
+
+        console.log("📦 Store Zone Check:", {
+          zoneId,
+          zoneName,
+          isZoneActive,
+          isUserZoneMatch
+        });
+
+        return isZoneActive && isUserZoneMatch;
+      });
+
+      return matchedZone;
+    });
+
+    if (!allowedStores.length) {
+      console.log("⚠️ No matching stores found");
+      return res.status(200).json({
+        message: "No best-selling products found for your location.",
+        best: []
+      });
+    }
+
+    const allowedStoreIds = allowedStores.map(s => s._id.toString());
+    console.log("✅ Allowed Store IDs:", allowedStoreIds);
+
+    // 🟢 Fetch best-selling products from matched stores
+    const best = await Products.find()
+      .sort({ purchases: -1 })
+      .limit(10)
+      .lean();
+
+    console.log("🔥 Best-Selling Products Found:", best.length);
+
+    return res.status(200).json({
+      message: "Success",
+      best,
+    });
+
   } catch (error) {
-     return res.status(500).json({ message: "An error occured!", error: error.message });
+    console.error("❌ bestSelling error:", error);
+    return res.status(500).json({
+      message: "An error occurred!",
+      error: error.message
+    });
   }
-}
+};
+
 
 exports.searchProduct=async (req,res) => {
   try {
@@ -512,15 +608,95 @@ res.json(product)
   }
 }
 
-exports.getFeatureProduct=async (req,res) => {
+exports.getFeatureProduct = async (req, res) => {
   try {
-     const product=await Products.find({feature_product:true}).lean()
-   return res.status(200).json({ message: 'It is feature product.', product  });
+    const userId = req.user;
+    const user = await User.findById(userId).lean();
+
+    if (!user || !user.location?.city || !user.location?.zone) {
+      return res.status(400).json({ message: "User location not found" });
+    }
+
+    const userCity = user.location.city;
+    const userZone = user.location.zone.toLowerCase();
+
+    const activeCities = await CityData.find({ status: true }, 'city').lean();
+    const zoneDocs = await ZoneData.find({}, 'zones').lean();
+    const activeZoneIds = [];
+
+    zoneDocs.forEach(doc => {
+      (doc.zones || []).forEach(zone => {
+        if (zone.status && zone._id) {
+          activeZoneIds.push(zone._id.toString());
+        }
+      });
+    });
+
+    const stores = await Store.find().lean();
+
+    const allowedStores = stores.filter(store => {
+      const storeCityName = store.city?.name;
+      const cityMatch = storeCityName?.toLowerCase() === userCity.toLowerCase();
+      const isCityActive = activeCities.some(
+        c => c.city?.toLowerCase() === storeCityName?.toLowerCase()
+      );
+
+      if (!cityMatch || !isCityActive) return false;
+
+      return (store.zone || []).some(z => {
+        const zoneId = z?._id?.toString();
+        const zoneName = z?.name?.toLowerCase();
+        const isZoneActive = activeZoneIds.includes(zoneId);
+        const isUserZoneMatch = zoneName?.includes(userZone);
+        return isZoneActive && isUserZoneMatch;
+      });
+    });
+
+    const allCategoryIds = new Set();
+    for (const store of allowedStores) {
+      const categoryIds = Array.isArray(store.Category)
+        ? store.Category.map(id => id.toString())
+        : [store.Category?.toString()];
+
+      for (const catId of categoryIds) {
+        const category = await Category.findById(catId).lean();
+        if (!category) continue;
+
+        allCategoryIds.add(category._id.toString());
+
+        (category.subcat || []).forEach(sub => {
+          allCategoryIds.add(sub._id.toString());
+          (sub.subsubcat || []).forEach(subsub => {
+            allCategoryIds.add(subsub._id.toString());
+          });
+        });
+      }
+    }
+
+    const categoryArray = Array.from(allCategoryIds);
+
+    const product = await Products.find({
+      feature_product: true,
+      $or: [
+        { "category._id": { $in: categoryArray } },
+        { subCategoryId: { $in: categoryArray } },
+        { subSubCategoryId: { $in: categoryArray } }
+      ]
+    }).lean();
+
+    return res.status(200).json({
+      message: 'It is feature product.',
+      product,
+      count: product.length
+    });
+
   } catch (error) {
-      console.error("Server error:", error);
-    return res.status(500).json({ message: "An error occured!", error: error.message });
+    console.error("Server error:", error);
+    return res.status(500).json({ message: "An error occurred!", error: error.message });
   }
-}
+};
+
+
 
 exports.unit=async (req,res) => {
   try {

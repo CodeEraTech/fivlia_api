@@ -347,3 +347,116 @@ gm = 683ecc5af33a9f32a48f6b18
 683ecc7af33a9f32a48f6b21="Ltr"
 
 6842f0f9cf0718ce21b784e2="Pcs"
+
+
+
+
+
+exports.getProduct = async (req, res) => {
+  try {
+    const { id } = req.query;
+    const userId = req.user._id;
+
+    // 🟢 1. Get user
+    const user = await User.findById(userId).lean();
+    if (!user || !user.location?.city || !user.location?.zone) {
+      return res.status(400).json({ message: "User location not found" });
+    }
+
+    const userCity = user.location.city;
+    const userZone = user.location.zone;
+
+    // 🟢 2. Get active cities (use _id instead of city name)
+    const activeCities = await CityData.find({ status: true }, 'city').lean();
+    const activeCityIds = activeCities.map(c => c._id.toString());
+
+    // 🟢 3. Get active zones
+    const zoneDocs = await ZoneData.find({}, 'zones').lean();
+    const activeZoneIds = [];
+
+    zoneDocs.forEach(doc => {
+      if (Array.isArray(doc.zones)) {
+        doc.zones.forEach(zone => {
+          if (zone.status && zone._id) {
+            activeZoneIds.push(zone._id.toString());
+          }
+        });
+      }
+    });
+
+    // 🟢 4. Get all stores
+    const stores = await Store.find({}).lean();
+
+    // 🔥 5. Match store location with user
+    const allowedStoreIds = stores
+      .filter(store => {
+        const storeCityId = store.city?._id?.toString();
+        const storeCityName = store.city?.name;
+
+        const cityMatch = storeCityName === userCity;
+        console.log('activeCityIds',activeCityIds);
+        console.log('storeCityId',storeCityId);
+        const isCityActive = activeCityIds.includes(storeCityId);
+
+        console.log({ storeCityName, cityMatch, isCityActive });
+
+        if (!cityMatch || !isCityActive) return false;
+
+        const zoneMatch = store.zone?.some(z => {
+          const zoneId = z?._id?.toString();
+          const zoneName = z?.name?.toLowerCase();
+          const isZoneActive = activeZoneIds.includes(zoneId);
+          const isUserZoneMatch = zoneName?.includes(userZone.toLowerCase());
+
+          console.log({ zoneId, zoneName, isZoneActive, isUserZoneMatch });
+
+          return isZoneActive && isUserZoneMatch;
+        });
+
+        return zoneMatch;
+      })
+      .map(store => store._id?.toString());
+
+    if (!allowedStoreIds.length) {
+      return res.status(404).json({ message: "No matching stores found for your location." });
+    }
+
+    // 🔥 6. Fetch products based on allowed stores and category
+    let productQuery = { storeId: { $in: allowedStoreIds } };
+
+    if (id) {
+      productQuery["$or"] = [
+        { 'category._id': id },
+        { 'subCategory._id': id },
+        { 'subSubCategory._id': id }
+      ];
+    }
+
+    const products = await Products.find(productQuery).lean();
+
+    if (!products.length) {
+      return res.status(404).json({ message: "No matching products found for your location." });
+    }
+
+    // 🧠 7. Filters
+    let filter = [];
+    if (id) {
+      const matchedCategory = await Category.findById(id).lean();
+      if (matchedCategory?.filter?.length) {
+        const filterIds = matchedCategory.filter.map(f => f._id);
+        filter = await Filters.find({ _id: { $in: filterIds } }).lean();
+      }
+    }
+
+    return res.status(200).json({
+      message: "Products fetched successfully.",
+      filter,
+      products,
+      count: products.length
+    });
+
+  } catch (error) {
+    console.error("getProduct error:", error);
+    return res.status(500).json({ message: "Server error", error: error.message });
+  }
+};

@@ -18,7 +18,7 @@ const { addCart,getCart,getDicount,discount,quantity,deleteCart } = require('../
 
 const { update, banner, getBanner, getAllBanner, updateBannerStatus, addCategory, getCategories, brand, getBrand, editCat,updateAt,editBrand,addFilter,editFilter,getFilter,deleteFilter,deleteFilterVal,addFiltersToCategory } = require('../controlers/categorycontroler');
 
-const { addProduct, addAtribute, getAttributes, getProduct, getFeatureProduct, searchProduct, bestSelling,editAttributes,unit,getUnit,getVarients,filter,bulkProductUpload,updateProduct,deleteProduct,getAttributesId,notification,getNotification,getRelatedProducts } = require('../controlers/ProductControler')
+const { addProduct, addAtribute, getAttributes, getProduct, getFeatureProduct, searchProduct, bestSelling,editAttributes,unit,getUnit,getVarients,filter,bulkProductUpload,updateProduct,deleteProduct,getAttributesId,notification,getNotification,getRelatedProducts,updateStock } = require('../controlers/ProductControler')
 
 const cityZone = require('../modals/cityZone');
 const { addCity, updateCityStatus, getAviableCity, getCity, updateZoneStatus, getAllZone, getZone, updateLocation,addAddress,getAddress,EditAddress,deleteAddress } = require('../controlers/areaControler');
@@ -43,6 +43,7 @@ router.post('/Product/bulk',upload,bulkProductUpload),
 router.post('/adminSetting', adminSetting)
 router.post('/addFilter', addFilter)
 router.post('/address/:id', addAddress);
+router.post('/updateStock/:productId', updateStock);
 
 router.post('/discount', discount)
 router.post('/addCity', addCity)

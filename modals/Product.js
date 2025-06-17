@@ -48,8 +48,13 @@ const productSchema = new mongoose.Schema({
   fulfilled_by: String,
   returnProduct:{image:String,title:String,  _id: { type: mongoose.Schema.Types.ObjectId, default: () => new mongoose.Types.ObjectId() }},
  inventory: [{
-  varientId: { type: mongoose.Schema.Types.ObjectId },
-  _id: { type: mongoose.Schema.Types.ObjectId, default: () => new mongoose.Types.ObjectId() },quantity: { type: Number, default: 0 }}],
+  variantId: { type: mongoose.Schema.Types.ObjectId },
+  _id: { type: mongoose.Schema.Types.ObjectId, default: () => new mongoose.Types.ObjectId() },quantity: { type: Number, default: 0 },
+ storeId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'stores',
+  },
+}],
 
   rating:{rate:{type:Number, default:4.5},users:{type:Number,default:10},_id:{type:mongoose.Schema.Types.ObjectId,auto: true}},//object with user count
   variants: [variantSchema],

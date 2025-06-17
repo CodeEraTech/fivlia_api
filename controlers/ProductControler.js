@@ -227,13 +227,6 @@ for (let loc of parsedLocation) {
       );
     }
 
-    const finalVariants = parsedVariants.map(variant => {
-      const discount = variant.mrp && variant.sell_price
-        ? Math.round(((variant.mrp - variant.sell_price) / variant.mrp) * 100)
-        : 0;
-      return { ...variant, discountValue: discount };
-    });
-
 let returnProductData = null;
 
 if (returnProduct) {
@@ -262,28 +255,39 @@ console.log("🧾 Final returnProductData:", returnProductData);
   }
 }
 
-let finalInventoryArray = [];
-
+// ✅ STEP 1: Generate _id for each variant and assign
 let parsedVariantsArray = [];
 try {
   parsedVariantsArray = parsedVariants.map(v => {
+    const newId = new mongoose.Types.ObjectId(); // unique _id for each variant
     return {
-      _id: mongoose.Types.ObjectId.isValid(v._id) ? v._id : new mongoose.Types.ObjectId(),
-      ...v
-    }
+      ...v,
+      _id: newId
+    };
   });
 } catch {
   parsedVariantsArray = [];
 }
 
-// 👇 For each variant, assign default quantity 0
-for (const variant of parsedVariantsArray) {
-  finalInventoryArray.push({
-    varientId: variant._id,
-    quantity: 0,
-    _id: new mongoose.Types.ObjectId()
-  });
-}
+// ✅ STEP 2: Use those same IDs to generate inventory
+const finalInventoryArray = parsedVariantsArray.map(variant => ({
+  _id: new mongoose.Types.ObjectId(),  // inventory _id
+  variantId: variant._id,              // same as variant._id
+  quantity: 0                          // default quantity
+}));
+
+// ✅ STEP 3: Add discount and finalize variants
+const finalVariants = parsedVariantsArray.map(variant => {
+  const discount = variant.mrp && variant.sell_price
+    ? Math.round(((variant.mrp - variant.sell_price) / variant.mrp) * 100)
+    : 0;
+
+  return {
+    ...variant,
+    discountValue: discount
+  };
+});
+
 
 
     const newProduct = await Products.create({
@@ -434,9 +438,7 @@ exports.getProduct = async (req, res) => {
     }
 
     const categoryArray = Array.from(allCategoryIds);
-    console.log("🧩 All Category IDs:", categoryArray);
 
-    // 🟡 Build product query
     const productQuery = id
       ? {
           $or: [
@@ -452,8 +454,6 @@ exports.getProduct = async (req, res) => {
             { subSubCategoryId: { $in: categoryArray } }
           ]
         };
-
-    console.log("🔍 Final Product Query:", productQuery);
 
     const products = await Products.find(productQuery).lean();
     console.log("✅ Total Products Found:", products.length);
@@ -481,9 +481,6 @@ exports.getProduct = async (req, res) => {
     return res.status(500).json({
       message: "Server error",
       error: error.message,
-      products: [],
-      filter: [],
-      count: 0
     });
   }
 };
@@ -1033,3 +1030,72 @@ exports.getNotification = async (req, res) => {
     return res.status(500).json({ message: "Internal server error", error: error.message });
   }
 };
+
+exports.updateStock = async (req, res) => {
+  try {
+    const{productId}=req.params
+    const {variantId, storeId, quantity } = req.body;
+
+    if (!productId || !variantId || !storeId || typeof quantity !== "number") {
+      return res.status(400).json({ message: "All fields are required." });
+    }
+
+    // Step 1: Find the product
+    const product = await Products.findById(productId);
+    if (!product) {
+      return res.status(404).json({ message: "Product not found." });
+    }
+
+    const isVarientValid = product.variants?.some(
+  (v) => v._id?.toString() === variantId
+);
+if (!isVarientValid) {
+  return res.status(400).json({ message: "Invalid varient for this product." });
+}
+let inventoryUpdated = false;
+
+for (let i = 0; i < product.inventory.length; i++) {
+  const inv = product.inventory[i];
+
+  const invVariantId = inv.variantId?.toString();
+  const invStoreId = inv.storeId?.toString();
+
+  // ✅ Case 1: Exact match → increase quantity
+  if (invVariantId === variantId && invStoreId === storeId) {
+    product.inventory[i].quantity += quantity;
+    inventoryUpdated = true;
+    break;
+  }
+
+  // ✅ Case 2: Match variant but storeId is missing → fill it in and update quantity
+  if (invVariantId === variantId && !invStoreId) {
+    product.inventory[i].storeId = storeId;
+    product.inventory[i].quantity += quantity;
+    inventoryUpdated = true;
+    break;
+  }
+}
+
+// ✅ Case 3: No match found → push new inventory object
+if (!inventoryUpdated) {
+  product.inventory.push({
+    variantId,
+    storeId,
+    quantity,
+    _id: new mongoose.Types.ObjectId(), // optional but clean
+  });
+}
+
+    await product.save();
+
+    return res.status(200).json({
+      message: "Stock updated successfully.",
+      inventory: product.inventory,
+    });
+
+  } catch (error) {
+    console.error("❌ Error in updateStock:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+

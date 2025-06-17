@@ -3,9 +3,10 @@ const Category = require('../modals/category');
 const Banner = require('../modals/banner');
 const brand = require('../modals/brand')
 const Products = require('../modals/Product')
+const User = require('../modals/User')
 const Filters = require('../modals/filter')
 const slugify = require('slugify');
-const { ZoneData } = require('../modals/cityZone');
+const { CityData,ZoneData } = require('../modals/cityZone');
 const { error } = require('zod/v4/locales/ar.js');
 exports.update = async (req, res) => {
   try {
@@ -110,14 +111,38 @@ if(subSubCategory && !subCategory){
 }
 exports.getBanner = async (req, res) => {
   try {
-    const {type } = req.query;
+    const { type } = req.query;
+    const userId = req.user;
 
-    const filters = {status:true};
+    const user = await User.findById(userId).lean();
+    if (!user || !user.location?.city || !user.location?.zone) {
+      console.log("❌ User location missing or incomplete");
+      return res.status(400).json({ message: "User location not found" });
+    }
 
-    // if (bannerId) {
-    //   filters.bannerId = { $regex: bannerId, $options: 'i' };
-    // }
+    const userCity = user.location.city;
+    const userZone = user.location.zone.toLowerCase();
+    console.log("✅ User Location =>", { userCity, userZone });
 
+    // 🟢 Get active city names
+    const activeCities = await CityData.find({ status: true }, 'city').lean();
+    const activeCityNames = activeCities.map(c => c.city?.toLowerCase());
+    console.log("📍 Active City Names:", activeCityNames);
+
+    // 🟢 Get active zone IDs
+    const zoneDocs = await ZoneData.find({}, 'zones').lean();
+    const activeZoneIds = [];
+    zoneDocs.forEach(doc => {
+      (doc.zones || []).forEach(zone => {
+        if (zone.status && zone._id) {
+          activeZoneIds.push(zone._id.toString());
+        }
+      });
+    });
+    console.log("📍 Active Zone IDs:", activeZoneIds);
+
+    // 🔎 Apply base filters
+    const filters = { status: true };
     if (type) {
       const validTypes = ['offer', 'normal'];
       if (!validTypes.includes(type)) {
@@ -126,17 +151,62 @@ exports.getBanner = async (req, res) => {
       filters.type = type;
     }
 
-    const data = await Banner.find(filters);
+    const allBanners = await Banner.find(filters).lean();
+    console.log("🎯 All banners fetched:", allBanners.length);
 
-    if (data.length === 0) {
-      return res.status(404).json({ message: 'No banners found matching the criteria.' });
+    const filteredBanners = allBanners.filter(banner => {
+      const bannerCityName = banner.city?.name?.toLowerCase();
+
+      const cityMatch = bannerCityName === userCity.toLowerCase();
+      const isCityActive = activeCityNames.includes(bannerCityName);
+
+      console.log("🏙️ City Match:", {
+        bannerCityName,
+        cityMatch,
+        isCityActive
+      });
+
+      if (!cityMatch || !isCityActive) return false;
+
+      const zoneMatch = (banner.zones || []).some(zone => {
+  const zoneName = zone?.address?.toLowerCase();
+  const isZoneMatch = zoneName?.includes(userZone);
+
+  console.log("📦 Zone Match:", {
+    zoneId: zone?._id?.toString(),
+    zoneName,
+    isZoneMatch,
+  });
+
+  return isZoneMatch;
+});
+
+
+      return zoneMatch;
+    });
+
+    if (!filteredBanners.length) {
+      return res.status(200).json({
+        message: "No banners found for your location.",
+        count: 0,
+        data: []
+      });
     }
 
-    return res.status(200).json({ message: 'Banners fetched successfully.', count: data.length, data });
-    
+    return res.status(200).json({
+      message: "Banners fetched successfully.",
+      count: filteredBanners.length,
+      data: filteredBanners
+    });
+
   } catch (error) {
-    console.error('Error fetching banners:', error.message);
-    return res.status(500).json({ message: 'An error occurred while fetching banners.', error: error.message });
+    console.error('❌ Error fetching banners:', error);
+    return res.status(500).json({
+      message: 'An error occurred while fetching banners.',
+      error: error.message,
+      count: 0,
+      data: []
+    });
   }
 };
 

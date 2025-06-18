@@ -25,8 +25,7 @@ exports.settings = async (req, res) => {
     const  userId  = req.user;
 
     // Get the settings document (full, with all fields)
-    const settings = await Settings.findOne().lean();
-const Delivery_Charges = await SettingAdmin.find({Delivery_Charges})
+    const settings = await SettingAdmin.findOne().lean();
     if (!settings) {
       return res.status(404).json({ message: "Settings not found" });
     }

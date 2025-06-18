@@ -415,45 +415,61 @@ exports.getProduct = async (req, res) => {
     const allowedStoreIds = allowedStores.map(s => s._id.toString());
     console.log("✅ Allowed Store IDs:", allowedStoreIds);
 
-    const allCategoryIds = new Set();
+const allCategoryIds = new Set();
 
-    for (const store of allowedStores) {
-      const categoryIds = Array.isArray(store.Category)
-        ? store.Category.map(id => id.toString())
-        : [store.Category?.toString()];
+for (const store of allowedStores) {
+  const storeCategories = Array.isArray(store.Category)
+    ? store.Category
+    : store.Category ? [store.Category] : [];
 
-      for (const catId of categoryIds) {
-        const category = await Category.findById(catId).lean();
-        if (!category) continue;
+  for (const catId of storeCategories) {
+    if (!catId) continue;
 
-        allCategoryIds.add(category._id.toString());
+    const category = await Category.findById(catId).lean();
+    if (!category) continue;
 
-        (category.subcat || []).forEach(sub => {
-          allCategoryIds.add(sub._id.toString());
-          (sub.subsubcat || []).forEach(subsub => {
-            allCategoryIds.add(subsub._id.toString());
-          });
-        });
-      }
-    }
+    allCategoryIds.add(category._id.toString());
 
-    const categoryArray = Array.from(allCategoryIds);
+    (category.subcat || []).forEach(sub => {
+      if (sub?._id) allCategoryIds.add(sub._id.toString());
+      (sub.subsubcat || []).forEach(subsub => {
+        if (subsub?._id) allCategoryIds.add(subsub._id.toString());
+      });
+    });
+  }
+}
 
-    const productQuery = id
-      ? {
-          $or: [
-            { "category._id": id },
-            { "subCategory._id": id },
-            { "subSubCategory._id": id }
-          ]
-        }
-      : {
-          $or: [
-            { "category._id": { $in: categoryArray } },
-            { subCategoryId: { $in: categoryArray } },
-            { subSubCategoryId: { $in: categoryArray } }
-          ]
-        };
+const categoryArray = Array.from(allCategoryIds);
+
+
+let productQuery;
+
+if (id) {
+  if (!categoryArray.includes(id)) {
+    return res.status(200).json({
+      message: "No matching products found for your location.",
+      products: [],
+      filter: [],
+      count: 0
+    });
+  }
+
+  productQuery = {
+    $or: [
+      { "category._id": id },
+      { "subCategory._id": id },
+      { "subSubCategory._id": id }
+    ]
+  };
+} else {
+  productQuery = {
+    $or: [
+      { "category._id": { $in: categoryArray } },
+      { "subCategory._id": { $in: categoryArray } },
+      { "subSubCategory._id": { $in: categoryArray } }
+    ]
+  };
+}
 
     const products = await Products.find(productQuery).lean();
     console.log("✅ Total Products Found:", products.length);

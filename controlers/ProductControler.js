@@ -501,28 +501,24 @@ if (id) {
   }
 };
 
-
 exports.bestSelling = async (req, res) => {
   try {
-    const userId = req.user;
+    const userId = req.user._id;
     console.log("🔐 Authenticated User ID:", userId);
 
     const user = await User.findById(userId).lean();
     if (!user || !user.location?.city || !user.location?.zone) {
-      console.log("❌ User location missing or incomplete");
+      console.warn("⚠️ Incomplete user location:", user?.location);
       return res.status(400).json({ message: "User location not found" });
     }
 
     const userCity = user.location.city;
     const userZone = user.location.zone.toLowerCase();
-    console.log("✅ User Location =>", { userCity, userZone });
+    console.log("📍 User Location =>", { city: userCity, zone: userZone });
 
-    // 🔵 Active Cities
     const activeCities = await CityData.find({ status: true }, 'city').lean();
-    console.log("📍 Active City Names:", activeCities.map(c => c.city));
-
-    // 🔵 Active Zones
     const zoneDocs = await ZoneData.find({}, 'zones').lean();
+
     const activeZoneIds = [];
     zoneDocs.forEach(doc => {
       (doc.zones || []).forEach(zone => {
@@ -531,66 +527,72 @@ exports.bestSelling = async (req, res) => {
         }
       });
     });
-    console.log("📍 Active Zone IDs:", activeZoneIds);
 
-    // 🔵 All stores
     const stores = await Store.find().lean();
-    console.log("🛒 Total Stores Fetched:", stores.length);
-
-    // 🔥 Match stores by user location
     const allowedStores = stores.filter(store => {
-      const storeCityName = store.city?.name;
-      const cityMatch = storeCityName?.toLowerCase() === userCity.toLowerCase();
-      const isCityActive = activeCities.some(
-        c => c.city?.toLowerCase() === storeCityName?.toLowerCase()
-      );
+      const storeCity = store.city?.name?.toLowerCase();
+      const isCityMatch = storeCity === userCity.toLowerCase();
+      const isCityActive = activeCities.some(c => c.city?.toLowerCase() === storeCity);
 
-      console.log("🏙️ Store City Check:", {
-        storeCityName,
-        cityMatch,
-        isCityActive
-      });
+      if (!isCityMatch || !isCityActive) return false;
 
-      if (!cityMatch || !isCityActive) return false;
-
-      const matchedZone = (store.zone || []).some(z => {
+      return (store.zone || []).some(z => {
         const zoneId = z?._id?.toString();
         const zoneName = z?.name?.toLowerCase();
-
-        const isZoneActive = activeZoneIds.includes(zoneId);
-        const isUserZoneMatch = zoneName?.includes(userZone);
-
-        console.log("📦 Store Zone Check:", {
-          zoneId,
-          zoneName,
-          isZoneActive,
-          isUserZoneMatch
-        });
-
-        return isZoneActive && isUserZoneMatch;
+        return activeZoneIds.includes(zoneId) && zoneName?.includes(userZone);
       });
-
-      return matchedZone;
     });
 
+    console.log(`✅ Matched Stores: ${allowedStores.length}`);
+
     if (!allowedStores.length) {
-      console.log("⚠️ No matching stores found");
       return res.status(200).json({
         message: "No best-selling products found for your location.",
         best: []
       });
     }
 
-    const allowedStoreIds = allowedStores.map(s => s._id.toString());
-    console.log("✅ Allowed Store IDs:", allowedStoreIds);
+    const allCategoryIds = new Set();
+    for (const store of allowedStores) {
+      const storeCategories = Array.isArray(store.Category)
+        ? store.Category
+        : store.Category ? [store.Category] : [];
 
-    // 🟢 Fetch best-selling products from matched stores
-    const best = await Products.find()
+      for (const catId of storeCategories) {
+        if (!catId) continue;
+
+        const category = await Category.findById(catId).lean();
+        if (!category) continue;
+
+        allCategoryIds.add(category._id.toString());
+
+        (category.subcat || []).forEach(sub => {
+          if (sub?._id) allCategoryIds.add(sub._id.toString());
+          (sub.subsubcat || []).forEach(subsub => {
+            if (subsub?._id) allCategoryIds.add(subsub._id.toString());
+          });
+        });
+      }
+    }
+
+    const categoryArray = Array.from(allCategoryIds);
+    const allowedStoreIds = allowedStores.map(s => s._id.toString());
+
+    console.log(`📦 Total Categories Considered: ${categoryArray.length}`);
+    console.log(`🏪 Store IDs Allowed: ${allowedStoreIds.length}`);
+
+    const best = await Products.find({
+      $or: [
+        { "category": { $elemMatch: { _id: { $in: categoryArray } } } },
+        { "subCategory": { $elemMatch: { _id: { $in: categoryArray } } } },
+        { "subSubCategory": { $elemMatch: { _id: { $in: categoryArray } } } }
+      ]
+    })
       .sort({ purchases: -1 })
       .limit(10)
       .lean();
 
-    console.log("🔥 Best-Selling Products Found:", best.length);
+    console.log(`🔥 Best-Selling Products Found: ${best.length}`);
 
     return res.status(200).json({
       message: "Success",
@@ -605,6 +607,7 @@ exports.bestSelling = async (req, res) => {
     });
   }
 };
+
 
 
 exports.searchProduct=async (req,res) => {

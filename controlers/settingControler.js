@@ -22,7 +22,7 @@ exports.addSettings = async (req, res) => {
 
 exports.settings = async (req, res) => {
   try {
-    const { id } = req.params;
+    const  userId  = req.user;
 
     // Get the settings document (full, with all fields)
     const settings = await Settings.findOne().lean();
@@ -31,28 +31,16 @@ exports.settings = async (req, res) => {
       return res.status(404).json({ message: "Settings not found" });
     }
 
-    // Get user orders
-    const userOrders = await Order.find({ user: id }).lean();
-
     // Get user data (including addresses)
-    const user = await User.findById(id).lean();
+    const user = await User.findById(userId).lean();
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Attach orders and addresses into settings object at proper places
-    settings.orders = {
-      label: settings.orders?.label || "Orders",
-      data: userOrders
-    };
-
-    settings.address_book = {
-      label: settings.address_book?.label || "Address Book",
-      data: user.Address || []
-    };
 
     return res.status(200).json({
-      message: "Settings with user orders and address",
+      message: "Settings",
+      mobileNumber:user.mobileNumber,
       settings
     });
   } catch (error) {

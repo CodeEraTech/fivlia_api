@@ -139,7 +139,6 @@ if (req.body.filter) {
 }
 }
 
-
     let parsedLocation = [];
     if (location) {
       try {
@@ -173,7 +172,6 @@ for (let loc of parsedLocation) {
         }
       }
 
-      // Push one location per city, with all matched zones
       productLocation.push({
         city: [{ _id: cityData._id, name: cityData.city }],
         zone: matchedZones
@@ -255,11 +253,10 @@ console.log("🧾 Final returnProductData:", returnProductData);
   }
 }
 
-// ✅ STEP 1: Generate _id for each variant and assign
 let parsedVariantsArray = [];
 try {
   parsedVariantsArray = parsedVariants.map(v => {
-    const newId = new mongoose.Types.ObjectId(); // unique _id for each variant
+    const newId = new mongoose.Types.ObjectId(); 
     return {
       ...v,
       _id: newId
@@ -269,7 +266,6 @@ try {
   parsedVariantsArray = [];
 }
 
-// ✅ STEP 2: Use those same IDs to generate inventory
 const finalInventoryArray = parsedVariantsArray.map(variant => ({
   _id: new mongoose.Types.ObjectId(),  // inventory _id
   variantId: variant._id,              // same as variant._id
@@ -287,8 +283,6 @@ const finalVariants = parsedVariantsArray.map(variant => {
     discountValue: discount
   };
 });
-
-
 
     const newProduct = await Products.create({
       ...(productName && { productName }),
@@ -715,8 +709,6 @@ exports.getFeatureProduct = async (req, res) => {
   }
 };
 
-
-
 exports.unit=async (req,res) => {
   try {
   const {unitname}=req.body
@@ -882,140 +874,151 @@ exports.updateProduct = async (req, res) => {
     const id = req.params.id;
     const {
       productName, description, category, subCategory, subSubCategory,
-      sku, ribbon,rating,filter, brand_Name, sold_by, type, location, online_visible,
-      inventory, tax, feature_product, fulfilled_by, variants, minQuantity,
-      maxQuantity, ratings, unit, mrp, sell_price,status
+      sku, ribbon, rating, filter, brand_Name, sold_by, type, location, online_visible,
+      tax, feature_product, fulfilled_by, minQuantity,
+      maxQuantity, ratings, unit, mrp, sell_price, status, returnProduct
     } = req.body;
 
     const MultipleImage = req.files?.MultipleImage?.map(file => file.path) || [];
     const image = req.files?.image?.[0]?.path || "";
 
-    let parsedVariants = [];
-    if (variants) {
-      try {
-        parsedVariants = JSON.parse(variants);
-      } catch {
-        parsedVariants = [];
-      }
+    // Fetch the existing product to get its variants
+    const existingProduct = await Products.findById(id).select('variants');
+    if (!existingProduct) {
+      return res.status(404).json({ message: "Product not found" });
     }
+    console.log("🧾 Existing product variants:", JSON.stringify(existingProduct.variants, null, 2));
 
     let finalFilterArray = [];
-
-if (req.body.filter) {
-  let parsedFilter;
-  try {
-    parsedFilter = typeof req.body.filter === 'string'
-      ? JSON.parse(req.body.filter)
-      : req.body.filter;
-  } catch {
-    parsedFilter = [];
-  }
-
- for (let item of parsedFilter) {
-  const filterDoc = await Filters.findById(item._id);
-  if (!filterDoc) continue;
-
-  let selectedArray = [];
-
-  const selectedIds = Array.isArray(item.selected) ? item.selected : [item.selected];
-
-  for (const selId of selectedIds) {
-    const selectedObj = filterDoc.Filter.find(f => f._id.toString() === selId);
-    if (selectedObj) {
-      selectedArray.push({
-        _id: selectedObj._id,
-        name: selectedObj.name
-      });
-    }
-  }
-
-  if (selectedArray.length > 0) {
-    finalFilterArray.push({
-      _id: filterDoc._id,
-      Filter_name: filterDoc.Filter_name,
-      selected: selectedArray
-    });
-  }
-}
-}
-
-const productLocation = [];
-
-if (location) {
-  let parsedLocation;
-  try {
-    parsedLocation = typeof location === 'string' ? JSON.parse(location) : location;
-  } catch (err) {
-    console.warn('Invalid location format:', location);
-    parsedLocation = [];
-  }
-
-  const splitLocations = (locs) => {
-    const result = [];
-
-    for (const loc of locs) {
-      if (!Array.isArray(loc.city)) continue;
-      if (!Array.isArray(loc.zone) && !Array.isArray(loc.zones)) continue;
-
-      const zonesArray = loc.zone || loc.zones || [];
-
-      for (const cityObj of loc.city) {
-        const cityName = cityObj.name || cityObj.city || null;
-        if (!cityName) continue;
-
-        const filteredZones = zonesArray.filter(zoneObj => {
-          const zoneName = zoneObj.name || zoneObj.address || '';
-          return zoneName.toLowerCase().includes(cityName.toLowerCase());
-        });
-
-        if (filteredZones.length === 0) continue;
-
-        result.push({
-          city: cityName,
-          zones: filteredZones
-        });
-      }
-    }
-    return result;
-  };
-
-  const normalizedLocations = splitLocations(parsedLocation);
-
-  for (const loc of normalizedLocations) {
-    try {
-      const cityData = await ZoneData.findOne({ city: loc.city });
-      if (!cityData) {
-        console.log(`No city data found for city: ${loc.city}`);
-        continue;
+    if (req.body.filter) {
+      let parsedFilter;
+      try {
+        parsedFilter = typeof req.body.filter === 'string'
+          ? JSON.parse(req.body.filter)
+          : req.body.filter;
+        console.log("🧾 Parsed filter:", JSON.stringify(parsedFilter, null, 2));
+      } catch (err) {
+        console.warn("❗ Failed to parse filter:", err.message);
+        parsedFilter = [];
       }
 
-      const zoneAddresses = loc.zones
-        .map(z => (z.name || z.address || '').trim())
-        .filter(z => z.length > 0);
+      for (let item of parsedFilter) {
+        if (!item._id) {
+          console.warn("❗ Filter item missing _id:", item);
+          continue;
+        }
+        const filterDoc = await Filters.findById(item._id);
+        if (!filterDoc) {
+          console.warn(`❗ Filter not found for _id: ${item._id}`);
+          continue;
+        }
 
-      const matchedZones = cityData.zones.filter(z =>
-        zoneAddresses.some(addr => addr.toLowerCase() === z.address.trim().toLowerCase())
-      );
+        console.log(`🧾 Filter doc for _id ${item._id}:`, JSON.stringify(filterDoc.Filter, null, 2));
 
-      if (matchedZones.length === 0) {
-        console.log(`No matched zones found for city: ${loc.city}`);
-        continue;
+        let selectedArray = [];
+        const selectedIds = Array.isArray(item.selected) ? item.selected : [item.selected];
+
+        for (const selId of selectedIds) {
+          if (!selId) {
+            console.warn("❗ Invalid selected ID:", selId);
+            continue;
+          }
+          const selectedObj = filterDoc.Filter.find(f => f._id.toString() === selId.toString());
+          if (selectedObj) {
+            selectedArray.push({
+              _id: selectedObj._id,
+              name: selectedObj.name
+            });
+          } else {
+            console.warn(`❗ Selected filter ID ${selId} not found in filter ${filterDoc.Filter_name}`);
+          }
+        }
+
+        if (selectedArray.length > 0) {
+          finalFilterArray.push({
+            _id: filterDoc._id,
+            Filter_name: filterDoc.Filter_name,
+            selected: selectedArray
+          });
+        }
+      }
+      console.log("🧾 Final filter array:", JSON.stringify(finalFilterArray, null, 2));
+    }
+
+    const productLocation = [];
+    if (location) {
+      let parsedLocation;
+      try {
+        parsedLocation = typeof location === 'string' ? JSON.parse(location) : location;
+      } catch (err) {
+        console.warn('Invalid location format:', location);
+        parsedLocation = [];
       }
 
-      productLocation.push({
-        city: { _id: cityData._id, name: cityData.city },
-        zone: matchedZones.map(z => ({ _id: z._id, name: z.address }))
-      });
+      const splitLocations = (locs) => {
+        const result = [];
 
-    } catch (err) {
-      console.error("Error processing location:", err);
+        for (const loc of locs) {
+          if (!Array.isArray(loc.city)) continue;
+          if (!Array.isArray(loc.zone) && !Array.isArray(loc.zones)) continue;
+
+          const zonesArray = loc.zone || loc.zones || [];
+
+          for (const cityObj of loc.city) {
+            const cityName = cityObj.name || cityObj.city || null;
+            if (!cityName) continue;
+
+            const filteredZones = zonesArray.filter(zoneObj => {
+              const zoneName = zoneObj.name || zoneObj.address || '';
+              return zoneName.toLowerCase().includes(cityName.toLowerCase());
+            });
+
+            if (filteredZones.length === 0) continue;
+
+            result.push({
+              city: cityName,
+              zones: filteredZones
+            });
+          }
+        }
+        return result;
+      };
+
+      const normalizedLocations = splitLocations(parsedLocation);
+
+      for (const loc of normalizedLocations) {
+        try {
+          const cityData = await ZoneData.findOne({ city: loc.city });
+          if (!cityData) {
+            console.log(`No city data found for city: ${loc.city}`);
+            continue;
+          }
+
+          const zoneAddresses = loc.zones
+            .map(z => (z.name || z.address || '').trim())
+            .filter(z => z.length > 0);
+
+          const matchedZones = cityData.zones.filter(z =>
+            zoneAddresses.some(addr => addr.toLowerCase() === z.address.trim().toLowerCase())
+          );
+
+          if (matchedZones.length === 0) {
+            console.log(`No matched zones found for city: ${loc.city}`);
+            continue;
+          }
+
+          productLocation.push({
+            city: { _id: cityData._id, name: cityData.city },
+            zone: matchedZones.map(z => ({ _id: z._id, name: z.address }))
+          });
+
+        } catch (err) {
+          console.error("Error processing location:", err);
+        }
+      }
     }
-  }
-}
 
-
-console.log('Final productLocation:', JSON.stringify(productLocation, null, 2));
-
+    console.log('🧾 Final productLocation:', JSON.stringify(productLocation, null, 2));
 
     let brandObj = null;
     if (brand_Name) {
@@ -1030,19 +1033,18 @@ console.log('Final productLocation:', JSON.stringify(productLocation, null, 2));
       }
     }
 
-let unitObj = null;
-if (unit) {
-  if (typeof unit === 'string' && /^[0-9a-fA-F]{24}$/.test(unit)) {
-    unitObj = await Unit.findById(unit);
-  } else if (typeof unit === 'object' && unit._id) {
-    unitObj = await Unit.findById(unit._id);
-  }
+    let unitObj = null;
+    if (unit) {
+      if (typeof unit === 'string' && /^[0-9a-fA-F]{24}$/.test(unit)) {
+        unitObj = await Unit.findById(unit);
+      } else if (typeof unit === 'object' && unit._id) {
+        unitObj = await Unit.findById(unit._id);
+      }
 
-  if (!unitObj) {
-    console.warn('Unit not found or invalid:', unit);
-  }
-}
-
+      if (!unitObj) {
+        console.warn('Unit not found or invalid:', unit);
+      }
+    }
 
     let categories = [];
     if (category) {
@@ -1082,7 +1084,52 @@ if (unit) {
       );
     }
 
-    const finalVariants = parsedVariants.map(variant => {
+    let returnProductData = null;
+    if (returnProduct) {
+      try {
+        const parsedReturn = typeof returnProduct === 'string'
+          ? JSON.parse(returnProduct)
+          : returnProduct;
+
+        returnProductData = {
+          _id: new mongoose.Types.ObjectId(),
+          title: parsedReturn.title?.trim() || ""
+        };
+
+        if (req.files?.file?.[0]?.path) {
+          try {
+            const cloudUpload = await cloudinary.uploader.upload(req.files.file[0].path, {
+              folder: "returnProduct"
+            });
+            if (cloudUpload?.secure_url) {
+              returnProductData.image = cloudUpload.secure_url;
+            } else {
+              console.warn("❗ Cloudinary upload failed, no secure_url returned");
+            }
+          } catch (uploadErr) {
+            console.warn("❗ Failed to upload returnProduct image:", uploadErr.message);
+          }
+        } else {
+          console.warn("❗ No file provided for returnProduct image");
+        }
+        console.log("🧾 Final returnProductData:", JSON.stringify(returnProductData, null, 2));
+      } catch (err) {
+        console.warn("❗ Failed to parse returnProduct:", err.message);
+      }
+    }
+
+    // Generate inventory from existing product variants
+    const parsedVariantsArray = existingProduct.variants || [];
+    console.log("🧾 Parsed variants array:", JSON.stringify(parsedVariantsArray, null, 2));
+
+    const finalInventoryArray = parsedVariantsArray.map(variant => ({
+      _id: new mongoose.Types.ObjectId(),
+      variantId: variant._id,
+      quantity: 0
+    }));
+    console.log("🧾 Final inventory:", JSON.stringify(finalInventoryArray, null, 2));
+
+    const finalVariants = parsedVariantsArray.map(variant => {
       const discount = variant.mrp && variant.sell_price
         ? Math.round(((variant.mrp - variant.sell_price) / variant.mrp) * 100)
         : 0;
@@ -1092,7 +1139,7 @@ if (unit) {
     const updateData = {
       ...(productName && { productName }),
       ...(description && { description }),
-      ...(rating && {rating}),
+      ...(rating && { rating }),
       ...(image && { productThumbnailUrl: image }),
       ...(MultipleImage.length && { productImageUrl: MultipleImage }),
       ...(productCategories.length && { category: productCategories }),
@@ -1100,13 +1147,14 @@ if (unit) {
       ...(foundSubSubCategory && { subSubCategory: { _id: foundSubSubCategory._id, name: foundSubSubCategory.name } }),
       ...(sku && { sku }),
       ...(ribbon && { ribbon }),
+      ...(returnProductData && { returnProduct: returnProductData }),
       ...(unitObj && { unit: { _id: unitObj._id, name: unitObj.unitname } }),
       ...(brandObj && { brand_Name: { _id: brandObj._id, name: brandObj.brandName } }),
       ...(sold_by && { sold_by }),
       ...(type && { type }),
       ...(productLocation.length && { location: productLocation }),
       ...(online_visible !== undefined && { online_visible }),
-      ...(inventory && { inventory }),
+      ...(finalInventoryArray.length && { inventory: finalInventoryArray }),
       ...(tax && { tax }),
       ...(feature_product && { feature_product }),
       ...(fulfilled_by && { fulfilled_by }),
@@ -1116,9 +1164,11 @@ if (unit) {
       ...(finalVariants.length && { variants: finalVariants }),
       ...(ratings && { ratings }),
       ...(mrp && { mrp }),
-      ...(status && {status}),
-      ...(sell_price && { sell_price }),
+      ...(status && { status }),
+      ...(sell_price && { sell_price })
     };
+
+    console.log("🧾 Update data:", JSON.stringify(updateData, null, 2));
 
     const updatedProduct = await Products.findByIdAndUpdate(id, updateData, { new: true });
 

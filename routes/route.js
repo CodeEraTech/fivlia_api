@@ -72,7 +72,7 @@ router.get('/getCart',verifyToken, getCart)
 router.get('/getDiscount', getDicount)
 router.get('/getVarients/:id', getVarients)
 router.get('/orders', getOrders);
-router.get('/settings/:id',settings);
+router.get('/settings',verifyToken,settings);
 router.get('/getAddress/:id',getAddress);
 router.get('/getStore',getStore);
 router.get('/relatedProduct/:productId',getRelatedProducts)

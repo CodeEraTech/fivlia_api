@@ -168,7 +168,7 @@ exports.getBanner = async (req, res) => {
 
       if (!cityMatch || !isCityActive) return false;
 
-      const zoneMatch = (banner.zones || []).some(zone => {
+  const zoneMatch = (banner.zones || []).some(zone => {
   const zoneName = zone?.address?.toLowerCase();
   const isZoneMatch = zoneName?.includes(userZone);
 

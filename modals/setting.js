@@ -16,6 +16,11 @@ Owner_Name: { type: String },
 Owner_Email:String,
 Owner_Number: { type: Number },
 Store_Number: { type: Number },
+links:{ 
+  about_us: { type: String },
+  privacy_Policy:String,
+  termAndCondition:String
+},
 Password:String,
 Platform_Fee:String,
 GST_Number:String,

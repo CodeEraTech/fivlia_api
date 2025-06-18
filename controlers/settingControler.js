@@ -26,7 +26,7 @@ exports.settings = async (req, res) => {
 
     // Get the settings document (full, with all fields)
     const settings = await Settings.findOne().lean();
-
+const Delivery_Charges = await SettingAdmin.find({Delivery_Charges})
     if (!settings) {
       return res.status(404).json({ message: "Settings not found" });
     }
@@ -51,9 +51,9 @@ exports.settings = async (req, res) => {
 
 exports.adminSetting=async (req,res) => {
   try {
-  const {Owner_Name,Owner_Email,Owner_Number,Store_Number,Password,Platform_Fee,GST_Number,Description,Delivery_Charges,DeliveryStatus,Delivery_Charge_Per_Km,Minimum_Delivery_Charges,Minimum_Delivery_Charge_Within_Km}=req.body
+  const {Owner_Name,Owner_Email,Owner_Number,Store_Number,Password,Platform_Fee,GST_Number,Description,Delivery_Charges,DeliveryStatus,Delivery_Charge_Per_Km,Minimum_Delivery_Charges,links,Minimum_Delivery_Charge_Within_Km}=req.body
 
-  const newSetting=await SettingAdmin.create({Owner_Name,Owner_Email,Owner_Number,Store_Number,Password,Platform_Fee,GST_Number,Description,Delivery_Charges,Delivery_Charge_Per_Km,Minimum_Delivery_Charges,DeliveryStatus,Minimum_Delivery_Charge_Within_Km})
+  const newSetting=await SettingAdmin.create({Owner_Name,Owner_Email,Owner_Number,Store_Number,Password,Platform_Fee,GST_Number,Description,Delivery_Charges,Delivery_Charge_Per_Km,Minimum_Delivery_Charges,DeliveryStatus,Minimum_Delivery_Charge_Within_Km,links})
 
   return res.status(200).json({message:"Done",newSetting})
 

@@ -61,10 +61,10 @@ exports.updateProfile = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const {name,password,mobileNumber,email,state,city,Address,otp} = req.body;
+    const {name,password,mobileNumber,email,state,city,Address} = req.body;
 const image = req.files?.image?.[0].path
     const updatedUser = await User.findByIdAndUpdate(userId,
-      {$set: {name,password,mobileNumber,email,state,city,image,Address,otp}},{ new: true });
+      {$set: {name,password,mobileNumber,email,state,city,image,Address}},{ new: true });
 
     if (!updatedUser) {
       return res.status(404).json({ message: 'User not found' });

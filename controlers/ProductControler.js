@@ -12,6 +12,7 @@ const brand = require('../modals/brand')
 const Notification = require('../modals/Notification');
 const cloudinary = require('../config/cloudinary');
 const moment = require('moment-timezone');
+const Stock = require("../modals/StoreStock");
 
 exports.addAtribute=async (req,res) => {
     try {
@@ -601,8 +602,6 @@ exports.bestSelling = async (req, res) => {
     });
   }
 };
-
-
 
 exports.searchProduct=async (req,res) => {
   try {
@@ -1278,69 +1277,67 @@ exports.getNotification = async (req, res) => {
 
 exports.updateStock = async (req, res) => {
   try {
-    const{productId}=req.params
-    const {variantId, storeId, quantity } = req.body;
+    const { productId } = req.params;
+    const { storeId, stock } = req.body;
 
-    if (!productId || !variantId || !storeId || typeof quantity !== "number") {
-      return res.status(400).json({ message: "All fields are required." });
+    if (
+      !productId ||
+      !storeId ||
+      !Array.isArray(stock) ||
+      stock.length === 0
+    ) {
+      return res.status(400).json({ message: "All fields are required and stock must be an array." });
     }
 
-    // Step 1: Find the product
-    const product = await Products.findById(productId);
-    if (!product) {
-      return res.status(404).json({ message: "Product not found." });
+    let storeStock = await Stock.findOne({ storeId });
+
+    if (!storeStock) {
+      const newStock = await Stock.create({
+        storeId,
+        stock: stock.map(item => ({
+          productId,
+          varientId: item.variantId,
+          quantity: item.quantity
+        }))
+      });
+
+      return res.status(201).json({
+        message: "New stock document created",
+        stock: newStock
+      });
     }
 
-    const isVarientValid = product.variants?.some(
-  (v) => v._id?.toString() === variantId
-);
-if (!isVarientValid) {
-  return res.status(400).json({ message: "Invalid varient for this product." });
-}
-let inventoryUpdated = false;
+    // ✅ If store already exists, update or push variants
+    for (const item of stock) {
+      const index = storeStock.stock.findIndex(
+        s => s.productId.toString() === productId &&
+             s.varientId.toString() === item.variantId
+      );
 
-for (let i = 0; i < product.inventory.length; i++) {
-  const inv = product.inventory[i];
+      if (index !== -1) {
+        storeStock.stock[index].quantity += item.quantity;
+      } else {
+        storeStock.stock.push({
+          productId,
+          varientId: item.variantId,
+          quantity: item.quantity
+        });
+      }
+    }
 
-  const invVariantId = inv.variantId?.toString();
-  const invStoreId = inv.storeId?.toString();
-
-  // ✅ Case 1: Exact match → increase quantity
-  if (invVariantId === variantId && invStoreId === storeId) {
-    product.inventory[i].quantity += quantity;
-    inventoryUpdated = true;
-    break;
-  }
-
-  // ✅ Case 2: Match variant but storeId is missing → fill it in and update quantity
-  if (invVariantId === variantId && !invStoreId) {
-    product.inventory[i].storeId = storeId;
-    product.inventory[i].quantity += quantity;
-    inventoryUpdated = true;
-    break;
-  }
-}
-
-// ✅ Case 3: No match found → push new inventory object
-if (!inventoryUpdated) {
-  product.inventory.push({
-    variantId,
-    storeId,
-    quantity,
-    _id: new mongoose.Types.ObjectId(), // optional but clean
-  });
-}
-
-    await product.save();
+    await storeStock.save();
 
     return res.status(200).json({
-      message: "Stock updated successfully.",
-      inventory: product.inventory,
+      message: "Stock updated successfully",
+      stock: storeStock
     });
 
   } catch (error) {
     console.error("❌ Error in updateStock:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    return res.status(500).json({
+      message: "Server error",
+      error: error.message
+    });
   }
 };
 

@@ -1,7 +1,8 @@
-const Store         = require('../modals/store');
-const Products      = require('../modals/Product');
+const Store = require('../modals/store');
+const Stock = require('../modals/StoreStock')
+const Products = require('../modals/Product');
 const CategoryModel = require('../modals/category');
-const {ZoneData}      = require('../modals/cityZone'); // your Locations model
+const {ZoneData} = require('../modals/cityZone'); // your Locations model
 
 exports.createStore = async (req, res) => {
   try {
@@ -134,7 +135,6 @@ exports.getStore = async (req, res) => {
     const { id } = req.query;
 
     if (!id) {
-      // No id: Return all stores only
       const allStores = await Store.find().lean();
       return res.status(200).json({ stores: allStores });
     }
@@ -156,7 +156,6 @@ exports.getStore = async (req, res) => {
       if (!category) continue;
 
       allCategoryTrees.push(category);
-
       allCategoryIds.push(category._id.toString());
 
       (category.subcat || []).forEach(sub => {
@@ -174,6 +173,34 @@ exports.getStore = async (req, res) => {
         { subSubCategoryId: { $in: allCategoryIds } }
       ]
     }).lean();
+
+    // ✅ Fetch stock doc for this store
+    const storeStockDoc = await Stock.findOne({ storeId: id }).lean();
+    const stockEntries = storeStockDoc?.stock || [];
+
+    // 🔁 Build a quick lookup map
+    const stockMap = {};
+    for (const item of stockEntries) {
+      const key = `${item.productId}_${item.varientId}`;
+      stockMap[key] = item.quantity;
+    }
+
+    // 🔁 Replace inventory array in each product
+    for (const product of products) {
+      product.inventory = [];
+
+      if (Array.isArray(product.variants)) {
+        for (const variant of product.variants) {
+          const key = `${product._id}_${variant._id}`;
+          const quantity = stockMap[key] || 0;
+
+          product.inventory.push({
+            variantId: variant._id,
+            quantity
+          });
+        }
+      }
+    }
 
     return res.status(200).json({
       store,

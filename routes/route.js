@@ -56,7 +56,7 @@ router.get('/getAllZone', getAllZone)
 router.get('/getZone', getZone)
 router.get('/getBanner',verifyToken, getBanner)
 router.get('/getAllBanner', getAllBanner)
-router.get('/users', users)
+router.get('/users',verifyToken, users)
 router.get('/getCity', getCity)
 router.get('/getAviableCity', getAviableCity)
 router.get("/categories", getCategories);

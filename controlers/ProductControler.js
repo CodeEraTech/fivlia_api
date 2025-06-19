@@ -1344,3 +1344,47 @@ if (!inventoryUpdated) {
   }
 };
 
+exports.adminProducts = async (req,res) => {
+  try {
+    const activeCities = await CityData.find({ status: true }, 'city').lean();
+    const activeCityNames = activeCities.map(c => c.city.trim().toLowerCase());
+
+    // 🔵 Active Zones
+    const zoneDocs = await ZoneData.find({}, 'zones').lean();
+    const activeZoneIds = [];
+    zoneDocs.forEach(doc => {
+      (doc.zones || []).forEach(zone => {
+        if (zone.status && zone._id) {
+          activeZoneIds.push(zone._id.toString());
+        }
+      });
+    });
+
+ const allProducts = await Products.find().lean()
+
+    const filteredProducts = allProducts.filter(product => {
+      if (!product.location || !Array.isArray(product.location)) return false;
+
+      return product.location.some(loc => {
+        const cityName = Array.isArray(loc.city) ? loc.city : [loc.city];
+
+        const isCityActive = cityName.some(city =>
+          activeCityNames.includes(city?.name?.trim().toLowerCase())
+        );
+
+         const zones = Array.isArray(loc.zone) ? loc.zone : (loc.zone ? [loc.zone] : []);
+
+    const zoneMatch = zones.some(z =>
+      activeZoneIds.includes(z._id?.toString())
+    );
+    return isCityActive && zoneMatch;
+  });
+});
+
+return res.status(200).json({message:'Products',Product:filteredProducts,count:filteredProducts.length})
+
+} catch (error) {
+      console.error("❌ Error in updateStock:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+}

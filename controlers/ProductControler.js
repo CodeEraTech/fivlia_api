@@ -1296,7 +1296,7 @@ exports.updateStock = async (req, res) => {
         storeId,
         stock: stock.map(item => ({
           productId,
-          varientId: item.variantId,
+          variantId: item.variantId,
           quantity: item.quantity
         }))
       });
@@ -1311,7 +1311,7 @@ exports.updateStock = async (req, res) => {
     for (const item of stock) {
       const index = storeStock.stock.findIndex(
         s => s.productId.toString() === productId &&
-             s.varientId.toString() === item.variantId
+             s.variantId.toString() === item.variantId
       );
 
       if (index !== -1) {
@@ -1319,7 +1319,7 @@ exports.updateStock = async (req, res) => {
       } else {
         storeStock.stock.push({
           productId,
-          varientId: item.variantId,
+          variantId: item.variantId,
           quantity: item.quantity
         });
       }

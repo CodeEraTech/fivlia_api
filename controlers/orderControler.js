@@ -5,6 +5,7 @@ const Store = require('../modals/store')
 const Products = require('../modals/Product')
 const ZoneData = require('../modals/cityZone')
 const Cart = require('../modals/cart')
+const driver = require('../modals/driver')
 const sendPushNotification = require('../firebase/pushnotification');
 const geolib = require('geolib');
 
@@ -192,5 +193,31 @@ exports.test = async (req, res) => {
   } catch (error) {
     console.error(error);
    return res.status(500).json({ message: '❌ Failed to send notification', error: error.message}); 
+  }
+}
+
+exports.driver = async (req, res) => {
+  try {
+  const {driverName,status}=req.body
+  const image = req.files.image?.[0].path
+  const address = JSON.parse(req.body.address);
+  const totalDrivers = await driver.countDocuments();
+const paddedNumber = String(totalDrivers + 1).padStart(3, "0");
+const driverId = `FV${paddedNumber}`
+const newDriver = await driver.create({driverId,driverName,status,image,address})
+ return res.status(200).json({ message: 'Driver added successfully', newDriver}); 
+} catch (error) {
+   console.error(error);
+   return res.status(500).json({ message: '❌ Failed to add driver', error: error.message}); 
+  }
+}
+
+exports.getDriver = async (req,res) => {
+  try {
+    const Driver = await driver.find()
+    return res.status(200).json({ message: 'Drivers', Driver}); 
+  } catch (error) {
+   console.error(error);
+   return res.status(500).json({ message: 'Server error', error: error.message}); 
   }
 }

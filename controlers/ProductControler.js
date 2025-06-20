@@ -1315,7 +1315,7 @@ exports.updateStock = async (req, res) => {
       );
 
       if (index !== -1) {
-        storeStock.stock[index].quantity += item.quantity;
+        storeStock.stock[index].quantity = item.quantity;
       } else {
         storeStock.stock.push({
           productId,

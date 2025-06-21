@@ -1,86 +1,39 @@
 const mongoose = require('mongoose');
 
 const orderSchema = new mongoose.Schema({
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
-
-  items: [
-    {
-      product: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Product',
-        required: true
-      },
-      quantity: {
-        type: Number,
-        required: true,
-        default: 1
-      },
-      price: {
-        type: Number,
-        required: true
-      },
-      variant: {
-        type: String
-      }
-    }
-  ],
-
-  address: {
-    fullName: { type: String, required: true },
-    mobile: { type: String, required: true },
-    street: { type: String, required: true },
-    city: { type: String, required: true },
-    zone: { type: mongoose.Schema.Types.ObjectId, ref: 'Zone' },
-    landmark: { type: String },
-    type: { type: String, enum: ['home', 'work', 'other'], default: 'home' }
-  },
-
-cashOnDelivery: { type: Boolean, default: true },
-
-  paymentStatus: {
-    type: String,
-    enum: ['Pending', 'Paid', 'Failed'],
-    default: 'Pending'
-  },
-
-  orderStatus: {
-    type: String,
-    enum: ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'],
-    default: 'Pending'
-  },
-
-  totalAmount: {
-    type: Number,
-    required: true
-  },
-
-  discount: {
-    type: Number,
-    default: 0
-  },
-
-  finalAmount: {
-    type: Number,
-    required: true
-  },
-
-  notes: {
-    type: String
-  },
-
-  isCancelled: {
-    type: Boolean,
-    default: false
-  },
-
-  orderedAt: {
-    type: Date,
-    default: Date.now
-  }
+ addressId:{type:mongoose.Schema.ObjectId},
+ paymentStatus:String,
+ userId:{type:mongoose.Schema.ObjectId},
+ cashOnDelivery:Boolean,
+items: [
+  {productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Products' },
+  varientId: { type: mongoose.Schema.Types.ObjectId },
+  name: String,quantity: Number,price: Number,image: String,  }],
+ totalPrice: Number,
+ gst:String,
+ deliveryCharges:Number,
+ platformFee:Number
 });
 
-module.exports = mongoose.model('Order', orderSchema);
+// models/TempOrder.js
+
+const TempOrderSchema = new mongoose.Schema({items: [
+  {productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Products' },
+  varientId: { type: mongoose.Schema.Types.ObjectId },
+  name: String,quantity: Number,price: Number,image: String,  }],
+  
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  addressId: { type: mongoose.Schema.Types.ObjectId, ref: 'Address' },
+  paymentStatus:String,
+  gst:String,
+  cashOnDelivery:Boolean,
+  storeId:{type:mongoose.Schema.Types.ObjectId,ref:'stores'},
+  totalPrice: Number,
+  deliveryCharges:Number,
+  platformFee:Number,
+}, { timestamps: true });
+
+module.exports = {
+ Order: mongoose.model('Order', orderSchema),
+ TempOrder: mongoose.model('TempOrder', TempOrderSchema)
+}

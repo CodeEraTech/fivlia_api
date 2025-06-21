@@ -7,7 +7,8 @@ const cartSchema = new mongoose.Schema({
    quantity:Number,
    productId:{type:mongoose.Schema.ObjectId,ref:'products'},
    varientId:{type:mongoose.Schema.ObjectId},
-   userId:{type:mongoose.Schema.ObjectId,ref:'Login'}
+   userId:{type:mongoose.Schema.ObjectId,ref:'Login'},
+   paymentOption:{type:Boolean}
 },{timestamps:true})
 
 const discountSchema=new mongoose.Schema({

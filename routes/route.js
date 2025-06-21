@@ -12,7 +12,7 @@ const { users, addUser,updateProfile,Login,signin,register,verifyMobile } = requ
 
 const { intro, getIntro } = require('../controlers/controlers')
 
-const { placeOrder, getOrders,orderStatus,test,driver, getDriver } = require('../controlers/orderControler')
+const { placeOrder, getOrders,orderStatus,test,driver,getDriver,verifyPayment} = require('../controlers/orderControler')
 
 const { addCart,getCart,getDicount,discount,quantity,deleteCart } = require('../controlers/cartControler')
 
@@ -35,7 +35,8 @@ router.post('/brand', upload, brand)
 router.post('/addAtribute', addAtribute)
 router.post('/unit', unit)
 router.post('/addCart',upload,verifyToken, addCart)
-router.post('/placeOrder/:id', placeOrder);
+router.post('/placeOrder', placeOrder);
+router.post('/verifyPayment', verifyPayment);
 router.post('/filter',filter)
 router.post('/addSettings',addSettings)
 router.post('/createStore',upload,createStore)

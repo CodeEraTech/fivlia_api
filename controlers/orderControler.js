@@ -1,139 +1,147 @@
-const { reverseGeocode } = require('../config/google');
-const Order = require('../modals/order')
-const User = require('../modals/User')
-const Store = require('../modals/store')
+const {Order,TempOrder} = require('../modals/order')
 const Products = require('../modals/Product')
-const ZoneData = require('../modals/cityZone')
-const Cart = require('../modals/cart')
+const {Cart} = require('../modals/cart')
 const driver = require('../modals/driver')
+const {SettingAdmin} = require('../modals/setting')
+const stock = require('../modals/StoreStock')
 const sendPushNotification = require('../firebase/pushnotification');
-const geolib = require('geolib');
+
 
 const MAX_DISTANCE_METERS = 5000; // 5km radius
 
 exports.placeOrder = async (req, res) => {
   try {
-    const user = req.user; // comes from auth middleware
+    const { cartIds, addressId, storeId } = req.body;
 
-    const {
-      paymentStatus,
-      orderPlacedFrom,
-      discount,
-      notes,
-      cashOnDelivery
-    } = req.body;
+    const chargesData = await SettingAdmin.findOne();
+    const cartItems = await Cart.find({ _id: { $in: cartIds } });
+    // console.log(chargesData);
+    const itemsTotal = cartItems.reduce((sum, item) => sum + item.price, 0);
+    const totalPrice = itemsTotal + chargesData.Delivery_Charges + chargesData.Platform_Fee;
 
-    // 1. Fetch user and check location
-    const userData = await User.findById(user).lean();
-    if (!userData) return res.status(400).json({ message: 'Invalid user' });
+    const paymentOption = cartItems[0].paymentOption; // from zone
+    const userId = cartItems[0].userId;
+    const cashOnDelivery = paymentOption === true;
 
-    const userLocation = userData.location;
-    if (!userLocation?.latitude || !userLocation?.longitude) {
-      return res.status(400).json({ message: 'User location (lat/lng) required' });
-    }
+    const orderItems = cartItems.map(item => ({
+      productId: item.productId,
+      varientId: item.varientId,
+      name: item.name,
+      quantity: item.quantity,
+      price: item.price,
+      image: item.image,
+    }));
 
-    // 2. Get cart items of user
-    const cartData = await Cart.findOne({ user }).lean();
-    if (!cartData || !cartData.items || cartData.items.length === 0) {
-      return res.status(400).json({ message: 'Cart is empty' });
-    }
+    if (paymentOption === true) {
 
-    const items = cartData.items;
+      const newOrder = await Order.create({
+        items: orderItems,
+        addressId,
+        paymentStatus:'Successful',
+        cashOnDelivery,
+        totalPrice,
+        userId,
+        storeId,
+        deliveryCharges: chargesData.Delivery_Charges,
+        platformFee: chargesData.Platform_Fee,
+      });
 
-    // 3. Calculate totalAmount from cart
-    let totalAmount = 0;
-    for (const item of items) {
-      if (!item.price || !item.quantity) {
-        return res.status(400).json({ message: 'Cart item missing price or quantity' });
-      }
-      totalAmount += parseFloat(item.price) * item.quantity;
-    }
-
-    // 4. Calculate finalAmount
-    const finalAmount = totalAmount - (discount || 0);
-
-    // 5. Find nearby stores
-    const allStores = await Store.find({ online_visible: true }).lean();
-    const nearbyStores = allStores.filter(store => {
-      if (!store.Latitude || !store.Longitude) return false;
-
-      const distance = geolib.getDistance(
-        { latitude: userLocation.latitude, longitude: userLocation.longitude },
-        { latitude: store.Latitude, longitude: store.Longitude }
+      await stock.updateOne(
+        {
+          storeId: storeId,
+          "stock.productId": item.productId,
+          "stock.varientId": item.varientId
+        },
+        {
+          $inc: { "stock.$.quantity": -item.quantity }
+        }
       );
 
-      return distance <= MAX_DISTANCE_METERS;
-    });
+      await Cart.deleteMany({ _id: { $in: cartIds } });
 
-    // 6. Pick first matched store (no item validation here)
-    const matchedStore = nearbyStores[0];
-    if (!matchedStore) {
-      return res.status(400).json({ message: 'No nearby store found' });
+      return res.status(200).json({  message: "Order placed successfully",  order: newOrder,});
+
+    } else {
+      const tempOrder = await TempOrder.create({
+        userId,
+        items: orderItems,
+        addressId,
+        totalPrice,
+        storeId,
+        paymentStatus: "Pending",
+        cashOnDelivery: false,
+        deliveryCharges: chargesData.Delivery_Charges,
+        platformFee: chargesData.Platform_Fee,
+      });
+   await Cart.deleteMany({ _id: { $in: cartIds } });
+      return res.status(200).json({
+        message: "Proceed to payment",
+        tempOrderId: tempOrder._id,
+        tempOrder,
+      });
     }
-
-    // 7. COD check via zoneData
-    let codAllowed = false;
-    const zoneData = await ZoneData.findOne({ city: matchedStore.city });
-    if (zoneData?.zones?.length) {
-      const matchedZone = zoneData.zones.find(z =>
-        reverseGeocode.isPointWithinRadius(
-          { latitude: userLocation.latitude, longitude: userLocation.longitude },
-          { latitude: z.latitude, longitude: z.longitude },
-          z.range // in meters
-        )
-      );
-      if (matchedZone?.cashOnDelivery) {
-        codAllowed = true;
-      }
-    }
-
-    const finalCOD = codAllowed && cashOnDelivery;
-
-    // 8. Place the order
-    const newOrder = new Order({
-      user,
-      items,
-      location: {
-        latitude: userLocation.latitude,
-        longitude: userLocation.longitude
-      },
-      store: matchedStore._id,
-      cashOnDelivery: finalCOD,
-      paymentStatus: paymentStatus || 'Pending',
-      orderPlacedFrom: orderPlacedFrom || 'Web',
-      totalAmount,
-      discount: discount || 0,
-      finalAmount,
-      notes
-    });
-
-    const savedOrder = await newOrder.save();
-
-    // 9. Send push notification
-    if (userData.fcmToken) {
-      await sendPushNotification(
-        userData.fcmToken,
-        'Order Placed',
-        `Your order has been placed successfully! Total: ₹${finalAmount}`,
-        { orderId: savedOrder._id.toString() }
-      );
-    }
-
-    return res.status(201).json({
-      message: 'Order placed successfully',
-      order: savedOrder,
-      store: {
-        _id: matchedStore._id,
-        name: matchedStore.storeName
-      }
-    });
 
   } catch (error) {
-    console.error('Error placing order:', error);
-    return res.status(500).json({ message: 'Server error', error: error.message });
+    console.error("Order error:", error);
+    return res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
+exports.verifyPayment = async (req, res) => {
+  try {
+    const { tempOrderId, paymentStatus, transactionId } = req.body;
+
+    // 1. Check if temp order exists
+    const tempOrder = await TempOrder.findById(tempOrderId);
+    if (!tempOrder) return res.status(404).json({ message: "Order not found" });
+
+    // 2. If payment failed, delete temp order and return
+    if (paymentStatus === 'false') {
+      await TempOrder.findByIdAndDelete(tempOrderId);
+      return res.status(200).json({ message: "Payment failed. Order cancelled." });
+    }
+
+    // 3. Create final order
+    const finalOrder = await Order.create({
+      items: tempOrder.items,
+      addressId: tempOrder.addressId,
+      userId: tempOrder.userId,
+      paymentStatus: "Successful",
+      cashOnDelivery: false,
+      totalPrice: tempOrder.totalPrice,
+      deliveryCharges: tempOrder.deliveryCharges,
+      platformFee: tempOrder.platformFee,
+      gst: tempOrder.gst || null,
+      storeId:tempOrder.storeId,
+      transactionId, // Optional: store this for tracking
+    });
+
+    // 4. Update stock based on each item in the temp order
+    for (const item of tempOrder.items) {
+      await stock.updateOne(
+        {
+          storeId,
+          "stock.productId": item.productId,
+          "stock.varientId": item.varientId,
+        },
+        {
+          $inc: { "stock.$.quantity": -item.quantity },
+        }
+      );
+    }
+
+    // 5. Delete temp order
+    await TempOrder.findByIdAndDelete(tempOrderId);
+
+    res.status(200).json({
+      message: "Payment verified. Order placed successfully.",
+      order: finalOrder,
+    });
+  } catch (error) {
+    console.error("Error verifying payment:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
 
 
 exports.getOrders = async (req, res) => {

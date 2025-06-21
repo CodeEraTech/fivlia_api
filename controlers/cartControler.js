@@ -1,10 +1,24 @@
 const {Cart,Discount} = require('../modals/cart');
+const { ZoneData } = require('../modals/cityZone');
+const User = require('../modals/User')
 
 exports.addCart = async (req, res) => {
   try {
     const userId = req.user; 
     const { name, quantity, price, productId, varientId } = req.body;
-    const image = req.files?.image?.[0]?.path; // assuming multer is used
+    const image = req.files?.image?.[0]?.path;
+
+    const userZoneShort = userId?.location?.zone;
+
+    const zoneData = await ZoneData.findOne({
+      "zones.address": { $regex: userZoneShort, $options: "i" }
+    });
+
+    const matchedZone = zoneData.zones.find(z =>
+      z.address.toLowerCase().includes(userZoneShort.toLowerCase())
+    );
+
+    const paymentOption = matchedZone.cashOnDelivery === true;
 
     const cartItem = await Cart.create({
       image,
@@ -14,6 +28,7 @@ exports.addCart = async (req, res) => {
       productId,
       varientId,
       userId,
+      paymentOption
     });
 
     return res.status(200).json({ message: 'Item Added To Database', item: cartItem });

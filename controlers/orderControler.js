@@ -11,7 +11,7 @@ const MAX_DISTANCE_METERS = 5000; // 5km radius
 
 exports.placeOrder = async (req, res) => {
   try {
-    const { cartIds, addressId, storeId,cashOnDelivery } = req.body;
+    const { cartIds, addressId, storeId,paymentMode} = req.body;
 
     const chargesData = await SettingAdmin.findOne();
     const cartItems = await Cart.find({ _id: { $in: cartIds } });
@@ -20,7 +20,13 @@ exports.placeOrder = async (req, res) => {
     const totalPrice = itemsTotal + chargesData.Delivery_Charges + chargesData.Platform_Fee;
 
     const paymentOption = cartItems[0].paymentOption; // from zone
+
+if (paymentMode === true && paymentOption === false) {
+  return res.status(401).json({ message: "Cash On Delivery is not available in your zone" });
+}
+
     const userId = cartItems[0].userId;
+    const cashOnDelivery = paymentMode === true;
 
 const orderItems = [];
 
@@ -39,7 +45,7 @@ for (const item of cartItems) {
   });
 }
 
-    if (paymentOption === true) {
+    if (paymentMode === true) {
 
       const newOrder = await Order.create({
         items: orderItems,
@@ -80,7 +86,7 @@ for (const item of cartItems) {
         totalPrice,
         storeId,
         paymentStatus: "Pending",
-        cashOnDelivery: false,
+        cashOnDelivery,
         deliveryCharges: chargesData.Delivery_Charges,
         platformFee: chargesData.Platform_Fee,
       });
@@ -118,7 +124,7 @@ exports.verifyPayment = async (req, res) => {
       addressId: tempOrder.addressId,
       userId: tempOrder.userId,
       paymentStatus: "Successful",
-      cashOnDelivery: false,
+      cashOnDelivery: tempOrder.cashOnDelivery,
       totalPrice: tempOrder.totalPrice,
       deliveryCharges: tempOrder.deliveryCharges,
       platformFee: tempOrder.platformFee,

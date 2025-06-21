@@ -21,7 +21,7 @@ links:{
   termAndCondition:String
 },
 Password:String,
-Platform_Fee:String,
+Platform_Fee:Number,
 GST_Number:String,
 Description:String,
 Delivery_Charges:Number,

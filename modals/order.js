@@ -8,24 +8,25 @@ const orderSchema = new mongoose.Schema({
 items: [
   {productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Products' },
   varientId: { type: mongoose.Schema.Types.ObjectId },
-  name: String,quantity: Number,price: Number,image: String,  }],
+  name: String,quantity: Number,price: Number,image: String,gst:String  }],
  totalPrice: Number,
  gst:String,
  deliveryCharges:Number,
- platformFee:Number
+ platformFee:Number,
+ transactionId:String
 });
 
 // models/TempOrder.js
 
-const TempOrderSchema = new mongoose.Schema({items: [
+const TempOrderSchema = new mongoose.Schema({
+  items: [
   {productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Products' },
   varientId: { type: mongoose.Schema.Types.ObjectId },
-  name: String,quantity: Number,price: Number,image: String,  }],
-  
+  name: String,quantity: Number,price: Number,image: String,gst:String  }],
+
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   addressId: { type: mongoose.Schema.Types.ObjectId, ref: 'Address' },
   paymentStatus:String,
-  gst:String,
   cashOnDelivery:Boolean,
   storeId:{type:mongoose.Schema.Types.ObjectId,ref:'stores'},
   totalPrice: Number,

@@ -16,21 +16,30 @@ exports.placeOrder = async (req, res) => {
     const chargesData = await SettingAdmin.findOne();
     const cartItems = await Cart.find({ _id: { $in: cartIds } });
     // console.log(chargesData);
-    const itemsTotal = cartItems.reduce((sum, item) => sum + item.price, 0);
+    const itemsTotal = cartItems.reduce((sum, item) => sum + Number(item.price), 0);
     const totalPrice = itemsTotal + chargesData.Delivery_Charges + chargesData.Platform_Fee;
 
     const paymentOption = cartItems[0].paymentOption; // from zone
     const userId = cartItems[0].userId;
     const cashOnDelivery = paymentOption === true;
 
-    const orderItems = cartItems.map(item => ({
-      productId: item.productId,
-      varientId: item.varientId,
-      name: item.name,
-      quantity: item.quantity,
-      price: item.price,
-      image: item.image,
-    }));
+const orderItems = [];
+
+for (const item of cartItems) {
+  const product = await Products.findById(item.productId).lean();
+  console.log(product);
+  const gst = product.tax
+
+  orderItems.push({
+    productId: item.productId,
+    varientId: item.varientId,
+    name: item.name,
+    quantity: item.quantity,
+    price: Number(item.price),
+    image: item.image,
+    gst
+  });
+}
 
     if (paymentOption === true) {
 
@@ -44,18 +53,22 @@ exports.placeOrder = async (req, res) => {
         storeId,
         deliveryCharges: chargesData.Delivery_Charges,
         platformFee: chargesData.Platform_Fee,
+        //gst:orderItems.productId.tax
       });
 
-      await stock.updateOne(
-        {
-          storeId: storeId,
-          "stock.productId": item.productId,
-          "stock.varientId": item.varientId
-        },
-        {
-          $inc: { "stock.$.quantity": -item.quantity }
-        }
-      );
+      for (const item of cartItems) {
+  await stock.updateOne(
+    {
+      storeId: storeId,
+      "stock.productId": item.productId,
+      "stock.varientId": item.varientId
+    },
+    {
+      $inc: { "stock.$.quantity": -item.quantity }
+    }
+  );
+ }
+
 
       await Cart.deleteMany({ _id: { $in: cartIds } });
 
@@ -96,7 +109,7 @@ exports.verifyPayment = async (req, res) => {
     if (!tempOrder) return res.status(404).json({ message: "Order not found" });
 
     // 2. If payment failed, delete temp order and return
-    if (paymentStatus === 'false') {
+    if (paymentStatus === false) {
       await TempOrder.findByIdAndDelete(tempOrderId);
       return res.status(200).json({ message: "Payment failed. Order cancelled." });
     }
@@ -120,7 +133,7 @@ exports.verifyPayment = async (req, res) => {
     for (const item of tempOrder.items) {
       await stock.updateOne(
         {
-          storeId,
+          storeId:tempOrder.storeId,
           "stock.productId": item.productId,
           "stock.varientId": item.varientId,
         },

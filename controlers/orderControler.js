@@ -11,7 +11,7 @@ const MAX_DISTANCE_METERS = 5000; // 5km radius
 
 exports.placeOrder = async (req, res) => {
   try {
-    const { cartIds, addressId, storeId } = req.body;
+    const { cartIds, addressId, storeId,cashOnDelivery } = req.body;
 
     const chargesData = await SettingAdmin.findOne();
     const cartItems = await Cart.find({ _id: { $in: cartIds } });
@@ -21,13 +21,11 @@ exports.placeOrder = async (req, res) => {
 
     const paymentOption = cartItems[0].paymentOption; // from zone
     const userId = cartItems[0].userId;
-    const cashOnDelivery = paymentOption === true;
 
 const orderItems = [];
 
 for (const item of cartItems) {
   const product = await Products.findById(item.productId).lean();
-  console.log(product);
   const gst = product.tax
 
   orderItems.push({

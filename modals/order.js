@@ -4,7 +4,7 @@ const orderSchema = new mongoose.Schema({
  addressId:{type:mongoose.Schema.ObjectId},
  paymentStatus:String,
  userId:{type:mongoose.Schema.ObjectId},
- cashOnDelivery:Boolean,
+ cashOnDelivery:{type:Boolean,default:true},
 items: [
   {productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Products' },
   varientId: { type: mongoose.Schema.Types.ObjectId },

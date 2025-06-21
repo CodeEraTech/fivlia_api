@@ -10,11 +10,11 @@ items: [
   varientId: { type: mongoose.Schema.Types.ObjectId },
   name: String,quantity: Number,price: Number,image: String,gst:String  }],
  totalPrice: Number,
- gst:String,
  deliveryCharges:Number,
+ orderStatus:{type:String,default:'Pending'},
  platformFee:Number,
  transactionId:String
-});
+},{timestamps:true});
 
 // models/TempOrder.js
 

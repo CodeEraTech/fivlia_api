@@ -12,7 +12,7 @@ const { users, addUser,updateProfile,Login,signin,register,verifyMobile } = requ
 
 const { intro, getIntro } = require('../controlers/controlers')
 
-const { placeOrder, getOrders,orderStatus,test,driver,getDriver,verifyPayment} = require('../controlers/orderControler')
+const { placeOrder, getOrders,orderStatus,test,driver,getDriver,verifyPayment,getOrderDetails} = require('../controlers/orderControler')
 
 const { addCart,getCart,getDicount,discount,quantity,deleteCart } = require('../controlers/cartControler')
 
@@ -53,6 +53,7 @@ router.post('/location',verifyToken, updateLocation)
 router.post('/notification',upload, notification)
 
 router.get('/getNotification',verifyToken, getNotification)
+router.get('/getOrderDetails',verifyToken, getOrderDetails)
 router.get('/getDriver', getDriver)
 router.get('/getIntro', getIntro)
 router.get('/getAllZone', getAllZone)

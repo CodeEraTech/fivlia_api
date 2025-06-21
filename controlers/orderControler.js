@@ -3,6 +3,7 @@ const Products = require('../modals/Product')
 const {Cart} = require('../modals/cart')
 const driver = require('../modals/driver')
 const {SettingAdmin} = require('../modals/setting')
+const Address = require('../modals/Address')
 const stock = require('../modals/StoreStock')
 const sendPushNotification = require('../firebase/pushnotification');
 
@@ -57,7 +58,6 @@ for (const item of cartItems) {
         storeId,
         deliveryCharges: chargesData.Delivery_Charges,
         platformFee: chargesData.Platform_Fee,
-        //gst:orderItems.productId.tax
       });
 
       for (const item of cartItems) {
@@ -117,7 +117,6 @@ exports.verifyPayment = async (req, res) => {
       await TempOrder.findByIdAndDelete(tempOrderId);
       return res.status(200).json({ message: "Payment failed. Order cancelled." });
     }
-
     // 3. Create final order
     const finalOrder = await Order.create({
       items: tempOrder.items,
@@ -164,15 +163,67 @@ exports.verifyPayment = async (req, res) => {
 exports.getOrders = async (req, res) => {
   try {
     const orders = await Order.find()
-      .populate('user', 'name email')
-      .populate('items.product', 'name price image');
-
     return res.status(200).json(orders);
   } catch (error) {
     console.error('Get orders error:', error.message);
     return res.status(500).json({ message: 'Server Error', error: error.message });
   }
 };
+
+exports.getOrderDetails = async (req,res) => {
+  try {
+    const userId = req.user
+    
+   const userOrders = await Order.find({userId}).lean()
+       console.log('userInOrder',userOrders.userId);
+       console.log('userId',userId);
+  const results = [];
+
+    for (const order of userOrders) {
+      // Fetch address
+      const address = await Address.findById(order.addressId).lean();
+
+      // Get product details for each item
+      const itemsWithDetails = await Promise.all(order.items.map(async (item) => {
+        const product = await Products.findById(item.productId).lean();
+        return {
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          image: item.image,
+          gst: item.gst,
+          varientId: item.varientId,
+          productDetails: {
+            title: product?.title,
+            description: product?.description,
+            brand: product?.brand,
+            images: product?.images
+          }
+        };
+      }));
+
+      results.push({
+        orderId: order._id,
+        orderStatus: order.orderStatus,
+        totalPrice: order.totalPrice,
+        cashOnDelivery: order.cashOnDelivery,
+        deliveryCharges: order.deliveryCharges,
+        platformFee: order.platformFee,
+        items: itemsWithDetails,
+        address
+      });
+    }
+
+    return res.status(200).json({
+      message: "Orders fetched successfully",
+      orders: results
+    });
+
+  } catch (error) {
+    console.error('Get orders error:', error.message);
+    return res.status(500).json({ message: 'Server Error', error: error.message });
+  }
+}
 
 exports.orderStatus=async (req,res) => {
   try {

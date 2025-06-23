@@ -6,7 +6,7 @@ const {SettingAdmin} = require('../modals/setting')
 const Address = require('../modals/Address')
 const stock = require('../modals/StoreStock')
 const sendPushNotification = require('../firebase/pushnotification');
-
+const Store = require('../modals/store');
 
 const MAX_DISTANCE_METERS = 5000; // 5km radius
 
@@ -42,7 +42,7 @@ for (const item of cartItems) {
     quantity: item.quantity,
     price: Number(item.price),
     image: item.image,
-    gst
+    gst,
   });
 }
 
@@ -159,11 +159,57 @@ exports.verifyPayment = async (req, res) => {
   }
 };
 
-
 exports.getOrders = async (req, res) => {
   try {
     const orders = await Order.find()
-    return res.status(200).json({message:"Orders",orders});
+      .populate({
+        path: 'addressId',
+        select: 'fullName address house_No floor landmark city state pincode',
+      })
+      .populate({
+        path: 'storeId',
+        select: 'storeName',
+      })
+      .lean();
+
+    const ordersWithCity = orders.map((order) => {
+      // Extract city from address
+      let city = 'Unknown';
+      if (order.addressId?.city) city = order.addressId.city;
+
+      // Format full address
+      const formattedAddress = order.addressId
+        ? {
+            fullName: order.addressId.fullName || 'N/A',
+            fullAddress: [
+              order.addressId.address || '',
+              order.addressId.house_No || '',
+              order.addressId.floor ? `Floor ${order.addressId.floor}` : '',
+              order.addressId.landmark || '',
+              order.addressId.city || '',
+              order.addressId.state || '',
+              order.addressId.pincode || '',
+            ].filter(Boolean).join(', ') || 'N/A',
+          }
+        : { fullName: 'N/A', fullAddress: 'N/A' };
+
+      return {
+        ...order,
+        addressId: formattedAddress,
+        storeId: order.storeId
+          ? {
+              _id: order.storeId._id || 'N/A',
+              storeName: order.storeId.storeName || 'N/A',
+            }
+          : null,
+        city,
+      };
+    });
+
+    return res.status(200).json({
+      message: 'Orders retrieved successfully',
+      orders: ordersWithCity,
+    });
   } catch (error) {
     console.error('Get orders error:', error.message);
     return res.status(500).json({ message: 'Server Error', error: error.message });

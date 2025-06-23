@@ -78,7 +78,7 @@ router.get('/getDiscount', getDicount)
 router.get('/getVarients/:id', getVarients)
 router.get('/orders', getOrders);
 router.get('/settings',verifyToken,settings);
-router.get('/getAddress/:id',getAddress);
+router.get('/getAddress',verifyToken,getAddress);
 router.get('/getStore',getStore);
 router.get('/relatedProduct/:productId',getRelatedProducts)
 router.get('/getFilter',getFilter);
@@ -86,7 +86,7 @@ router.get('/getDeliveryEstimate',verifyToken,getDeliveryEstimate);
 router.get('/send-test-notification',test)
 
 router.put('/editBrand/:id', upload, editBrand)
-router.put('/EditAddress/:id', EditAddress)
+router.put('/EditAddress',verifyToken, EditAddress)
 router.put('/addFilterInCategory/:id', addFiltersToCategory)
 router.post('/addUser', upload, addUser)
 router.patch('/edit/:id', upload, update)
@@ -101,7 +101,7 @@ router.put('/updateCart/:id',quantity)
 router.put('/orderStatus/:orderId', orderStatus);
 router.patch('/update-profile',upload, verifyToken, updateProfile);
 router.patch('/updateProduct/:id',upload, updateProduct);
-router.delete('/deleteAddress/:id',deleteAddress)
+router.delete('/deleteAddress',verifyToken,deleteAddress)
 router.delete('/deleteProduct/:id',deleteProduct)
 router.delete('/removeCart/:id',deleteCart)
 router.patch('/editFilter/:id', editFilter);

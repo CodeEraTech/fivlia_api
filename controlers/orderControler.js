@@ -161,7 +161,9 @@ exports.verifyPayment = async (req, res) => {
 
 exports.getOrders = async (req, res) => {
   try {
-    const orders = await Order.find()
+    const {storeId} = req.query
+       const query = storeId ? { storeId } : {};
+    const orders = await Order.find(query)
       .populate({
         path: 'addressId',
         select: 'fullName address house_No floor landmark city state pincode',

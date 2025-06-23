@@ -163,7 +163,7 @@ exports.verifyPayment = async (req, res) => {
 exports.getOrders = async (req, res) => {
   try {
     const orders = await Order.find()
-    return res.status(200).json(orders);
+    return res.status(200).json({message:"Orders",orders});
   } catch (error) {
     console.error('Get orders error:', error.message);
     return res.status(500).json({ message: 'Server Error', error: error.message });
@@ -227,16 +227,16 @@ exports.getOrderDetails = async (req,res) => {
 
 exports.orderStatus=async (req,res) => {
   try {
-   const{id}=req.params
-  const {orderStatus,paymentStatus}=req.body
-  const update = await Order.findByIdAndUpdate(id,{orderStatus,paymentStatus}).populate('user');
+   const{orderId}=req.params
+  const {status}=req.body
+  const update = await Order.findByIdAndUpdate(orderId,{orderStatus:status},{new:true}).populate("userId");
 
-    if (update?.user?.fcmToken) {
-      console.log("FCM Token:", update.user.fcmToken);
+if (update.userId?.fcmToken) {
+      console.log("FCM Token:", update.userId.fcmToken);
       const response = await sendPushNotification(
-        update.user.fcmToken,
-        'Order Update',
-        `Your order status is now "${orderStatus}"`,
+        update.userId.fcmToken,
+        "Order Update",
+        `Your order status is now "${status}"`,
         { orderId: update._id.toString() }
       );
       console.log("Push Notification Response:", response);

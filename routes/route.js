@@ -98,7 +98,7 @@ router.patch('/editAttributes/:id', editAttributes);
 router.put('/editCat/:id',upload, editCat);
 router.put('/addCategoryInStore/:id',addCategoryInStore)
 router.put('/updateCart/:id',quantity)
-router.put('/orderStatus/:id', orderStatus);
+router.put('/orderStatus/:orderId', orderStatus);
 router.patch('/update-profile',upload, verifyToken, updateProfile);
 router.patch('/updateProduct/:id',upload, updateProduct);
 router.delete('/deleteAddress/:id',deleteAddress)

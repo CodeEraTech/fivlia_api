@@ -43,7 +43,7 @@ router.post('/createStore',upload,createStore)
 router.post('/Product/bulk',upload,bulkProductUpload),
 router.post('/adminSetting', adminSetting)
 router.post('/addFilter', addFilter)
-router.post('/address/:id', addAddress);
+router.post('/address',verifyToken, addAddress);
 router.post('/updateStock/:productId', updateStock);
 router.post('/driver',upload, driver);
 

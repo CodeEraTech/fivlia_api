@@ -159,7 +159,7 @@ exports.updateZoneStatus = async (req, res) => {
 };
 exports.addAddress = async (req, res) => {
   try {
-    const {id} = req.params; 
+    const {id} = req.user; 
     const {fullName,mobileNumber,pincode,house_No,address,state,latitude,longitude,city,addressType,floor,landmark} = req.body;
 console.log(req.body);
 

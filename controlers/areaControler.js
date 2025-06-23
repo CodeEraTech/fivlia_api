@@ -196,7 +196,7 @@ console.log(req.body);
 
 exports.getAddress = async (req,res) => {
  try {
-  const {id} = req.params
+  const {id} = req.user; 
   const address =await Address.find({userId:id })
   res.json(address)
   } catch (error) {
@@ -207,7 +207,7 @@ exports.getAddress = async (req,res) => {
 
 exports.EditAddress=async (req,res) => {
   try {
-  const {id} = req.params
+  const {id} = req.user; 
   const { userId,fullName,mobileNumber,pincode,house_No,address,state,latitude,longitude,city,addressType, floor,landmark }=req.body
 
   const edit = await Address.findByIdAndUpdate(id,{userId,fullName,mobileNumber,pincode,house_No,address,state,latitude,longitude,city,addressType,floor,landmark})

@@ -169,7 +169,7 @@ exports.getOrders = async (req, res) => {
       .populate({
         path: 'storeId',
         select: 'storeName',
-      })
+      }) .sort({ createdAt: -1 })
       .lean();
 
     const ordersWithCity = orders.map((order) => {

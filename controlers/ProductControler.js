@@ -77,7 +77,16 @@ exports.getAttributesId=async (req,res) => {
   }
 }
 
-
+exports.deleteAttribute=async (req,res) => {
+  try {
+  const {id} = req.params
+  const dltAttribute = await Attribute.findByIdAndDelete(id)
+  return res.status(200).json({message:"Attribute Deleted"})
+  } catch (error) {
+      console.error(error);
+  return res.status(500).json({message:"An error occured"})   
+  }
+}
 
 exports.addProduct = async (req, res) => {
   try {

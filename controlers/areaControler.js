@@ -229,5 +229,28 @@ try {
   
   return res.status(500).json({ message: "Server error" }); 
 }
-
 }
+
+exports.setDefault = async (req, res) => {
+  try {
+    const { id: userId } = req.user; // Get user ID from auth middleware
+    const { addressId } = req.body;
+
+    await Address.updateMany({ userId }, { $set: { default: false } });
+
+    const setDefault = await Address.findByIdAndUpdate(
+      addressId,
+      { $set: { default: true } },
+      { new: true }
+    );
+
+  if (!setDefault) {
+      return res.status(404).json({status:false, message: "Address not found" });
+    }
+
+    res.status(200).json({status:true, message: "Default address updated", address: setDefault });
+  } catch (error) {
+    console.error("Error setting default address:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};

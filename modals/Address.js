@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+const mongoose = require('mongoose');;
 
 const addressSchema = new mongoose.Schema({
   userId:{type:mongoose.Schema.ObjectId,ref:'Login'},
@@ -14,6 +14,7 @@ latitude:{type:Number},
 longitude:{type:Number},
   city: {type:String},
   addressType: { type: String, enum: ['home', 'work', 'other', 'default'] },
+  default:{type:Boolean}
 },{timestamps:true});
 
 module.exports=mongoose.model('Address',addressSchema)

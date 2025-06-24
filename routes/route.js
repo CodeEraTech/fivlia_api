@@ -21,7 +21,7 @@ const { update, banner, getBanner, getAllBanner, updateBannerStatus, addCategory
 const { addProduct, addAtribute, getAttributes, getProduct, getFeatureProduct, searchProduct, bestSelling,editAttributes,unit,getUnit,getVarients,filter,bulkProductUpload,updateProduct,deleteProduct,getAttributesId,notification,getNotification,getRelatedProducts,updateStock,adminProducts,deleteAttribute } = require('../controlers/ProductControler')
 
 const cityZone = require('../modals/cityZone');
-const { addCity, updateCityStatus, getAviableCity, getCity, updateZoneStatus, getAllZone, getZone, updateLocation,addAddress,getAddress,EditAddress,deleteAddress } = require('../controlers/areaControler');
+const { addCity, updateCityStatus, getAviableCity, getCity, updateZoneStatus, getAllZone, getZone, updateLocation,addAddress,getAddress,EditAddress,deleteAddress,setDefault } = require('../controlers/areaControler');
 
 router.post('/Login', Login)
 router.post('/signin', signin)
@@ -91,6 +91,7 @@ router.put('/addFilterInCategory/:id', addFiltersToCategory)
 router.post('/addUser', upload, addUser)
 router.patch('/edit/:id', upload, update)
 router.patch('/updateAt/:id', updateAt);
+router.put('/setDefault',verifyToken, setDefault);
 router.put('/updateCityStatus/:id', updateCityStatus);
 router.patch('/admin/banner/:id/status',upload, updateBannerStatus);
 router.put('/updateZoneStatus/:id', updateZoneStatus);

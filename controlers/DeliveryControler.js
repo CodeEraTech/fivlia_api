@@ -28,20 +28,18 @@ exports.getDeliveryEstimate = async (req, res) => {
     let { latitude, longitude, city, zone } = user.location;
 
     // 📍 If city or zone is missing, reverse geocode ONCE
-    if (!city || !zone) {
+
       const geoInfo = await reverseGeocode(parseFloat(latitude), parseFloat(longitude));
       if (!geoInfo?.city || !geoInfo?.zone) {
         return res.status(400).json({status:false, message: "Could not determine user's zone" });
       }
 
-      // ✅ Save to DB for future reuse
-      user.location.city = geoInfo.city;
-      user.location.zone = geoInfo.zone;
-      await user.save();
-
       city = geoInfo.city;
       zone = geoInfo.zone;
-    }
+      // ✅ Save to DB for future reuse
+      user.location.city = city;
+      user.location.zone = zone;
+      await user.save();
 
     // 🚀 Now use city and zone (from DB or API)
     const userZoneDoc = await ZoneData.findOne({ city });

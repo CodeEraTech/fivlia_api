@@ -217,13 +217,16 @@ exports.getAddress = async (req,res) => {
     if (!addresses.length && !stores.length)
       return res.json({status:false, message: "Sorry, no stores available in your zone pls change ur address." });
 
-    let matched = null;
-    for (const addr of addresses) {
-      if (addr.city === city && addr.address === zone) {
-        matched = addr;
-        break;
-      }
-    }
+    let matched = false;
+for (const addr of addresses) {
+  if (
+    addr.city.toLowerCase() === city.toLowerCase() &&
+    addr.address.toLowerCase() === zone.toLowerCase()
+  ) {
+    matched = addr;
+    break;
+  }
+}
 
     await Promise.all(addresses.map(addr =>
       Address.findByIdAndUpdate(addr._id, { default: matched && addr._id.equals(matched._id) })

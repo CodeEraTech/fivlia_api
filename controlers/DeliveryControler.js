@@ -46,20 +46,20 @@ exports.getDeliveryEstimate = async (req, res) => {
     // 🚀 Now use city and zone (from DB or API)
     const userZoneDoc = await ZoneData.findOne({ city });
     if (!userZoneDoc)
-      return res.json({ message: "Sorry, we are not available in your city yet." });
+      return res.json({status:false, message: "Sorry, we are not available in your city yet." });
 
     const matchedZone = userZoneDoc.zones.find(z =>
       z.address.toLowerCase().includes(zone.toLowerCase())
     );
     if (!matchedZone)
-      return res.json({ message: "Sorry, we are not available in your zone yet." });
+      return res.json({status:false, message: "Sorry, we are not available in your zone yet." });
 
     const stores = await Store.find({
       zone: { $elemMatch: { _id: matchedZone._id } }
     });
 
     if (!stores.length)
-      return res.json({ message: "Sorry, no stores available in your zone." });
+      return res.json({status:false, message: "Sorry, no stores available in your zone." });
 
     const results = await Promise.all(
       stores.map(async (store) => {
@@ -86,7 +86,7 @@ exports.getDeliveryEstimate = async (req, res) => {
     );
 
     const filtered = results.filter(Boolean);
-    res.json(filtered);
+    res.json({status:true,filtered});
 
   } catch (err) {
     console.error("💥 Delivery Error:", err);

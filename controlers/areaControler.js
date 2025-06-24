@@ -2,6 +2,8 @@ const {CityData,ZoneData} = require('../modals/cityZone');
 const Location = require('../modals/location');
 const User = require('../modals/User');
 const Address = require('../modals/Address');
+const StoreStock = require('../modals/StoreStock');
+const Store = require('../modals/store')
 exports.addCity = async (req, res) => {
   try {
     const { city, zone } = req.body;
@@ -197,8 +199,40 @@ console.log(req.body);
 exports.getAddress = async (req,res) => {
  try {
   const {id} = req.user; 
-  const address =await Address.find({userId:id })
-  res.json(address)
+    const user = await User.findById(id);
+    const { city, zone } = user.location;
+
+  const addresses = await Address.find({ userId: id }).sort({ createdAt: -1 });
+
+  const userZoneDoc = await ZoneData.findOne({ city });
+   
+    const matchedZone = userZoneDoc.zones.find(z =>
+      z.address.toLowerCase().includes(zone.toLowerCase())
+    );
+
+    const stores = await Store.find({
+      zone: { $elemMatch: { _id: matchedZone._id } }
+    });
+
+    if (!addresses.length && !stores.length)
+      return res.json({status:false, message: "Sorry, no stores available in your zone pls change ur address." });
+
+    let matched = null;
+    for (const addr of addresses) {
+      if (addr.city === city && addr.address === zone) {
+        matched = addr;
+        break;
+      }
+    }
+
+    await Promise.all(addresses.map(addr =>
+      Address.findByIdAndUpdate(addr._id, { default: matched && addr._id.equals(matched._id) })
+    ));
+
+    res.status(200).json({
+      default: matched || null,
+      addresses,
+    });
   } catch (error) {
    console.error("Error adding address:", error);
     return res.status(500).json({ message: "Server error" });

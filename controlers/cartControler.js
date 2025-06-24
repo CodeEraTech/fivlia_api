@@ -39,47 +39,16 @@ exports.addCart = async (req, res) => {
 };
 
 
-exports.getCart = async (req, res) => {
+exports.getCart=async (req,res) => {
   try {
-    const { id: userId } = req.user;
-
-    const items = await Cart.find({ userId }).populate('productId'); // assume productId ref is set
-
-    if (!items || items.length === 0) {
-      return res.status(200).json({ message: 'Cart is empty', items: [] });
-    }
-
-    // Step 1: Check store consistency
-    const storeIds = items.map(item => item.productId.storeId?.toString());
-    const uniqueStores = [...new Set(storeIds)];
-
-    if (uniqueStores.length > 1) {
-      return res.status(400).json({ message: 'Cart contains items from multiple stores. Please order from one store at a time.' });
-    }
-
-    // Step 2: Check quantity
-    const insufficientItems = items.filter(item => item.quantity > item.productId.inventory);
-
-    if (insufficientItems.length > 0) {
-      return res.status(400).json({
-        message: 'Some items exceed available stock',
-        insufficientItems: insufficientItems.map(item => ({
-          productName: item.productId.productName,
-          availableStock: item.productId.inventory,
-          requested: item.quantity
-        }))
-      });
-    }
-
-    // ✅ All checks passed
-    return res.status(200).json({ message: 'Cart is valid', items });
-
+    const {id} = req.user
+    const items = await Cart.find({userId:id})
+    return res.status(200).json({ message: 'Cart Items:', items });
   } catch (error) {
-    console.error('Cart validation error:', error);
-    return res.status(500).json({ message: "An error occurred", error: error.message });
+    console.error(error);
+    return res.status(500).json({ message: "An error occured!", error: error.message });
   }
-};
-
+}
 exports.discount=async (req,res) => {
   try {
  const{description,value,head}=req.body

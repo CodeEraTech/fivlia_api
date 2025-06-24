@@ -18,12 +18,12 @@ function addFiveMinutes(durationText) {
 exports.getDeliveryEstimate = async (req, res) => {
   try {
     const { id } = req.user;
-    if (!id) return res.status(400).json({ message: "Missing user ID" });
+    if (!id) return res.status(400).json({status:false, message: "Missing user ID" });
 
     const user = await User.findById(id);
 
     if (!user?.location?.latitude || !user?.location?.longitude)
-      return res.status(400).json({ message: "User location not set" });
+      return res.status(400).json({status:false, message: "User location not set" });
 
     let { latitude, longitude, city, zone } = user.location;
 
@@ -31,7 +31,7 @@ exports.getDeliveryEstimate = async (req, res) => {
     if (!city || !zone) {
       const geoInfo = await reverseGeocode(parseFloat(latitude), parseFloat(longitude));
       if (!geoInfo?.city || !geoInfo?.zone) {
-        return res.status(400).json({ message: "Could not determine user's zone" });
+        return res.status(400).json({status:false, message: "Could not determine user's zone" });
       }
 
       // ✅ Save to DB for future reuse
@@ -90,7 +90,7 @@ exports.getDeliveryEstimate = async (req, res) => {
 
   } catch (err) {
     console.error("💥 Delivery Error:", err);
-    res.status(500).json({ message: "Server error", error: err.message });
+    res.status(500).json({status:false, message: "Server error", error: err.message });
   }
 };
 

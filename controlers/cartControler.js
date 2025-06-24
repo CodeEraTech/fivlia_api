@@ -1,6 +1,9 @@
 const {Cart,Discount} = require('../modals/cart');
 const { ZoneData } = require('../modals/cityZone');
+const Address = require('../modals/Address')
+const Store = require('../modals/store')
 const User = require('../modals/User')
+const stock = require('../modals/StoreStock')
 
 exports.addCart = async (req, res) => {
   try {
@@ -39,16 +42,79 @@ exports.addCart = async (req, res) => {
 };
 
 
-exports.getCart=async (req,res) => {
+exports.getCart = async (req, res) => {
   try {
-    const {id} = req.user
-    const items = await Cart.find({userId:id})
-    return res.status(200).json({ message: 'Cart Items:', items });
+    const { id } = req.user;
+
+    const items = await Cart.find({ userId: id });
+
+    const address = await Address.findOne({ userId: id, default: true });
+    if (!address) {
+      return res.status(400).json({ status: false, message: "Pls Select Address." });
+    }
+
+    const { city, address: zone } = address;
+
+    // Step 1: Find zoneData for the city
+    const cityZoneDoc = await ZoneData.findOne({ city });
+    if (!cityZoneDoc) {
+      return res.status(400).json({ status: false, message: "City not serviceable." });
+    }
+
+    // Step 2: Match zone
+    const matchedZone = cityZoneDoc.zones.find(z =>
+      z.address.toLowerCase().includes(zone.toLowerCase())
+    );
+
+    if (!matchedZone) {
+      return res.status(400).json({ status: false, message: "Zone not serviceable." });
+    }
+
+    // Step 3: Find store serving that zone
+    const store = await Store.findOne({
+      zone: { $elemMatch: { _id: matchedZone._id } }
+    });
+
+      if (!store) {
+      return res.status(400).json({ status: false, message: "No store found for your location." });
+    }
+
+const checkStock = await stock.findOne({storeId:store._id})
+
+   if (!stockDoc) {
+      return res.status(400).json({ status: false, message: "Store has no stock data" });
+    }
+
+    const unavailableItems = [];
+
+    for (const cartItem of items) {
+      const stockItem = stockDoc.stock.find(s =>
+        s.productId.toString() === cartItem.productId.toString() &&
+        s.varientId.toString() === cartItem.varientId.toString()
+      );
+
+      if (!stockItem || stockItem.quantity < cartItem.quantity) {
+        unavailableItems.push(cartItem);
+      }
+    }
+
+    if (unavailableItems.length > 0) {
+      return res.status(200).json({
+        status: false,
+        message: "Some items are out of stock or quantity is insufficient",
+        unavailableItems,
+      });
+    }
+   const StoreID = store.id 
+    return res.status(200).json({ status: true, message: 'Cart Items are available', items,StoreID});
+
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "An error occured!", error: error.message });
+    console.error("Error in getCart:", error);
+    return res.status(500).json({ status: false, message: "An error occurred!", error: error.message });
   }
-}
+};
+
+
 exports.discount=async (req,res) => {
   try {
  const{description,value,head}=req.body

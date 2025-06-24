@@ -233,7 +233,6 @@ for (const addr of addresses) {
     ));
 
     res.status(200).json({
-      default: matched || null,
       addresses,
     });
   } catch (error) {

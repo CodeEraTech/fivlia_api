@@ -72,7 +72,10 @@ exports.getCart = async (req, res) => {
     if (!matchedZone) {
       return res.status(400).json({ status: false, message: "Zone not serviceable." });
     }
-
+console.log(userZone);
+console.log(userZone);
+    console.log(matchedZone);
+    
     // 5. Find store in that zone
     const store = await Store.findOne({
       zone: { $elemMatch: { _id: matchedZone._id } }
@@ -84,10 +87,6 @@ exports.getCart = async (req, res) => {
 
     // 6. Find stock data for the store
     const stockDoc = await stock.findOne({ storeId: store._id });
-
-    if (!stockDoc) {
-      return res.status(400).json({ status: false, message: "Store has no stock data." });
-    }
 
     // 7. Check stock availability
     const unavailableItems = [];
@@ -107,9 +106,9 @@ exports.getCart = async (req, res) => {
       return res.status(200).json({
         status: false,
         message: "Some items are out of stock or quantity is insufficient.",
-        unavailableItems,
+        
+         cartItems:items,
          StoreID: store._id,
-         cartItems:items
       });
     }
 

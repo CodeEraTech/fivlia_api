@@ -21,35 +21,35 @@ exports.getDeliveryEstimate = async (req, res) => {
     if (!id) return res.status(400).json({ status: false, message: "Missing user ID" });
 
     const user = await User.findById(id);
-
     const currentLat = parseFloat(user?.location?.latitude);
     const currentLong = parseFloat(user?.location?.longitude);
 
-    if (!currentLat || !currentLong)
+    if (!currentLat || !currentLong) {
       return res.status(400).json({ status: false, message: "User location not set" });
+    }
 
-    let { city, zone, reverseLat, reverseLong } = user.location;
+    let { city, zone } = user.location;
 
-    const latChanged = reverseLat !== currentLat;
-    const longChanged = reverseLong !== currentLong;
+    // 🧠 Always run reverseGeocode to compare city/zone
+    const geoInfo = await reverseGeocode(currentLat, currentLong);
 
-    // 📍 If city/zone missing OR location changed, run reverse geocoding
-    if (!city || !zone || latChanged || longChanged) {
-      const geoInfo = await reverseGeocode(currentLat, currentLong);
+    if (!geoInfo?.city || !geoInfo?.zone) {
+      return res.status(400).json({ status: false, message: "Could not determine user's zone" });
+    }
 
-      if (!geoInfo?.city || !geoInfo?.zone) {
-        return res.status(400).json({ status: false, message: "Could not determine user's zone" });
-      }
+    const newCity = geoInfo.city;
+    const newZone = geoInfo.zone;
 
-      city = geoInfo.city;
-      zone = geoInfo.zone;
+    const cityChanged = !city || city.toLowerCase() !== newCity.toLowerCase();
+    const zoneChanged = !zone || zone.toLowerCase() !== newZone.toLowerCase();
 
-      // ✅ Save reverse geocode and update location
-      user.location.city = city;
-      user.location.zone = zone;
-      user.location.reverseLat = currentLat;
-      user.location.reverseLong = currentLong;
+    // ⚠️ If city/zone changed, update in DB
+    if (cityChanged || zoneChanged) {
+      user.location.city = newCity;
+      user.location.zone = newZone;
       await user.save();
+      city = newCity;
+      zone = newZone;
     }
 
     // 🚀 Now use city and zone

@@ -196,7 +196,6 @@ console.log(req.body);
 exports.getAddress = async (req,res) => {
  try {
   const {id} = req.user; 
-       const user = await User.findById(id);
   //   const { city, zone } = user.location;
 
   // const addresses = await Address.find({ userId: id }).sort({ createdAt: -1 });
@@ -229,7 +228,7 @@ exports.getAddress = async (req,res) => {
     //   Address.findByIdAndUpdate(addr._id, { default: matched && addr._id.equals(matched._id) })
     // ));
 
-const addresses = await Address.find({userId:user._id})
+  const addresses = await Address.find({ userId: id }).sort({ createdAt: -1 });
 
     res.status(200).json({
       addresses,

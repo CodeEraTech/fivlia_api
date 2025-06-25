@@ -200,38 +200,40 @@ console.log(req.body);
 exports.getAddress = async (req,res) => {
  try {
   const {id} = req.user; 
-    const user = await User.findById(id);
-    const { city, zone } = user.location;
+       const user = await User.findById(id);
+  //   const { city, zone } = user.location;
 
-  const addresses = await Address.find({ userId: id }).sort({ createdAt: -1 });
+  // const addresses = await Address.find({ userId: id }).sort({ createdAt: -1 });
 
-  const userZoneDoc = await ZoneData.findOne({ city });
+  // const userZoneDoc = await ZoneData.findOne({ city });
    
-    const matchedZone = userZoneDoc.zones.find(z =>
-      z.address.toLowerCase().includes(zone.toLowerCase())
-    );
+  //   const matchedZone = userZoneDoc.zones.find(z =>
+  //     z.address.toLowerCase().includes(zone.toLowerCase())
+  //   );
 
-    const stores = await Store.find({
-      zone: { $elemMatch: { _id: matchedZone._id } }
-    });
+  //   const stores = await Store.find({
+  //     zone: { $elemMatch: { _id: matchedZone._id } }
+  //   });
 
-    if (!addresses.length && !stores.length)
-      return res.json({status:false, message: "Sorry, no stores available in your zone pls change ur address." });
+  //   if (!addresses.length && !stores.length)
+  //     return res.json({status:false, message: "Sorry, no stores available in your zone pls change ur address." });
 
-    let matched = false;
-for (const addr of addresses) {
-  if (
-    addr.city.toLowerCase() === city.toLowerCase() &&
-    addr.address.toLowerCase() === zone.toLowerCase()
-  ) {
-    matched = addr;
-    break;
-  }
-}
+//     let matched = false;
+// for (const addr of addresses) {
+//   if (
+//     addr.city.toLowerCase() === city.toLowerCase() &&
+//     addr.address.toLowerCase() === zone.toLowerCase()
+//   ) {
+//     matched = addr;
+//     break;
+//   }
+// }
 
-    await Promise.all(addresses.map(addr =>
-      Address.findByIdAndUpdate(addr._id, { default: matched && addr._id.equals(matched._id) })
-    ));
+    // await Promise.all(addresses.map(addr =>
+    //   Address.findByIdAndUpdate(addr._id, { default: matched && addr._id.equals(matched._id) })
+    // ));
+
+const addresses = await Address.find({userId:user._id})
 
     res.status(200).json({
       addresses,

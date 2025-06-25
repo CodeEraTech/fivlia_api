@@ -8,7 +8,7 @@ const stock = require('../modals/StoreStock')
 const sendPushNotification = require('../firebase/pushnotification');
 const Store = require('../modals/store');
 
-const MAX_DISTANCE_METERS = 5000; // 5km radius
+const MAX_DISTANCE_METERS = 5000;
 
 exports.placeOrder = async (req, res) => {
   try {
@@ -17,7 +17,7 @@ exports.placeOrder = async (req, res) => {
     const chargesData = await SettingAdmin.findOne();
     const cartItems = await Cart.find({ _id: { $in: cartIds } });
     // console.log(chargesData);
-   const itemsTotal = cartItems.reduce((sum, item) => {
+    const itemsTotal = cartItems.reduce((sum, item) => {
       return sum + Number(item.price) * Number(item.quantity);
     }, 0);
 

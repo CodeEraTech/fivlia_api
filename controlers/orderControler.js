@@ -17,7 +17,10 @@ exports.placeOrder = async (req, res) => {
     const chargesData = await SettingAdmin.findOne();
     const cartItems = await Cart.find({ _id: { $in: cartIds } });
     // console.log(chargesData);
-    const itemsTotal = cartItems.reduce((sum, item) => sum + Number(item.price), 0);
+   const itemsTotal = cartItems.reduce((sum, item) => {
+      return sum + Number(item.price) * Number(item.quantity);
+    }, 0);
+
     const totalPrice = itemsTotal + chargesData.Delivery_Charges + chargesData.Platform_Fee;
 
     const paymentOption = cartItems[0].paymentOption; // from zone

@@ -162,10 +162,10 @@ exports.updateZoneStatus = async (req, res) => {
 exports.addAddress = async (req, res) => {
   try {
     const {id} = req.user; 
-    const {fullName,mobileNumber,pincode,house_No,address,state,latitude,longitude,city,addressType,floor,landmark} = req.body;
+    const {fullName,alternateNumber,pincode,house_No,address,state,latitude,longitude,city,addressType,floor,landmark} = req.body;
 console.log(req.body);
 
-    if (!fullName || !mobileNumber || !pincode || !house_No || !address || !city || !addressType || !state ||!latitude || !longitude) {
+    if (!fullName || !pincode || !house_No || !address || !city || !addressType || !state ||!latitude || !longitude) {
       return res.status(400).json({message: "All fields are required" });
     }
 
@@ -175,7 +175,8 @@ console.log(req.body);
 
     const newAddress = await  Address.create({  userId:user._id,
         fullName,
-        mobileNumber,
+        mobileNumber:user.mobileNumber,
+        alternateNumber,
         pincode,
         house_No,
         address,

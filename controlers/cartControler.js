@@ -88,35 +88,44 @@ console.log(userZone);
     // 6. Find stock data for the store
     const stockDoc = await stock.findOne({ storeId: store._id });
 
-    // 7. Check stock availability
-    const unavailableItems = [];
+let anyUnavailable = false;
 
-    for (const cartItem of items) {
-      const stockItem = stockDoc.stock.find(s =>
-        s.productId.toString() === cartItem.productId.toString() &&
-        s.variantId.toString() === cartItem.varientId.toString()
-      );
+const updatedItems = items.map((cartItem) => {
+  const stockItem = stockDoc.stock.find(s =>
+    s.productId.toString() === cartItem.productId.toString() &&
+    s.variantId.toString() === cartItem.varientId.toString()
+  );
 
-      if (!stockItem || stockItem.quantity < cartItem.quantity) {
-        unavailableItems.push(cartItem);
-      }
-    }
+  const availableQty = stockItem ? stockItem.quantity : 0;
 
-    if (unavailableItems.length > 0) {
-      return res.status(200).json({
-        status: false,
-        message: "Some items are out of stock or quantity is insufficient.",
-         items,
-         StoreID: store._id,
-      });
-    }
+  const itemObj = {
+    ...cartItem.toObject(),
+    stock: availableQty,
+  };
 
-    return res.status(200).json({
-      status: true,
-      message: "Cart items are available.",
-      items,
-      StoreID: store._id,
-    });
+  if (availableQty < cartItem.quantity) {
+    anyUnavailable = true;
+  }
+
+  return itemObj;
+});
+
+
+if (anyUnavailable) {
+  return res.status(200).json({
+    status: false,
+    message: "Some items are out of stock or quantity is insufficient.",
+    items: updatedItems,
+    StoreID: store._id,
+  });
+}
+
+ return res.status(200).json({
+  status: true,
+  message: "Cart items are available.",
+  items: updatedItems,
+  StoreID: store._id,
+});
 
   } catch (error) {
     console.error("Error in getCart:", error);

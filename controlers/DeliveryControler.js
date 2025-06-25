@@ -18,14 +18,14 @@ function addFiveMinutes(durationText) {
 exports.getDeliveryEstimate = async (req, res) => {
   try {
     const { id } = req.user;
-    if (!id) return res.status(400).json({ status: false, message: "Missing user ID" });
+    if (!id) return res.status(200).json({ status: false, message: "Missing user ID" });
 
     const user = await User.findById(id);
     const currentLat = parseFloat(user?.location?.latitude);
     const currentLong = parseFloat(user?.location?.longitude);
 
     if (!currentLat || !currentLong) {
-      return res.status(400).json({ status: false, message: "User location not set" });
+      return res.status(200).json({ status: false, message: "User location not set" });
     }
 
     let { city, zone } = user.location;
@@ -34,7 +34,7 @@ exports.getDeliveryEstimate = async (req, res) => {
     const geoInfo = await reverseGeocode(currentLat, currentLong);
 
     if (!geoInfo?.city || !geoInfo?.zone) {
-      return res.status(400).json({ status: false, message: "Could not determine user's zone" });
+      return res.status(200).json({ status: false, message: "Could not determine user's zone" });
     }
 
     const newCity = geoInfo.city;

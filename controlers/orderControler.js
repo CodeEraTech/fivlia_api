@@ -164,8 +164,9 @@ exports.verifyPayment = async (req, res) => {
 
 exports.getOrders = async (req, res) => {
   try {
-    const {storeId} = req.query
-       const query = storeId ? { storeId } : {};
+    const { storeId } = req.query;
+    const query = storeId ? { storeId } : {};
+
     const orders = await Order.find(query)
       .populate({
         path: 'addressId',
@@ -174,42 +175,64 @@ exports.getOrders = async (req, res) => {
       .populate({
         path: 'storeId',
         select: 'storeName',
-      }) .sort({ createdAt: -1 })
+      })
+      .sort({ createdAt: -1 })
       .lean();
 
-    const ordersWithCity = orders.map((order) => {
-      // Extract city from address
-      let city = 'Unknown';
-      if (order.addressId?.city) city = order.addressId.city;
+    const ordersWithCity = await Promise.all(
+      orders.map(async (order) => {
+        // Extract city from address
+        let city = 'Unknown';
+        if (order.addressId?.city) city = order.addressId.city;
 
-      // Format full address
-      const formattedAddress = order.addressId
-        ? {
-            fullName: order.addressId.fullName || 'N/A',
-            fullAddress: [
-              order.addressId.address || '',
-              order.addressId.house_No || '',
-              order.addressId.floor ? `Floor ${order.addressId.floor}` : '',
-              order.addressId.landmark || '',
-              order.addressId.city || '',
-              order.addressId.state || '',
-              order.addressId.pincode || '',
-            ].filter(Boolean).join(', ') || 'N/A',
-          }
-        : { fullName: 'N/A', fullAddress: 'N/A' };
-
-      return {
-        ...order,
-        addressId: formattedAddress,
-        storeId: order.storeId
+        // Format full address
+        const formattedAddress = order.addressId
           ? {
-              _id: order.storeId._id || 'N/A',
-              storeName: order.storeId.storeName || 'N/A',
+              fullName: order.addressId.fullName || 'N/A',
+              fullAddress: [
+                order.addressId.address || '',
+                order.addressId.house_No || '',
+                order.addressId.floor ? `Floor ${order.addressId.floor}` : '',
+                order.addressId.landmark || '',
+                order.addressId.city || '',
+                order.addressId.state || '',
+                order.addressId.pincode || '',
+              ]
+                .filter(Boolean)
+                .join(', ') || 'N/A',
             }
-          : null,
-        city,
-      };
-    });
+          : { fullName: 'N/A', fullAddress: 'N/A' };
+
+        // Inject variant info inside items
+        const itemsWithVariant = await Promise.all(
+          order.items.map(async (item) => {
+            const product = await Products.findById(item.productId).lean();
+            const variant = product?.variants?.find(
+              (v) => v._id.toString() === item.varientId?.toString()
+            );
+
+            return {
+              ...item,
+              variantName: variant?.variantValue || null,
+              variantPrice: variant?.sell_price || null,
+            };
+          })
+        );
+
+        return {
+          ...order,
+          items: itemsWithVariant,
+          addressId: formattedAddress,
+          storeId: order.storeId
+            ? {
+                _id: order.storeId._id || 'N/A',
+                storeName: order.storeId.storeName || 'N/A',
+              }
+            : null,
+          city,
+        };
+      })
+    );
 
     return res.status(200).json({
       message: 'Orders retrieved successfully',
@@ -220,6 +243,7 @@ exports.getOrders = async (req, res) => {
     return res.status(500).json({ message: 'Server Error', error: error.message });
   }
 };
+
 
 exports.getOrderDetails = async (req,res) => {
   try {

@@ -165,10 +165,6 @@ exports.addAddress = async (req, res) => {
     const {fullName,alternateNumber,pincode,house_No,address,state,latitude,longitude,city,addressType,floor,landmark} = req.body;
 console.log(req.body);
 
-    if (!fullName || !pincode || !house_No || !address || !city || !addressType || !state ||!latitude || !longitude) {
-      return res.status(400).json({message: "All fields are required" });
-    }
-
     const user = await User.findById(id);
 
     if (!user) return res.status(404).json({message: "User not found" });

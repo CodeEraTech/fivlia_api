@@ -18,46 +18,58 @@ function addFiveMinutes(durationText) {
 exports.getDeliveryEstimate = async (req, res) => {
   try {
     const { id } = req.user;
-    if (!id) return res.status(400).json({status:false, message: "Missing user ID" });
+    if (!id) return res.status(400).json({ status: false, message: "Missing user ID" });
 
     const user = await User.findById(id);
 
-    if (!user?.location?.latitude || !user?.location?.longitude)
-      return res.status(400).json({status:false, message: "User location not set" });
+    const currentLat = parseFloat(user?.location?.latitude);
+    const currentLong = parseFloat(user?.location?.longitude);
 
-    let { latitude, longitude, city, zone } = user.location;
+    if (!currentLat || !currentLong)
+      return res.status(400).json({ status: false, message: "User location not set" });
 
-    // 📍 If city or zone is missing, reverse geocode ONCE
+    let { city, zone, reverseLat, reverseLong } = user.location;
 
-      const geoInfo = await reverseGeocode(parseFloat(latitude), parseFloat(longitude));
+    const latChanged = reverseLat !== currentLat;
+    const longChanged = reverseLong !== currentLong;
+
+    // 📍 If city/zone missing OR location changed, run reverse geocoding
+    if (!city || !zone || latChanged || longChanged) {
+      const geoInfo = await reverseGeocode(currentLat, currentLong);
+
       if (!geoInfo?.city || !geoInfo?.zone) {
-        return res.status(400).json({status:false, message: "Could not determine user's zone" });
+        return res.status(400).json({ status: false, message: "Could not determine user's zone" });
       }
 
       city = geoInfo.city;
       zone = geoInfo.zone;
-      // ✅ Save to DB for future reuse
+
+      // ✅ Save reverse geocode and update location
       user.location.city = city;
       user.location.zone = zone;
+      user.location.reverseLat = currentLat;
+      user.location.reverseLong = currentLong;
       await user.save();
+    }
 
-    // 🚀 Now use city and zone (from DB or API)
+    // 🚀 Now use city and zone
     const userZoneDoc = await ZoneData.findOne({ city });
     if (!userZoneDoc)
-      return res.json({status:false, message: "Sorry, we are not available in your city yet." });
+      return res.json({ status: false, message: "Sorry, we are not available in your city yet." });
 
     const matchedZone = userZoneDoc.zones.find(z =>
       z.address.toLowerCase().includes(zone.toLowerCase())
     );
+
     if (!matchedZone)
-      return res.json({status:false, message: "Sorry, we are not available in your zone yet." });
+      return res.json({ status: false, message: "Sorry, we are not available in your zone yet." });
 
     const stores = await Store.find({
       zone: { $elemMatch: { _id: matchedZone._id } }
     });
 
     if (!stores.length)
-      return res.json({status:false, message: "Sorry, no stores available in your zone." });
+      return res.json({ status: false, message: "Sorry, no stores available in your zone." });
 
     const results = await Promise.all(
       stores.map(async (store) => {
@@ -66,8 +78,8 @@ exports.getDeliveryEstimate = async (req, res) => {
         const result = await calculateDeliveryTime(
           parseFloat(store.Latitude),
           parseFloat(store.Longitude),
-          parseFloat(latitude),
-          parseFloat(longitude)
+          currentLat,
+          currentLong
         );
 
         if (!result) return null;
@@ -84,11 +96,12 @@ exports.getDeliveryEstimate = async (req, res) => {
     );
 
     const filtered = results.filter(Boolean);
-    res.json({status:true,filtered});
+    res.json({ status: true, filtered });
 
   } catch (err) {
     console.error("💥 Delivery Error:", err);
-    res.status(500).json({status:false, message: "Server error", error: err.message });
+    res.status(500).json({ status: false, message: "Server error", error: err.message });
   }
 };
+
 

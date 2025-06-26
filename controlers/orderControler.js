@@ -188,7 +188,7 @@ exports.getOrders = async (req, res) => {
     const orders = await Order.find(query)
       .populate({
         path: 'addressId',
-        select: 'fullName address house_No floor landmark city state pincode',
+        select: 'fullName address mobileNumber house_No floor landmark city state pincode',
       })
       .populate({
         path: 'storeId',
@@ -215,6 +215,7 @@ exports.getOrders = async (req, res) => {
                 order.addressId.city || '',
                 order.addressId.state || '',
                 order.addressId.pincode || '',
+                order.addressId.mobileNumber || '',
               ]
                 .filter(Boolean)
                 .join(', ') || 'N/A',

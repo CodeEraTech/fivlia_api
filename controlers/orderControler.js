@@ -15,6 +15,20 @@ exports.placeOrder = async (req, res) => {
   try {
     const { cartIds, addressId, storeId,paymentMode} = req.body;
 
+
+ const lastOrder = await Order.findOne().sort({ createdAt: -1 }); // or {_id: -1}
+
+let nextOrderId = 'OID001'; // Default if no previous order
+
+if (lastOrder?.orderId?.startsWith('OID')) {
+  const match = lastOrder.orderId.match(/OID(\d+)/);
+  if (match) {
+    const number = parseInt(match[1]) + 1;
+    nextOrderId = `OID${number.toString().padStart(3, '0')}`; // Pads with 0s up to 3 digits
+  }
+}
+
+
     const chargesData = await SettingAdmin.findOne();
     const cartItems = await Cart.find({ _id: { $in: cartIds } });
     // console.log(chargesData);
@@ -53,6 +67,7 @@ for (const item of cartItems) {
     if (paymentMode === true) {
 
       const newOrder = await Order.create({
+        orderId:nextOrderId,
         items: orderItems,
         addressId,
         paymentStatus:'Successful',
@@ -85,6 +100,7 @@ for (const item of cartItems) {
     } else {
       const tempOrder = await TempOrder.create({
         userId,
+        orderId:nextOrderId,
         items: orderItems,
         addressId,
         totalPrice,
@@ -123,6 +139,7 @@ exports.verifyPayment = async (req, res) => {
     }
     // 3. Create final order
     const finalOrder = await Order.create({
+      orderId:tempOrder.orderId,
       items: tempOrder.items,
       addressId: tempOrder.addressId,
       userId: tempOrder.userId,
@@ -304,9 +321,14 @@ exports.getOrderDetails = async (req,res) => {
 exports.orderStatus=async (req,res) => {
   try {
    const{orderId}=req.params
-  const {status}=req.body
-  const update = await Order.findByIdAndUpdate(orderId,{orderStatus:status},{new:true}).populate("userId");
+  const {status,driverId}=req.body
+  const driverDoc = await driver.findOne({driverId})
+  console.log(driverDoc);
+  
+  const updatedOrder = await Order.findByIdAndUpdate(orderId,{orderStatus:status,driver:{driverId:driverDoc.driverId,name:driverDoc.driverName}},{new:true})
 
+const update = await Order.findById(updatedOrder._id).populate("userId");
+  
 if (update.userId?.fcmToken) {
       console.log("FCM Token:", update.userId.fcmToken);
       const response = await sendPushNotification(

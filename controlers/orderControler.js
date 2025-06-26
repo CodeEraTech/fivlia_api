@@ -7,6 +7,7 @@ const Address = require('../modals/Address')
 const stock = require('../modals/StoreStock')
 const sendPushNotification = require('../firebase/pushnotification');
 const Store = require('../modals/store');
+const deliveryStatus = require('../modals/deliveryStatus')
 
 const MAX_DISTANCE_METERS = 5000;
 
@@ -323,11 +324,50 @@ console.log('Order Status Updated');
 
   return res.status(200).json({message:'Order Status Updated',update})
 } catch (error) {
-     console.error('Get orders error:', error.message);
+    console.error('Get orders error:', error.message);
     return res.status(500).json({ message: 'Server Error', error: error.message });
   }
 }
 
+exports.deliveryStatus=async (req,res) => {
+  try {
+     const {statusTitle,status}=req.body
+
+    const lastStatus = await deliveryStatus.findOne().sort({ statusCode: -1 });
+
+    let nextStatusCode = '100'; // default first code
+    if (lastStatus && !isNaN(parseInt(lastStatus.statusCode))) {
+      nextStatusCode = (parseInt(lastStatus.statusCode) + 1).toString();
+    }
+
+     const newStatus = await deliveryStatus.create({statusCode:nextStatusCode,statusTitle,status})
+     return res.status(200).json({message:'New Status Created',newStatus})
+  } catch (error) {
+    console.error('Get orders error:', error.message);
+    return res.status(500).json({ message: 'Server Error', error: error.message }); 
+  }
+}
+exports.updatedeliveryStatus=async (req,res) => {
+  try {
+     const {id} = req.params
+     const {statusCode,statusTitle,status}=req.body
+     const newStatus = await deliveryStatus.findByIdAndUpdate(id,{statusCode,statusTitle,status})
+     return res.status(200).json({message:'Status Updated',newStatus})
+  } catch (error) {
+    console.error('Get orders error:', error.message);
+    return res.status(500).json({ message: 'Server Error', error: error.message }); 
+  }
+}
+
+exports.getdeliveryStatus=async (req,res) => {
+  try {
+     const Status = await deliveryStatus.find()
+     return res.status(200).json({message:'Delivery Status',Status})
+  } catch (error) {
+    console.error('Get orders error:', error.message);
+    return res.status(500).json({ message: 'Server Error', error: error.message }); 
+  }
+}
 // routes/testRoute.js or controller
 exports.test = async (req, res) => {
   try {

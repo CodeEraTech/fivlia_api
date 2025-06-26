@@ -12,7 +12,7 @@ const { users, addUser,updateProfile,Login,signin,register,verifyMobile } = requ
 
 const { intro, getIntro } = require('../controlers/controlers')
 
-const { placeOrder, getOrders,orderStatus,test,driver,getDriver,verifyPayment,getOrderDetails} = require('../controlers/orderControler')
+const { placeOrder, getOrders,orderStatus,test,driver,getDriver,verifyPayment,getOrderDetails,deliveryStatus,updatedeliveryStatus,getdeliveryStatus} = require('../controlers/orderControler')
 
 const { addCart,getCart,getDicount,discount,quantity,deleteCart } = require('../controlers/cartControler')
 
@@ -46,6 +46,7 @@ router.post('/addFilter', addFilter)
 router.post('/address',verifyToken, addAddress);
 router.post('/updateStock/:productId', updateStock);
 router.post('/driver',upload, driver);
+router.post('/deliveryStatus', deliveryStatus);
 
 router.post('/discount', discount)
 router.post('/addCity', addCity)
@@ -84,8 +85,10 @@ router.get('/relatedProduct/:productId',getRelatedProducts)
 router.get('/getFilter',getFilter);
 router.get('/getDeliveryEstimate',verifyToken,getDeliveryEstimate);
 router.get('/send-test-notification',test)
+router.get('/getdeliveryStatus',getdeliveryStatus)
 
 router.put('/editBrand/:id', upload, editBrand)
+router.put('/updatedeliveryStatus/:id', updatedeliveryStatus)
 router.put('/EditAddress',verifyToken, EditAddress)
 router.put('/addFilterInCategory/:id', addFiltersToCategory)
 router.post('/addUser', upload, addUser)

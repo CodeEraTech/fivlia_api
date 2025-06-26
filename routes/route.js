@@ -46,7 +46,7 @@ router.post('/addFilter', addFilter)
 router.post('/address',verifyToken, addAddress);
 router.post('/updateStock/:productId', updateStock);
 router.post('/driver',upload, driver);
-router.post('/deliveryStatus', deliveryStatus);
+router.post('/deliveryStatus',upload, deliveryStatus);
 
 router.post('/discount', discount)
 router.post('/addCity', addCity)
@@ -88,7 +88,7 @@ router.get('/send-test-notification',test)
 router.get('/getdeliveryStatus',getdeliveryStatus)
 
 router.put('/editBrand/:id', upload, editBrand)
-router.put('/updatedeliveryStatus/:id', updatedeliveryStatus)
+router.put('/updatedeliveryStatus/:id',upload, updatedeliveryStatus)
 router.put('/EditAddress/:id', EditAddress)
 router.put('/addFilterInCategory/:id', addFiltersToCategory)
 router.post('/addUser', upload, addUser)

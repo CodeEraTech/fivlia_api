@@ -130,55 +130,62 @@ exports.verifyPayment = async (req, res) => {
 
     // 1. Check if temp order exists
     const tempOrder = await TempOrder.findById(tempOrderId);
-    if (!tempOrder) return res.status(404).json({ message: "Order not found" });
+    if (!tempOrder) return res.status(404).json({ message: "Temp order not found" });
 
-    // 2. If payment failed, delete temp order and return
-    if (paymentStatus === false) {
-      await TempOrder.findByIdAndDelete(tempOrderId);
-      return res.status(200).json({ message: "Payment failed. Order cancelled." });
-    }
-    // 3. Create final order
-    const finalOrder = await Order.create({
-      orderId:tempOrder.orderId,
+    // 2. Prepare order data
+    const orderData = {
+      orderId: tempOrder.orderId,
       items: tempOrder.items,
       addressId: tempOrder.addressId,
       userId: tempOrder.userId,
-      paymentStatus: "Successful",
       cashOnDelivery: tempOrder.cashOnDelivery,
       totalPrice: tempOrder.totalPrice,
       deliveryCharges: tempOrder.deliveryCharges,
       platformFee: tempOrder.platformFee,
       gst: tempOrder.gst || null,
-      storeId:tempOrder.storeId,
-      transactionId, // Optional: store this for tracking
-    });
+      storeId: tempOrder.storeId,
+      transactionId: transactionId || null,
+      paymentStatus: paymentStatus ? "Successful" : "Cancelled",
+      orderStatus: paymentStatus ? "Pending" : "Cancelled"
+    };
 
-    // 4. Update stock based on each item in the temp order
-    for (const item of tempOrder.items) {
-      await stock.updateOne(
-        {
-          storeId:tempOrder.storeId,
-          "stock.productId": item.productId,
-          "stock.varientId": item.varientId,
-        },
-        {
-          $inc: { "stock.$.quantity": -item.quantity },
-        }
-      );
+    // 3. Create the final order
+    const finalOrder = await Order.create(orderData);
+
+    // 4. Update stock ONLY if payment was successful
+    if (paymentStatus === true) {
+      for (const item of tempOrder.items) {
+        await stock.updateOne(
+          {
+            storeId: tempOrder.storeId,
+            "stock.productId": item.productId,
+            "stock.varientId": item.varientId,
+          },
+          {
+            $inc: { "stock.$.quantity": -item.quantity },
+          }
+        );
+      }
     }
 
-    // 5. Delete temp order
+    // 5. Delete the temp order
     await TempOrder.findByIdAndDelete(tempOrderId);
 
-    res.status(200).json({
-      message: "Payment verified. Order placed successfully.",
+    // 6. Respond
+    return res.status(200).json({
+      status: paymentStatus ? true : false,
+      message: paymentStatus
+        ? "Payment verified. Order placed successfully."
+        : "Payment failed or cancelled. Order saved with status Cancelled.",
       order: finalOrder,
     });
+
   } catch (error) {
     console.error("Error verifying payment:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    return res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
 
 exports.getOrders = async (req, res) => {
   try {
@@ -368,8 +375,8 @@ exports.deliveryStatus=async (req,res) => {
     if (lastStatus && !isNaN(parseInt(lastStatus.statusCode))) {
       nextStatusCode = (parseInt(lastStatus.statusCode) + 1).toString();
     }
-
-     const newStatus = await deliveryStatus.create({statusCode:nextStatusCode,statusTitle,status})
+   const image = req.files.image?.[0].path
+     const newStatus = await deliveryStatus.create({statusCode:nextStatusCode,statusTitle,status,image})
      return res.status(200).json({message:'New Status Created',newStatus})
   } catch (error) {
     console.error('Get orders error:', error.message);
@@ -380,7 +387,8 @@ exports.updatedeliveryStatus=async (req,res) => {
   try {
      const {id} = req.params
      const {statusCode,statusTitle,status}=req.body
-     const newStatus = await deliveryStatus.findByIdAndUpdate(id,{statusCode,statusTitle,status})
+      const image = req.files.image?.[0].path
+     const newStatus = await deliveryStatus.findByIdAndUpdate(id,{statusCode,statusTitle,image,status})
      return res.status(200).json({message:'Status Updated',newStatus})
   } catch (error) {
     console.error('Get orders error:', error.message);

@@ -89,7 +89,7 @@ router.get('/getdeliveryStatus',getdeliveryStatus)
 
 router.put('/editBrand/:id', upload, editBrand)
 router.put('/updatedeliveryStatus/:id', updatedeliveryStatus)
-router.put('/EditAddress', EditAddress)
+router.put('/EditAddress/:id', EditAddress)
 router.put('/addFilterInCategory/:id', addFiltersToCategory)
 router.post('/addUser', upload, addUser)
 router.patch('/edit/:id', upload, update)
@@ -105,7 +105,7 @@ router.put('/updateCart/:id',quantity)
 router.put('/orderStatus/:id', orderStatus);
 router.patch('/update-profile',upload, verifyToken, updateProfile);
 router.patch('/updateProduct/:id',upload, updateProduct);
-router.delete('/deleteAddress',deleteAddress)
+router.delete('/deleteAddress/:id',deleteAddress)
 router.delete('/deleteProduct/:id',deleteProduct)
 router.delete('/removeCart/:id',deleteCart)
 router.patch('/editFilter/:id', editFilter);

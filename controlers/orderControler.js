@@ -215,10 +215,10 @@ exports.getOrders = async (req, res) => {
                 order.addressId.city || '',
                 order.addressId.state || '',
                 order.addressId.pincode || '',
-                order.addressId.mobileNumber || '',
               ]
                 .filter(Boolean)
                 .join(', ') || 'N/A',
+              moibleNumber: order.addressId.mobileNumber || '',
             }
           : { fullName: 'N/A', fullAddress: 'N/A' };
 

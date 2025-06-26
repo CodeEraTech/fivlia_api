@@ -102,7 +102,7 @@ router.patch('/editAttributes/:id', editAttributes);
 router.put('/editCat/:id',upload, editCat);
 router.put('/addCategoryInStore/:id',addCategoryInStore)
 router.put('/updateCart/:id',quantity)
-router.put('/orderStatus/:orderId', orderStatus);
+router.put('/orderStatus/:id', orderStatus);
 router.patch('/update-profile',upload, verifyToken, updateProfile);
 router.patch('/updateProduct/:id',upload, updateProduct);
 router.delete('/deleteAddress',verifyToken,deleteAddress)

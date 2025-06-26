@@ -320,12 +320,18 @@ exports.getOrderDetails = async (req,res) => {
 
 exports.orderStatus=async (req,res) => {
   try {
-   const{orderId}=req.params
+   const{id}=req.params
   const {status,driverId}=req.body
-  const driverDoc = await driver.findOne({driverId})
-  console.log(driverDoc);
-  
-  const updatedOrder = await Order.findByIdAndUpdate(orderId,{orderStatus:status,driver:{driverId:driverDoc.driverId,name:driverDoc.driverName}},{new:true})
+   const updateData = { orderStatus: status };
+
+    if (driverId) {
+      const driverDoc = await driver.findOne({ driverId });
+      updateData.driver = {
+        driverId: driverDoc.driverId,
+        name: driverDoc.driverName,
+      };
+    }  
+  const updatedOrder = await Order.findByIdAndUpdate(id,updateData,{new:true})
 
 const update = await Order.findById(updatedOrder._id).populate("userId");
   

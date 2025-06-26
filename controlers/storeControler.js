@@ -181,7 +181,7 @@ exports.getStore = async (req, res) => {
     // 🔁 Build a quick lookup map
     const stockMap = {};
     for (const item of stockEntries) {
-      const key = `${item.productId}_${item.varientId}`;
+      const key = `${item.productId}_${item.variantId}`;
       stockMap[key] = item.quantity;
     }
 

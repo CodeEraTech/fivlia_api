@@ -241,7 +241,7 @@ exports.getAddress = async (req,res) => {
 
 exports.EditAddress=async (req,res) => {
   try {
-  const {id} = req.user;
+  const {id} = req.params;
   const { userId,fullName,mobileNumber,pincode,house_No,address,state,latitude,longitude,city,addressType, floor,landmark }=req.body
 
   const edit = await Address.findByIdAndUpdate(id,{userId,fullName,mobileNumber,pincode,house_No,address,state,latitude,longitude,city,addressType,floor,landmark})

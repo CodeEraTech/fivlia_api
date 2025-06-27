@@ -95,7 +95,7 @@ for (const item of cartItems) {
 
       await Cart.deleteMany({ _id: { $in: cartIds } });
 
-      return res.status(200).json({  message: "Order placed successfully",  order: newOrder,});
+      return res.status(200).json({ message: "Order placed successfully",  order: newOrder,});
 
     } else {
       const tempOrder = await TempOrder.create({
@@ -270,21 +270,32 @@ exports.getOrders = async (req, res) => {
   }
 };
 
-
-exports.getOrderDetails = async (req,res) => {
+exports.getOrderDetails = async (req, res) => {
   try {
-    const userId = req.user
-    
-   const userOrders = await Order.find({userId}).lean()
-       console.log('userInOrder',userOrders.userId);
-       console.log('userId',userId);
-  const results = [];
+    const userId = req.user;
+    const userOrders = await Order.find({ userId }).lean();
+
+    const results = [];
 
     for (const order of userOrders) {
-      // Fetch address
+      // 1. Fetch address
       const address = await Address.findById(order.addressId).lean();
 
-      // Get product details for each item
+      // 2. Fetch driver details if driverId exists
+      let driverInfo = '';
+      if (order.driver?.driverId) {
+        driverInfo = await driver.findOne({ driverId: order.driver.driverId }).lean();
+
+        if (driverInfo) {
+          driverInfo = {
+            driverId: driverInfo.driverId || '',
+            name: driverInfo.driverName || '',
+            mobileNo: driverInfo.address?.mobileNo || '',
+          };
+        }
+      }
+
+      // 3. Get product details for each item
       const itemsWithDetails = await Promise.all(order.items.map(async (item) => {
         const product = await Products.findById(item.productId).lean();
         return {
@@ -298,20 +309,23 @@ exports.getOrderDetails = async (req,res) => {
             title: product?.title,
             description: product?.description,
             brand: product?.brand,
-            images: product?.images
+            images: product?.images,
           }
         };
       }));
 
+      // 4. Push combined data
       results.push({
-        orderId: order._id,
+        orderId: order.orderId,
         orderStatus: order.orderStatus,
         totalPrice: order.totalPrice,
         cashOnDelivery: order.cashOnDelivery,
         deliveryCharges: order.deliveryCharges,
         platformFee: order.platformFee,
+        transactionId:order.transactionId || '',
         items: itemsWithDetails,
-        address
+        address,
+        driver: driverInfo, // 🟢 Include driver data
       });
     }
 
@@ -324,7 +338,7 @@ exports.getOrderDetails = async (req,res) => {
     console.error('Get orders error:', error.message);
     return res.status(500).json({ message: 'Server Error', error: error.message });
   }
-}
+};
 
 exports.orderStatus=async (req,res) => {
   try {

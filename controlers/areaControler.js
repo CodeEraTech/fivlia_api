@@ -159,39 +159,94 @@ exports.updateZoneStatus = async (req, res) => {
     return res.status(500).json({ message: "An error occurred", error: error.message });
   }
 };
+
 exports.addAddress = async (req, res) => {
   try {
-    const {id} = req.user; 
-    const {fullName,alternateNumber,pincode,house_No,address,state,latitude,longitude,city,addressType,floor,landmark} = req.body;
-console.log(req.body);
+    const { id } = req.user;
+    const {
+      fullName,
+      alternateNumber,
+      pincode,
+      house_No,
+      address,
+      state,
+      latitude,
+      longitude,
+      city,
+      addressType,
+      floor,
+      landmark
+    } = req.body;
+
+    console.log("📦 Address Body:", req.body);
 
     const user = await User.findById(id);
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-    if (!user) return res.status(404).json({message: "User not found" });
+    // ✅ Step 1: Fetch all stores
+    const stores = await Store.find().lean();
 
-    const newAddress = await  Address.create({  userId:user._id,
-        fullName,
-        mobileNumber:user.mobileNumber,
-        alternateNumber,
-        pincode,
-        house_No,
-        address,
-        state,
-        latitude,
-        longitude,
-        city,
-        addressType,
-        floor,
-        landmark
-        })
+    // ✅ Step 2: Try matching city and zone
+    const matchingStore = stores.find(store => {
+      const storeCity = store.city?.name?.toLowerCase();
+      const inputCity = city?.toLowerCase();
 
-    return res.status(200).json({message:"Address added successfully",newAddress});
+      if (storeCity !== inputCity) return false;
+
+      return (store.zone || []).some(z => {
+        const zoneName = z.name?.toLowerCase();
+        const zoneTitle = z.title?.toLowerCase();
+        const addressLower = address?.toLowerCase();
+
+        return (
+          zoneName?.includes(addressLower) ||
+          zoneTitle?.includes(addressLower)
+        );
+      });
+    });
+
+    // ❌ No matching store
+    if (!matchingStore) {
+      return res.status(200).json({
+        status: false,
+        message: "No store available in your area. Please try a different address.",
+      });
+    }
+
+    // ✅ Matching store found — save address
+    const newAddress = await Address.create({
+      userId: user._id,
+      fullName,
+      mobileNumber: user.mobileNumber,
+      alternateNumber,
+      pincode,
+      house_No,
+      address,
+      state,
+      latitude,
+      longitude,
+      city,
+      addressType,
+      floor,
+      landmark
+    });
+
+    return res.status(200).json({
+      status: true,
+      message: "Address added successfully",
+      newAddress
+    });
 
   } catch (error) {
-    console.error("Error adding address:", error);
-    return res.status(500).json({ message: "Server error" });
+    console.error("❌ Error adding address:", error);
+    return res.status(500).json({
+      status: false,
+      message: "Server error",
+      error: error.message
+    });
   }
 };
+
 
 exports.getAddress = async (req,res) => {
  try {

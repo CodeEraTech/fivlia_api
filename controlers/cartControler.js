@@ -49,7 +49,6 @@ exports.getCart = async (req, res) => {
     // 1. Get user's cart
     const items = await Cart.find({ userId: id });
 
-    // 2. Get user's default address
     const address = await Address.findOne({ userId: id, default: true });
     if (!address) {
       return res.status(200).json({ status: false, message: "Please select an address." });

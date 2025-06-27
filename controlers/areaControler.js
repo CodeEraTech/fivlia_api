@@ -163,6 +163,8 @@ exports.updateZoneStatus = async (req, res) => {
 exports.addAddress = async (req, res) => {
   try {
     const { id } = req.user;
+    console.log(id);
+    
     const {
       fullName,
       alternateNumber,
@@ -170,6 +172,7 @@ exports.addAddress = async (req, res) => {
       house_No,
       address,
       state,
+      street,
       latitude,
       longitude,
       city,
@@ -186,23 +189,31 @@ exports.addAddress = async (req, res) => {
     // ✅ Step 1: Fetch all stores
     const stores = await Store.find().lean();
 
-   const normalize = str => str?.toLowerCase().replace(/[^\w\s]/g, '').trim();
+  const normalizeWords = str =>
+  str?.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/).filter(Boolean) || [];
 
 const matchingStore = stores.find(store => {
-  const storeCity = normalize(store.city?.name);
-  const inputCity = normalize(city);
+  const storeCity = store.city?.name?.toLowerCase();
+  const inputCity = city?.toLowerCase();
 
   if (storeCity !== inputCity) return false;
 
-  return (store.zone || []).some(z => {
-    const zoneName = normalize(z.name);
-    const zoneTitle = normalize(z.title);
-    const addr = normalize(address);
+  const blacklist = ["road", "near", "india", "haryana", "sector","nagar", "mohalla" ,city?.toLowerCase() || ""];
 
-    return (
-      zoneName.includes(addr) || addr.includes(zoneName) ||
-      zoneTitle.includes(addr) || addr.includes(zoneTitle)
-    );
+const filterWords = words => words.filter(word => !blacklist.includes(word));
+
+const userAddressWords = filterWords(
+  normalizeWords(`${address || ""} ${street || ""}`)
+);
+
+  return (store.zone || []).some(zone => {
+    const zoneWords = [
+      ...normalizeWords(zone.name),
+      ...normalizeWords(zone.title),
+    ];
+
+    // Check if any user word matches zone words (like "red", "square", "sector", "13")
+    return userAddressWords.some(word => zoneWords.includes(word));
   });
 });
 

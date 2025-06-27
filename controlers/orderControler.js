@@ -462,17 +462,34 @@ exports.getDriver = async (req,res) => {
   }
 }
 
-exports.editDriver = async (req,res) => {
+exports.editDriver = async (req, res) => {
   try {
-    const {driverId} = req.params
-    const {driverName,status} = req.body
-    const address = JSON.parse(req.body.address);
-    const image = req.files?.image?.[0]?.path
-    const edit = await driver.findByIdAndUpdate(driverId,{driverName,status,image,address})
-     return res.status(200).json({message:'Driver Updated',edit})
+    const { driverId } = req.params;
+    const { driverName, status } = req.body;
 
+    let address = {};
+    if (req.body.address) {
+      try {
+        address = JSON.parse(req.body.address);
+      } catch (err) {
+        return res.status(400).json({ message: "Invalid address JSON" });
+      }
+    }
+
+    const image = req.files?.image?.[0]?.path;
+
+    const updateData = {
+      driverName,
+      status,
+      ...(image && { image }),
+      ...(address && { address }),
+    };
+
+    const edit = await driver.findByIdAndUpdate(driverId, updateData, { new: true });
+
+    return res.status(200).json({ message: "Driver Updated", edit });
   } catch (error) {
-   console.error(error);
-   return res.status(500).json({ message: 'Server error', error: error.message}); 
+    console.error(error);
+    return res.status(500).json({ message: "Server error", error: error.message });
   }
-}
+};

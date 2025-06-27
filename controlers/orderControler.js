@@ -142,9 +142,9 @@ exports.verifyPayment = async (req, res) => {
       totalPrice: tempOrder.totalPrice,
       deliveryCharges: tempOrder.deliveryCharges,
       platformFee: tempOrder.platformFee,
-      gst: tempOrder.gst || null,
+      gst: tempOrder.gst || '',
       storeId: tempOrder.storeId,
-      transactionId: transactionId || null,
+      transactionId: transactionId || '',
       paymentStatus: paymentStatus ? "Successful" : "Cancelled",
       orderStatus: paymentStatus ? "Pending" : "Cancelled"
     };

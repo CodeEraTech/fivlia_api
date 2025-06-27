@@ -186,26 +186,27 @@ exports.addAddress = async (req, res) => {
     // ✅ Step 1: Fetch all stores
     const stores = await Store.find().lean();
 
-    // ✅ Step 2: Try matching city and zone
-    const matchingStore = stores.find(store => {
-      const storeCity = store.city?.name?.toLowerCase();
-      const inputCity = city?.toLowerCase();
+   const normalize = str => str?.toLowerCase().replace(/[^\w\s]/g, '').trim();
 
-      if (storeCity !== inputCity) return false;
+const matchingStore = stores.find(store => {
+  const storeCity = normalize(store.city?.name);
+  const inputCity = normalize(city);
 
-      return (store.zone || []).some(z => {
-        const zoneName = z.name?.toLowerCase();
-        const zoneTitle = z.title?.toLowerCase();
-        const addressLower = address?.toLowerCase();
+  if (storeCity !== inputCity) return false;
 
-        return (
-          zoneName?.includes(addressLower) ||
-          zoneTitle?.includes(addressLower)
-        );
-      });
-    });
+  return (store.zone || []).some(z => {
+    const zoneName = normalize(z.name);
+    const zoneTitle = normalize(z.title);
+    const addr = normalize(address);
 
-    // ❌ No matching store
+    return (
+      zoneName.includes(addr) || addr.includes(zoneName) ||
+      zoneTitle.includes(addr) || addr.includes(zoneTitle)
+    );
+  });
+});
+
+
     if (!matchingStore) {
       return res.status(200).json({
         status: false,
@@ -213,7 +214,6 @@ exports.addAddress = async (req, res) => {
       });
     }
 
-    // ✅ Matching store found — save address
     const newAddress = await Address.create({
       userId: user._id,
       fullName,

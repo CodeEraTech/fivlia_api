@@ -88,7 +88,7 @@ router.get('/send-test-notification',test)
 router.get('/getdeliveryStatus',getdeliveryStatus)
 
 router.put('/editBrand/:id', upload, editBrand)
-router.put('/editDriver/:id', upload, editDriver)
+router.put('/editDriver/:driverId', upload, editDriver)
 router.put('/updatedeliveryStatus/:id',upload, updatedeliveryStatus)
 router.put('/EditAddress/:id', EditAddress)
 router.put('/addFilterInCategory/:id', addFiltersToCategory)

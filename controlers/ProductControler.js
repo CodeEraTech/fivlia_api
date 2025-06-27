@@ -723,7 +723,21 @@ exports.getFeatureProduct = async (req, res) => {
 
     const categoryArray = Array.from(allCategoryIds);
 
-    const product = await Products.find({
+    // ✅ Fetch stock documents for allowed stores
+const allowedStoreIds = allowedStores.map(store => store._id.toString());
+const stockDocs = await Stock.find({ storeId: { $in: allowedStoreIds } }).lean();
+
+const stockMap = {}; // { "productId_variantId": quantity }
+
+for (const stockDoc of stockDocs) {
+  for (const item of stockDoc.stock || []) {
+    const key = `${item.productId}_${item.variantId}`;
+    stockMap[key] = item.quantity;
+  }
+}
+
+
+    const products = await Products.find({
       feature_product: true,
       $or: [
         { "category._id": { $in: categoryArray } },
@@ -732,10 +746,26 @@ exports.getFeatureProduct = async (req, res) => {
       ]
     }).lean();
 
+    for (const product of products) {
+  product.inventory = [];
+
+  if (Array.isArray(product.variants)) {
+    for (const variant of product.variants) {
+      const key = `${product._id}_${variant._id}`;
+      const quantity = stockMap[key] || 0;
+
+      product.inventory.push({
+        variantId: variant._id,
+        quantity
+      });
+    }
+  }
+}
+
     return res.status(200).json({
       message: 'It is feature product.',
-      product,
-      count: product.length
+      products,
+      count: products.length
     });
 
   } catch (error) {

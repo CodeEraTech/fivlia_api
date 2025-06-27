@@ -474,11 +474,38 @@ if (id) {
     ]
   };
 }
+// ✅ STEP 1: Get Stock documents for allowed stores
+const stockDocs = await Stock.find({ storeId: { $in: allowedStoreIds } }).lean();
+
+const stockMap = {}; // { `${productId}_${variantId}`: quantity }
+
+for (const stockDoc of stockDocs) {
+  for (const entry of stockDoc.stock || []) {
+    const key = `${entry.productId}_${entry.variantId}`;
+    stockMap[key] = entry.quantity;
+  }
+}
 
     const products = await Products.find(productQuery).lean();
     console.log("✅ Total Products Found:", products.length);
 
-    // 🟢 Get filters
+
+    for (const product of products) {
+      product.inventory = [];
+    
+      if (Array.isArray(product.variants)) {
+        for (const variant of product.variants) {
+          const key = `${product._id}_${variant._id}`;
+          const quantity = stockMap[key] || 0;
+        
+          product.inventory.push({
+            variantId: variant._id,
+            quantity
+          });
+        }
+      }
+    }
+
     let filter = [];
     if (id) {
       const matchedCategory = await Category.findById(id).lean();

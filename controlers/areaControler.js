@@ -198,7 +198,13 @@ const matchingStore = stores.find(store => {
 
   if (storeCity !== inputCity) return false;
 
-  const blacklist = ["road", "near", "india", "haryana", "sector","nagar", "mohalla" ,city?.toLowerCase() || ""];
+  const blacklist = ["road", "near", "india", "haryana", "sector", "nagar", "mohalla", "basti", "vihar",
+  "colony", "area", "lane", "street", "society", "market", "mandi", "gali", "locality",
+  "ward", "city", "village", "town", "district", "state", "tehsil", "block",
+  "main", "behind", "opposite", "front", "back", "east", "west", "north", "south",
+  "no", "plot", "house", "building", "flat", "floor", "tower", "mall", "residency",
+  "phase", "pocket", "number", "line", "extension", "extension", "corner", "park",
+  "soc", "apt", "apartment", "complex", "chowk", "gate",city?.toLowerCase() || "",state?.toLowerCase() || ""];
 
 const filterWords = words => words.filter(word => !blacklist.includes(word));
 

@@ -282,17 +282,15 @@ exports.getOrderDetails = async (req, res) => {
       const address = await Address.findById(order.addressId).lean();
 
       // 2. Fetch driver details if driverId exists
-      let driverInfo = '';
+      let driverInfo = [];
       if (order.driver?.driverId) {
         driverInfo = await driver.findOne({ driverId: order.driver.driverId }).lean();
 
-        if (driverInfo) {
           driverInfo = {
             driverId: driverInfo.driverId || '',
             name: driverInfo.driverName || '',
             mobileNo: driverInfo.address?.mobileNo || '',
           };
-        }
       }
 
       // 3. Get product details for each item

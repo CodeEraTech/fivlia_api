@@ -4,6 +4,7 @@ const Banner = require('../modals/banner');
 const brand = require('../modals/brand')
 const Products = require('../modals/Product')
 const User = require('../modals/User')
+const Stock = require('../modals/StoreStock')
 const Filters = require('../modals/filter')
 const slugify = require('slugify');
 const { CityData,ZoneData } = require('../modals/cityZone');
@@ -450,11 +451,48 @@ exports.brand = async (req,res) => {
 exports.getBrand = async (req, res) => {
   try {
     const { id } = req.query;
-
     const db = mongoose.connection.db;
 
+    // 🔁 Helper: Attach inventory to products
+    const attachInventory = async (products = []) => {
+      const productIds = products.map(p => p._id.toString());
+
+      // Get stock docs for these productIds
+      const stockDocs = await Stock.find({
+        "stock.productId": { $in: productIds }
+      }).lean();
+
+      const stockMap = {};
+      for (const doc of stockDocs) {
+        for (const item of doc.stock || []) {
+          const key = `${item.productId}_${item.variantId}`;
+          stockMap[key] = item.quantity;
+        }
+      }
+
+      // Inject inventory into each product
+      for (const product of products) {
+        product.inventory = [];
+
+        if (Array.isArray(product.variants)) {
+          for (const variant of product.variants) {
+            const key = `${product._id}_${variant._id}`;
+            const quantity = stockMap[key] || 0;
+
+            product.inventory.push({
+              variantId: variant._id,
+              quantity,
+            });
+          }
+        }
+      }
+
+      return products;
+    };
+
+    // 🔍 If specific brand ID
     if (id) {
-      const b = await brand.findById(id);
+      const b = await brand.findById(id).lean();
       if (!b) return res.status(404).json({ message: "Brand not found" });
 
       const rawProducts = await db.collection("products").find({}).toArray();
@@ -465,31 +503,37 @@ exports.getBrand = async (req, res) => {
           p.brand_Name._id?.toString() === b._id.toString()
       );
 
+      const productsWithStock = await attachInventory(products);
+
       return res.json({
-        ...b.toObject(),
-        products,
+        ...b,
+        products: productsWithStock,
       });
     }
 
-    const brands = await brand.find({});
+    // 🔁 For all brands
+    const brands = await brand.find({}).lean();
 
     const brandsWithProducts = await Promise.all(
       brands.map(async (b) => {
         const rawProducts = await db.collection("products").find({}).toArray();
+
         const products = rawProducts.filter(
           (p) =>
             typeof p.brand_Name === "object" &&
             p.brand_Name._id?.toString() === b._id.toString()
         );
 
+        const productsWithStock = await attachInventory(products);
+
         return {
-          ...b.toObject(),
-          products,
+          ...b,
+          products: productsWithStock,
         };
       })
     );
 
-    res.json(brandsWithProducts);
+    return res.json(brandsWithProducts);
   } catch (error) {
     console.error(error);
     return res.status(500).json({

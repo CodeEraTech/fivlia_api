@@ -609,6 +609,19 @@ exports.bestSelling = async (req, res) => {
     const categoryArray = Array.from(allCategoryIds);
     const allowedStoreIds = allowedStores.map(s => s._id.toString());
 
+    // ✅ Fetch stock documents for allowed stores
+const stockDocs = await Stock.find({ storeId: { $in: allowedStoreIds } }).lean();
+
+const stockMap = {}; // { "productId_variantId": quantity }
+
+for (const stockDoc of stockDocs) {
+  for (const item of stockDoc.stock || []) {
+    const key = `${item.productId}_${item.variantId}`;
+    stockMap[key] = item.quantity;
+  }
+}
+
+
     console.log(`📦 Total Categories Considered: ${categoryArray.length}`);
     console.log(`🏪 Store IDs Allowed: ${allowedStoreIds.length}`);
 
@@ -623,11 +636,28 @@ exports.bestSelling = async (req, res) => {
       .limit(10)
       .lean();
 
+for (const product of best) {
+  product.inventory = [];
+
+  if (Array.isArray(product.variants)) {
+    for (const variant of product.variants) {
+      const key = `${product._id}_${variant._id}`;
+      const quantity = stockMap[key] || 0;
+
+      product.inventory.push({
+        variantId: variant._id,
+        quantity
+      });
+    }
+  }
+}
+
     console.log(`🔥 Best-Selling Products Found: ${best.length}`);
 
     return res.status(200).json({
       message: "Success",
       best,
+      count:best.length
     });
 
   } catch (error) {

@@ -466,8 +466,9 @@ exports.editDriver = async (req,res) => {
   try {
     const {driverId} = req.params
     const {driverName,status} = req.body
+    const address = JSON.parse(req.body.address);
     const image = req.files?.image?.[0]?.path
-    const edit = await driver.findByIdAndUpdate(driverId,{driverName,status,image})
+    const edit = await driver.findByIdAndUpdate(driverId,{driverName,status,image,address})
      return res.status(200).json({message:'Driver Updated',edit})
 
   } catch (error) {

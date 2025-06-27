@@ -52,7 +52,7 @@ exports.getCart = async (req, res) => {
     // 2. Get user's default address
     const address = await Address.findOne({ userId: id, default: true });
     if (!address) {
-      return res.status(400).json({ status: false, message: "Please select an address." });
+      return res.status(200).json({ status: false, message: "Please select an address." });
     }
 
     const userCity = address.city?.toLowerCase();
@@ -61,7 +61,7 @@ exports.getCart = async (req, res) => {
     // 3. Find zoneData for city (case-insensitive)
     const cityZoneDoc = await ZoneData.findOne({ city: { $regex: new RegExp(`^${userCity}$`, "i") } });
     if (!cityZoneDoc) {
-      return res.status(400).json({ status: false, message: "City not serviceable." });
+      return res.status(200).json({ status: false, message: "City not serviceable." });
     }
 
     // 4. Match zone in that city (case-insensitive)
@@ -70,7 +70,7 @@ exports.getCart = async (req, res) => {
     );
 
     if (!matchedZone) {
-      return res.status(400).json({ status: false, message: "Zone not serviceable." });
+      return res.status(200).json({ status: false, message: "Zone not serviceable." });
     }
 console.log(userZone);
 console.log(userZone);
@@ -82,7 +82,7 @@ console.log(userZone);
     });
 
     if (!store) {
-      return res.status(400).json({ status: false, message: "No store found for your location.",items});
+      return res.status(200).json({ status: false, message: "No store found for your location.",items});
     }
 
     // 6. Find stock data for the store

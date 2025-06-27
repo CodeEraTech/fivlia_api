@@ -40,6 +40,8 @@ exports.getDeliveryEstimate = async (req, res) => {
     const newCity = geoInfo.city;
     const newZone = geoInfo.zone;
 
+    console.log(newCity,newZone);
+    
     const cityChanged = !city || city.toLowerCase() !== newCity.toLowerCase();
     const zoneChanged = !zone || zone.toLowerCase() !== newZone.toLowerCase();
 
@@ -60,6 +62,8 @@ exports.getDeliveryEstimate = async (req, res) => {
     const matchedZone = userZoneDoc.zones.find(z =>
       z.address.toLowerCase().includes(zone.toLowerCase())
     );
+    console.log(matchedZone);
+    
 
     if (!matchedZone)
       return res.json({ status: false, message: "Sorry, we are not available in your zone yet." });
@@ -67,6 +71,7 @@ exports.getDeliveryEstimate = async (req, res) => {
     const stores = await Store.find({
       zone: { $elemMatch: { _id: matchedZone._id } }
     });
+console.log(stores);
 
     if (!stores.length)
       return res.json({ status: false, message: "Sorry, no stores available in your zone." });

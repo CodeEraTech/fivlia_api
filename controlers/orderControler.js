@@ -461,3 +461,17 @@ exports.getDriver = async (req,res) => {
    return res.status(500).json({ message: 'Server error', error: error.message}); 
   }
 }
+
+exports.editDriver = async (req,res) => {
+  try {
+    const {driverId} = req.params
+    const {driverName,status} = req.body
+    const image = req.files.image?.[0].path
+    const edit = await driver.findByIdAndUpdate(driverId,{driverName,status,image})
+     return res.status(200).json({message:'Driver Updated',edit})
+
+  } catch (error) {
+   console.error(error);
+   return res.status(500).json({ message: 'Server error', error: error.message}); 
+  }
+}

@@ -12,7 +12,7 @@ const { users, addUser,updateProfile,Login,signin,register,verifyMobile } = requ
 
 const { intro, getIntro } = require('../controlers/controlers')
 
-const { placeOrder, getOrders,orderStatus,test,driver,getDriver,verifyPayment,getOrderDetails,deliveryStatus,updatedeliveryStatus,getdeliveryStatus} = require('../controlers/orderControler')
+const { placeOrder, getOrders,orderStatus,test,driver,getDriver,editDriver,verifyPayment,getOrderDetails,deliveryStatus,updatedeliveryStatus,getdeliveryStatus} = require('../controlers/orderControler')
 
 const { addCart,getCart,getDicount,discount,quantity,deleteCart } = require('../controlers/cartControler')
 
@@ -88,6 +88,7 @@ router.get('/send-test-notification',test)
 router.get('/getdeliveryStatus',getdeliveryStatus)
 
 router.put('/editBrand/:id', upload, editBrand)
+router.put('/editDriver/:id', upload, editDriver)
 router.put('/updatedeliveryStatus/:id',upload, updatedeliveryStatus)
 router.put('/EditAddress/:id', EditAddress)
 router.put('/addFilterInCategory/:id', addFiltersToCategory)

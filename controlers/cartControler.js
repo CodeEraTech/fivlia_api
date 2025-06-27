@@ -49,6 +49,7 @@ exports.getCart = async (req, res) => {
     // 1. Get user's cart
     const items = await Cart.find({ userId: id });
 
+    // 2. Get default address
     const address = await Address.findOne({ userId: id, default: true });
     if (!address) {
       return res.status(200).json({ status: false, message: "Please select an address." });
@@ -57,80 +58,101 @@ exports.getCart = async (req, res) => {
     const userCity = address.city?.toLowerCase();
     const userZone = address.address?.toLowerCase();
 
+    // 🔍 Normalize helper
+    const normalize = (str) =>
+      str?.toLowerCase().replace(/[^\w\s]/gi, "").split(/\s+/).filter(Boolean);
+
+    const userZoneKeywords = normalize(userZone);
+
     // 3. Find zoneData for city (case-insensitive)
-    const cityZoneDoc = await ZoneData.findOne({ city: { $regex: new RegExp(`^${userCity}$`, "i") } });
+    const cityZoneDoc = await ZoneData.findOne({
+      city: { $regex: new RegExp(`^${userCity}$`, "i") },
+    });
+
     if (!cityZoneDoc) {
       return res.status(200).json({ status: false, message: "City not serviceable." });
     }
 
-    // 4. Match zone in that city (case-insensitive)
-    const matchedZone = cityZoneDoc.zones.find(z =>
-      z.address.toLowerCase().includes(userZone)
-    );
+    // 4. Smart match zone
+    const matchedZone = cityZoneDoc.zones.find((z) => {
+      const zoneKeywords = normalize(z.address);
+      return userZoneKeywords.some((keyword) => zoneKeywords.includes(keyword));
+    });
+
+    console.log("User zone keywords:", userZoneKeywords);
+    console.log("Matched zone:", matchedZone?.zoneTitle);
 
     if (!matchedZone) {
       return res.status(200).json({ status: false, message: "Zone not serviceable." });
     }
-console.log(userZone);
-console.log(userZone);
-    console.log(matchedZone);
-    
+
     // 5. Find store in that zone
     const store = await Store.findOne({
-      zone: { $elemMatch: { _id: matchedZone._id } }
+      zone: { $elemMatch: { _id: matchedZone._id } },
     });
 
     if (!store) {
-      return res.status(200).json({ status: false, message: "No store found for your location.",items});
+      return res.status(200).json({
+        status: false,
+        message: "No store found for your location.",
+        items,
+      });
     }
 
     // 6. Find stock data for the store
     const stockDoc = await stock.findOne({ storeId: store._id });
 
-let anyUnavailable = false;
+    let anyUnavailable = false;
 
-const updatedItems = items.map((cartItem) => {
-  const stockItem = stockDoc.stock.find(s =>
-    s.productId.toString() === cartItem.productId.toString() &&
-    s.variantId.toString() === cartItem.varientId.toString()
-  );
+    // 7. Match stock with cart
+    const updatedItems = items.map((cartItem) => {
+      const stockItem = stockDoc?.stock?.find(
+        (s) =>
+          s.productId.toString() === cartItem.productId.toString() &&
+          s.variantId.toString() === cartItem.varientId.toString()
+      );
 
-  const availableQty = stockItem ? stockItem.quantity : 0;
+      const availableQty = stockItem ? stockItem.quantity : 0;
 
-  const itemObj = {
-    ...cartItem.toObject(),
-    stock: availableQty,
-  };
+      const itemObj = {
+        ...cartItem.toObject(),
+        stock: availableQty,
+      };
 
-  if (availableQty < cartItem.quantity) {
-    anyUnavailable = true;
-  }
+      if (availableQty < cartItem.quantity) {
+        anyUnavailable = true;
+      }
 
-  return itemObj;
-});
+      return itemObj;
+    });
 
+    if (anyUnavailable) {
+      return res.status(200).json({
+        status: false,
+        message: "Some items are out of stock or quantity is insufficient.",
+        items: updatedItems,
+        StoreID: store._id,
+      });
+    }
 
-if (anyUnavailable) {
-  return res.status(200).json({
-    status: false,
-    message: "Some items are out of stock or quantity is insufficient.",
-    items: updatedItems,
-    StoreID: store._id,
-  });
-}
-
- return res.status(200).json({
-  status: true,
-  message: "Cart items are available.",
-  items: updatedItems,
-  StoreID: store._id,
-});
+    // ✅ All good
+    return res.status(200).json({
+      status: true,
+      message: "Cart items are available.",
+      items: updatedItems,
+      StoreID: store._id,
+    });
 
   } catch (error) {
-    console.error("Error in getCart:", error);
-    return res.status(500).json({ status: false, message: "An error occurred!", error: error.message });
+    console.error("❌ Error in getCart:", error);
+    return res.status(500).json({
+      status: false,
+      message: "An error occurred!",
+      error: error.message,
+    });
   }
 };
+
 
 
 exports.discount=async (req,res) => {

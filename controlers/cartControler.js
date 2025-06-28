@@ -46,47 +46,62 @@ exports.getCart = async (req, res) => {
   try {
     const { id } = req.user;
 
-    // 1. Get user's cart
     const items = await Cart.find({ userId: id });
-
-    // 2. Get default address
-    const address = await Address.findOne({ userId: id, default: true });
-    if (!address) {
-      return res.status(200).json({ status: false, message: "Please select an address." });
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ status: false, message: "User not found." });
     }
 
-    const userCity = address.city?.toLowerCase();
-    const userZone = address.address?.toLowerCase();
+    const address = await Address.findOne({ userId: id, default: true });
 
-    // 🔍 Normalize helper
     const normalize = (str) =>
       str?.toLowerCase().replace(/[^\w\s]/gi, "").split(/\s+/).filter(Boolean);
 
+    let userCity, userZone;
+    let usedFallback = false;
+
+    if (address) {
+      userCity = address.city?.toLowerCase();
+      userZone = address.address?.toLowerCase();
+    } else if (user.location?.city && user.location?.zone) {
+      userCity = user.location.city?.toLowerCase();
+      userZone = user.location.zone?.toLowerCase();
+      usedFallback = true; // ✅ used location fallback
+    } else {
+      return res.status(200).json({
+        status: false,
+        message: "Please select a default address or set your location properly.",
+        items,
+      });
+    }
+
     const userZoneKeywords = normalize(userZone);
 
-    // 3. Find zoneData for city (case-insensitive)
     const cityZoneDoc = await ZoneData.findOne({
       city: { $regex: new RegExp(`^${userCity}$`, "i") },
     });
 
     if (!cityZoneDoc) {
-      return res.status(200).json({ status: false, message: "City not serviceable." });
+      return res.status(200).json({
+        status: false,
+        message: "City not serviceable.",
+        items,
+      });
     }
 
-    // 4. Smart match zone
     const matchedZone = cityZoneDoc.zones.find((z) => {
       const zoneKeywords = normalize(z.address);
       return userZoneKeywords.some((keyword) => zoneKeywords.includes(keyword));
     });
 
-    console.log("User zone keywords:", userZoneKeywords);
-    console.log("Matched zone:", matchedZone?.zoneTitle);
-
     if (!matchedZone) {
-      return res.status(200).json({ status: false, message: "Zone not serviceable." });
+      return res.status(200).json({
+        status: false,
+        message: "Zone not serviceable.",
+        items,
+      });
     }
 
-    // 5. Find store in that zone
     const store = await Store.findOne({
       zone: { $elemMatch: { _id: matchedZone._id } },
     });
@@ -99,12 +114,10 @@ exports.getCart = async (req, res) => {
       });
     }
 
-    // 6. Find stock data for the store
     const stockDoc = await stock.findOne({ storeId: store._id });
 
     let anyUnavailable = false;
 
-    // 7. Match stock with cart
     const updatedItems = items.map((cartItem) => {
       const stockItem = stockDoc?.stock?.find(
         (s) =>
@@ -135,7 +148,17 @@ exports.getCart = async (req, res) => {
       });
     }
 
-    // ✅ All good
+    // ✅ Here's your condition: Location worked, but no default address
+    if (usedFallback) {
+      return res.status(200).json({
+        status: false,
+        message: "Please select a default address to proceed with checkout.",
+        items: updatedItems,
+        StoreID: store._id,
+      });
+    }
+
+    // ✅ All good, address exists
     return res.status(200).json({
       status: true,
       message: "Cart items are available.",
@@ -152,7 +175,6 @@ exports.getCart = async (req, res) => {
     });
   }
 };
-
 
 
 exports.discount=async (req,res) => {

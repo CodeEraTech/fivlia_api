@@ -46,19 +46,21 @@ exports.getCart = async (req, res) => {
   try {
     const { id } = req.user;
 
-    const items = await Cart.find({ userId: id });
-    const user = await User.findById(id);
+    // Parallel fetch: cart, user, address
+    const [items, user, address] = await Promise.all([
+      Cart.find({ userId: id }),
+      User.findById(id),
+      Address.findOne({ userId: id, default: true }),
+    ]);
+
     if (!user) {
       return res.status(404).json({ status: false, message: "User not found." });
     }
 
-    const address = await Address.findOne({ userId: id, default: true });
-
     const normalize = (str) =>
       str?.toLowerCase().replace(/[^\w\s]/gi, "").split(/\s+/).filter(Boolean);
 
-    let userCity, userZone;
-    let usedFallback = false;
+    let userCity, userZone, usedFallback = false;
 
     if (address) {
       userCity = address.city?.toLowerCase();
@@ -66,7 +68,7 @@ exports.getCart = async (req, res) => {
     } else if (user.location?.city && user.location?.zone) {
       userCity = user.location.city?.toLowerCase();
       userZone = user.location.zone?.toLowerCase();
-      usedFallback = true; // ✅ used location fallback
+      usedFallback = true;
     } else {
       return res.status(200).json({
         status: false,
@@ -91,7 +93,7 @@ exports.getCart = async (req, res) => {
 
     const matchedZone = cityZoneDoc.zones.find((z) => {
       const zoneKeywords = normalize(z.address);
-      return userZoneKeywords.some((keyword) => zoneKeywords.includes(keyword));
+      return userZoneKeywords.some((k) => zoneKeywords.includes(k));
     });
 
     if (!matchedZone) {
@@ -116,27 +118,23 @@ exports.getCart = async (req, res) => {
 
     const stockDoc = await stock.findOne({ storeId: store._id });
 
+    const stockMap = new Map();
+    stockDoc?.stock?.forEach((s) => {
+      stockMap.set(`${s.productId}_${s.variantId}`, s.quantity);
+    });
+
     let anyUnavailable = false;
 
     const updatedItems = items.map((cartItem) => {
-      const stockItem = stockDoc?.stock?.find(
-        (s) =>
-          s.productId.toString() === cartItem.productId.toString() &&
-          s.variantId.toString() === cartItem.varientId.toString()
-      );
+      const key = `${cartItem.productId}_${cartItem.varientId}`;
+      const availableQty = stockMap.get(key) || 0;
 
-      const availableQty = stockItem ? stockItem.quantity : 0;
+      if (availableQty < cartItem.quantity) anyUnavailable = true;
 
-      const itemObj = {
+      return {
         ...cartItem.toObject(),
         stock: availableQty,
       };
-
-      if (availableQty < cartItem.quantity) {
-        anyUnavailable = true;
-      }
-
-      return itemObj;
     });
 
     if (anyUnavailable) {
@@ -148,7 +146,6 @@ exports.getCart = async (req, res) => {
       });
     }
 
-    // ✅ Here's your condition: Location worked, but no default address
     if (usedFallback) {
       return res.status(200).json({
         status: false,
@@ -158,7 +155,6 @@ exports.getCart = async (req, res) => {
       });
     }
 
-    // ✅ All good, address exists
     return res.status(200).json({
       status: true,
       message: "Cart items are available.",
@@ -175,6 +171,7 @@ exports.getCart = async (req, res) => {
     });
   }
 };
+
 
 
 exports.discount=async (req,res) => {

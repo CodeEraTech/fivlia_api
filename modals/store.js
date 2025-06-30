@@ -5,6 +5,7 @@ const storeScheema = new mongoose.Schema({
     city:{_id:{type:mongoose.Schema.ObjectId,ref:'Locations'},name:String},
     ownerName:String,
     PhoneNumber:String,
+    password:String,
     zone:[{_id:{type:mongoose.Schema.ObjectId,ref:'Locations'},name:String,title:String}],
     Latitude:String,
     Longitude:String,

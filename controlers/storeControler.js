@@ -4,6 +4,28 @@ const Products = require('../modals/Product');
 const CategoryModel = require('../modals/category');
 const {ZoneData} = require('../modals/cityZone'); // your Locations model
 
+exports.storeLogin = async (req, res) => {
+  try {
+  const {userName, password} = req.body
+  const credit = await Store.findOne(userName)
+
+  if(!credit){
+    return res.status(404).message({message:"Username Not Found"})
+  }
+  const isMatch = await bcrypt.compare(password, store.password);
+
+  if (!isMatch) {
+    return res.status(401).json({ message: "Invalid credentials." });
+  }
+
+  return res.status(200).json({ message: "Login successful", store });
+
+} catch (error) {
+    console.error("Error creating store:", error);
+    return res.status(500).json({ message: "Server error", error: error.message });
+  }
+}
+
 exports.createStore = async (req, res) => {
   try {
     console.log('Incoming body:', req.body);
@@ -16,6 +38,7 @@ exports.createStore = async (req, res) => {
       Longitude,
       ownerName,
       PhoneNumber,
+      password,
       Description,
       Category: categoryInput
     } = req.body;
@@ -100,7 +123,6 @@ console.log('zone',zoneObjs);
         { subSubCategoryId:  { $in: allProductCategoryIds } }
       ]
     });
-
     //
     // 8️⃣ Create store
     //
@@ -112,6 +134,7 @@ console.log('zone',zoneObjs);
       Longitude:  parseFloat(Longitude),
       ownerName,
       PhoneNumber,
+      password,
       Description,
       Category:   finalCategoryIds,
       image,

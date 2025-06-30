@@ -8,7 +8,7 @@ const stock = require('../modals/StoreStock')
 exports.addCart = async (req, res) => {
   try {
     const userId = req.user; 
-    const { name, quantity, price, productId, varientId } = req.body;
+    const { name, quantity, price,mrp, productId, varientId } = req.body;
     const image = req.files?.image?.[0]?.path;
 
     const userZoneShort = userId?.location?.zone;
@@ -28,6 +28,7 @@ exports.addCart = async (req, res) => {
       name,
       quantity,
       price,
+      mrp,
       productId,
       varientId,
       userId,

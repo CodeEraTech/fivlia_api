@@ -48,16 +48,26 @@ exports.settings = async (req, res) => {
   }
 };
 
-exports.adminSetting=async (req,res) => {
+exports.adminSetting = async (req, res) => {
   try {
-  const {Owner_Name,Owner_Email,Owner_Number,Store_Number,Password,Platform_Fee,GST_Number,Description,Delivery_Charges,DeliveryStatus,Delivery_Charge_Per_Km,Minimum_Delivery_Charges,links,Minimum_Delivery_Charge_Within_Km}=req.body
+    const updateFields = req.body;
 
-  const newSetting=await SettingAdmin.create({Owner_Name,Owner_Email,Owner_Number,Store_Number,Password,Platform_Fee,GST_Number,Description,Delivery_Charges,Delivery_Charge_Per_Km,Minimum_Delivery_Charges,DeliveryStatus,Minimum_Delivery_Charge_Within_Km,links})
+    const updatedSetting = await SettingAdmin.findOneAndUpdate(
+      {}, // find first document (you only have one global admin setting)
+      { $set: updateFields },
+      { new: true, upsert: true } // upsert creates if doesn't exist, new returns updated doc
+    );
 
-  return res.status(200).json({message:"Done",newSetting})
+    return res.status(200).json({
+      message: "Admin settings updated successfully",
+      settings: updatedSetting,
+    });
 
   } catch (error) {
-    console.error("Get User Settings Error =>", error);
-    return res.status(500).json({ message: "Error getting settings", error: error.message }); 
+    console.error("Admin Settings Error =>", error);
+    return res.status(500).json({
+      message: "Error updating settings",
+      error: error.message,
+    });
   }
-}
+};

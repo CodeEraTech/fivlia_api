@@ -5,7 +5,7 @@ const verifyToken = require('../midllerware/authToken');
 //abc
 const {getDeliveryEstimate} = require('../controlers/DeliveryControler')
 
-const { createStore,getStore,addCategoryInStore,removeCategoryInStore } = require('../controlers/storeControler');
+const { createStore,storeLogin,getStore,addCategoryInStore,removeCategoryInStore } = require('../controlers/storeControler');
 
 const { settings,addSettings,adminSetting } = require('../controlers/settingControler');
 const { users, addUser,updateProfile,Login,signin,register,verifyMobile } = require('../controlers/authControler');
@@ -48,6 +48,7 @@ router.post('/updateStock/:productId', updateStock);
 router.post('/driver',upload, driver);
 router.post('/deliveryStatus',upload, deliveryStatus);
 
+router.post('/storeLogin', storeLogin)
 router.post('/discount', discount)
 router.post('/addCity', addCity)
 router.post('/location',verifyToken, updateLocation)

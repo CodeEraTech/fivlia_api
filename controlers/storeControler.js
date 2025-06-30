@@ -6,19 +6,19 @@ const {ZoneData} = require('../modals/cityZone'); // your Locations model
 
 exports.storeLogin = async (req, res) => {
   try {
-  const {userName, password} = req.body
-  const credit = await Store.findOne(userName)
+  const {PhoneNumber, password} = req.body
+  const credit = await Store.findOne({PhoneNumber})
+console.log(credit);
 
   if(!credit){
-    return res.status(404).message({message:"Username Not Found"})
+    return res.status(404).json({message:"Username Not Found"})
   }
-  const isMatch = await bcrypt.compare(password, store.password);
 
-  if (!isMatch) {
+  if (password !== credit.password) {
     return res.status(401).json({ message: "Invalid credentials." });
   }
 
-  return res.status(200).json({ message: "Login successful", store });
+  return res.status(200).json({ message: "Login successful", storeId:credit._id });
 
 } catch (error) {
     console.error("Error creating store:", error);

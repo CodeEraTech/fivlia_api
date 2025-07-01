@@ -142,28 +142,64 @@ exports.updateZoneStatus = async (req, res) => {
       cashOnDelivery,
     } = req.body;
 
-    // Step 1: Find the current zone
+    if (!city || typeof city !== "string") {
+      return res.status(400).json({ message: "City is required" });
+    }
+
+    // Find the document that currently has the zone
     const currentCityDoc = await ZoneData.findOne({ "zones._id": id });
     if (!currentCityDoc) {
       return res.status(404).json({ message: "Zone not found" });
     }
 
-    const existingZone = currentCityDoc.zones.find((z) => z._id.toString() === id);
+    const existingZone = currentCityDoc.zones.find(z => z._id.toString() === id);
     if (!existingZone) {
       return res.status(404).json({ message: "Zone not found inside document" });
     }
 
-    // Step 2: Remove from old city
+    // ✅ If city not changed, update zone in place
+    if (currentCityDoc.city === city) {
+      await ZoneData.updateOne(
+        { city, "zones._id": id },
+        {
+          $set: {
+            "zones.$.zoneTitle": zoneTitle ?? existingZone.zoneTitle,
+            "zones.$.address": address?.trim() || existingZone.address,
+            "zones.$.latitude": latitude ?? existingZone.latitude,
+            "zones.$.longitude": longitude ?? existingZone.longitude,
+            "zones.$.range": range ?? existingZone.range,
+            "zones.$.status": status ?? existingZone.status,
+            "zones.$.cashOnDelivery": cashOnDelivery ?? existingZone.cashOnDelivery,
+            updatedAt: new Date()
+          }
+        }
+      );
+
+      return res.status(200).json({
+        message: "Zone updated successfully (in-place)",
+        updatedZone: { ...existingZone, city }
+      });
+    }
+
+    // 🔁 City changed → move zone to new city
+
+    // Check if target city exists
+    const targetCityDoc = await ZoneData.findOne({ city });
+    if (!targetCityDoc) {
+      return res.status(400).json({ message: `Target city '${city}' does not exist.` });
+    }
+
+    // Remove from old city
     await ZoneData.updateOne(
       { "zones._id": id },
       { $pull: { zones: { _id: id } } }
     );
 
-    // Step 3: Create updated zone, but fallback to old values if not provided
+    // Build updated zone
     const updatedZone = {
       _id: existingZone._id,
       zoneTitle: zoneTitle ?? existingZone.zoneTitle,
-      address: address ?? existingZone.address,
+      address: address?.trim() || existingZone.address,
       latitude: latitude ?? existingZone.latitude,
       longitude: longitude ?? existingZone.longitude,
       range: range ?? existingZone.range,
@@ -172,18 +208,17 @@ exports.updateZoneStatus = async (req, res) => {
       createdAt: existingZone.createdAt || new Date()
     };
 
-    // Step 4: Push to new city
-    const updated = await ZoneData.updateOne(
+    // Push to new city
+    await ZoneData.updateOne(
       { city },
       {
         $push: { zones: updatedZone },
         $set: { updatedAt: new Date() }
-      },
-      { upsert: true }
+      }
     );
 
     return res.status(200).json({
-      message: "Zone moved/updated successfully",
+      message: "Zone moved and updated successfully",
       updatedZone
     });
 
@@ -192,7 +227,6 @@ exports.updateZoneStatus = async (req, res) => {
     return res.status(500).json({ message: "An error occurred", error: error.message });
   }
 };
-
 
 exports.addAddress = async (req, res) => {
   try {

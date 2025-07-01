@@ -2,6 +2,8 @@ const {Order,TempOrder} = require('../modals/order')
 const Products = require('../modals/Product')
 const {Cart} = require('../modals/cart')
 const driver = require('../modals/driver')
+const User = require('../modals/User')
+const Status = require('../modals/deliveryStatus')
 const {SettingAdmin} = require('../modals/setting')
 const Address = require('../modals/Address')
 const stock = require('../modals/StoreStock')
@@ -273,8 +275,8 @@ exports.getOrders = async (req, res) => {
 exports.getOrderDetails = async (req, res) => {
   try {
     const userId = req.user;
-    const userOrders = await Order.find({ userId }).lean();
 
+    const userOrders = await Order.find({ userId }).lean();
     const results = [];
 
     for (const order of userOrders) {
@@ -291,19 +293,6 @@ exports.getOrderDetails = async (req, res) => {
             name: driverInfo.driverName || '',
             mobileNo: driverInfo.address?.mobileNo || '',
           };
-      }
-
-   if (user?.fcmToken && statusInfo) {
-        await sendNotification(
-          user.fcmToken,
-          `📦 Order #${order.orderId} - ${statusInfo.statusTitle}`,
-          `Your order is now marked as ${statusInfo.statusTitle}`,
-          {
-            image: statusInfo.image || "",
-            orderId: order.orderId,
-            statusCode: statusInfo.statusCode
-          }
-        );
       }
 
       // 3. Get product details for each item
@@ -351,29 +340,56 @@ exports.getOrderDetails = async (req, res) => {
   }
 };
 
-exports.orderStatus=async (req,res) => {
+exports.orderStatus = async (req, res) => {
   try {
-   const{id}=req.params
-  const {status,driverId}=req.body
-   const updateData = { orderStatus: status };
+    const { id } = req.params;
+    const { status, driverId } = req.body;
+
+    const updateData = { orderStatus: status };
 
     if (driverId) {
       const driverDoc = await driver.findOne({ driverId });
+      if (!driverDoc) return res.status(404).json({ message: "Driver not found" });
+
       updateData.driver = {
         driverId: driverDoc.driverId,
         name: driverDoc.driverName,
       };
-    }  
-  const updatedOrder = await Order.findByIdAndUpdate(id,updateData,{new:true})
+    }
 
-const update = await Order.findById(updatedOrder._id).populate("userId");
+    // 1. Update order status
+    const updatedOrder = await Order.findByIdAndUpdate(id, updateData, { new: true });
+    if (!updatedOrder) return res.status(404).json({ message: "Order not found" });
 
-  return res.status(200).json({message:'Order Status Updated',update})
-} catch (error) {
-    console.error('Get orders error:', error.message);
-    return res.status(500).json({ message: 'Server Error', error: error.message });
+    // 2. Get user & status info
+    const user = await User.findById(updatedOrder.userId).lean();
+    const statusInfo = await Status.findOne({ statusTitle: status });
+
+    // 3. Send notification if FCM token valid and status exists
+    if (
+      user?.fcmToken &&
+      user.fcmToken !== "null" &&
+      statusInfo?.statusTitle
+    ) {
+      await sendNotification(
+        user.fcmToken,
+        `📦 Order #${updatedOrder.orderId} - ${statusInfo.statusTitle}`,
+        `Your order is now marked as ${statusInfo.statusTitle}`,
+        {
+          image: statusInfo.image || "",
+          orderId: updatedOrder.orderId,
+          statusCode: statusInfo.statusCode,
+        }
+      );
+    }
+
+    // 4. Send response
+    return res.status(200).json({ message: "Order Status Updated", update: updatedOrder });
+  } catch (error) {
+    console.error("Order status error:", error.message);
+    return res.status(500).json({ message: "Server Error", error: error.message });
   }
-}
+};
 
 exports.deliveryStatus=async (req,res) => {
   try {

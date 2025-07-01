@@ -1,4 +1,7 @@
-async function sendNotification(fcmToken, title, body) {
+const axios = require("axios");
+const getAccessToken = require("./getAccessToken"); // adjust path
+
+async function sendNotification(fcmToken, title, body, data = {}) {
   const token = await getAccessToken();
 
   const fcmUrl = `https://fcm.googleapis.com/v1/projects/fivlia/messages:send`;
@@ -30,3 +33,5 @@ async function sendNotification(fcmToken, title, body) {
     console.error("❌ Sending error:", err.response?.data || err.message);
   }
 }
+
+module.exports = sendNotification;

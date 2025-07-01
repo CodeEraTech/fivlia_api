@@ -8,7 +8,6 @@ exports.storeLogin = async (req, res) => {
   try {
   const {PhoneNumber, password} = req.body
   const credit = await Store.findOne({PhoneNumber})
-console.log(credit);
 
   if(!credit){
     return res.status(404).json({message:"Username Not Found"})

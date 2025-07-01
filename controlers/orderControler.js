@@ -5,7 +5,7 @@ const driver = require('../modals/driver')
 const {SettingAdmin} = require('../modals/setting')
 const Address = require('../modals/Address')
 const stock = require('../modals/StoreStock')
-const sendPushNotification = require('../firebase/pushnotification');
+const sendNotification = require('../firebase/pushnotification');
 const Store = require('../modals/store');
 const deliveryStatus = require('../modals/deliveryStatus')
 
@@ -293,6 +293,19 @@ exports.getOrderDetails = async (req, res) => {
           };
       }
 
+   if (user?.fcmToken && statusInfo) {
+        await sendNotification(
+          user.fcmToken,
+          `📦 Order #${order.orderId} - ${statusInfo.statusTitle}`,
+          `Your order is now marked as ${statusInfo.statusTitle}`,
+          {
+            image: statusInfo.image || "",
+            orderId: order.orderId,
+            statusCode: statusInfo.statusCode
+          }
+        );
+      }
+
       // 3. Get product details for each item
       const itemsWithDetails = await Promise.all(order.items.map(async (item) => {
         const product = await Products.findById(item.productId).lean();
@@ -354,21 +367,6 @@ exports.orderStatus=async (req,res) => {
   const updatedOrder = await Order.findByIdAndUpdate(id,updateData,{new:true})
 
 const update = await Order.findById(updatedOrder._id).populate("userId");
-  
-if (update.userId?.fcmToken) {
-      console.log("FCM Token:", update.userId.fcmToken);
-      const response = await sendPushNotification(
-        update.userId.fcmToken,
-        "Order Update",
-        `Your order status is now "${status}"`,
-        { orderId: update._id.toString() }
-      );
-      console.log("Push Notification Response:", response);
-    } else {
-      console.log("No FCM token found for this user.");
-    }
-
-console.log('Order Status Updated');
 
   return res.status(200).json({message:'Order Status Updated',update})
 } catch (error) {

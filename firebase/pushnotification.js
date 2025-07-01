@@ -1,30 +1,32 @@
-const admin = require('../firebase/firebase'); // adjust path
+async function sendNotification(fcmToken, title, body) {
+  const token = await getAccessToken();
 
-const sendPushNotification = async (token, title, body, data = {}) => {
-  if (!token) {
-    console.warn('⚠️ No FCM token provided');
-    return;
-  }
+  const fcmUrl = `https://fcm.googleapis.com/v1/projects/fivlia/messages:send`;
 
   const message = {
-    token,
-    notification: {
-      title,
-      body,
-    },
-    data: Object.entries(data).reduce((acc, [key, val]) => {
-      acc[key] = String(val); // Firebase requires all values as strings
-      return acc;
-    }, {}),
+    message: {
+      token: fcmToken,
+      notification: {
+        title: title,
+        body: body
+      },
+      data: {
+        click_action: "FLUTTER_NOTIFICATION_CLICK",
+        ...data
+      }
+    }
   };
 
   try {
-    const response = await admin.messaging().send(message);
-    console.log('✅ Push notification sent:', response);
-     return response;
-  } catch (error) {
-    console.error('❌ Error sending push notification:', error.message);
-  }
-};
+    const response = await axios.post(fcmUrl, message, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      }
+    });
 
-module.exports = sendPushNotification;
+    console.log("✅ Notification sent:", response.data);
+  } catch (err) {
+    console.error("❌ Sending error:", err.response?.data || err.message);
+  }
+}

@@ -131,34 +131,68 @@ exports.getZone=async (req,res) => {
 exports.updateZoneStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status,city,zone, cashOnDelivery,zoneTitle,address,latitude,longitude,range} = req.body;
+    const {
+      city,
+      zoneTitle,
+      address,
+      latitude,
+      longitude,
+      range,
+      status,
+      cashOnDelivery,
+    } = req.body;
 
-    const updated = await ZoneData.updateOne(
-      { "zones._id": id },
-      {
-        $set: {
-          city,zone,
-           "zones.$.zoneTitle":zoneTitle,
-           "zones.$.address":address,
-           "zones.$.latitude":latitude,
-           "zones.$.longitude":longitude,
-           "zones.$.range":range,
-          "zones.$.status": status,
-          "zones.$.cashOnDelivery": cashOnDelivery,
-        }
-      }
-    );
-
-    if (updated.modifiedCount === 0) {
+    // Step 1: Find the current zone
+    const currentCityDoc = await ZoneData.findOne({ "zones._id": id });
+    if (!currentCityDoc) {
       return res.status(404).json({ message: "Zone not found" });
     }
 
-    return res.status(200).json({ message: "Zone updated successfully" ,updated});
+    const existingZone = currentCityDoc.zones.find((z) => z._id.toString() === id);
+    if (!existingZone) {
+      return res.status(404).json({ message: "Zone not found inside document" });
+    }
+
+    // Step 2: Remove from old city
+    await ZoneData.updateOne(
+      { "zones._id": id },
+      { $pull: { zones: { _id: id } } }
+    );
+
+    // Step 3: Create updated zone, but fallback to old values if not provided
+    const updatedZone = {
+      _id: existingZone._id,
+      zoneTitle: zoneTitle ?? existingZone.zoneTitle,
+      address: address ?? existingZone.address,
+      latitude: latitude ?? existingZone.latitude,
+      longitude: longitude ?? existingZone.longitude,
+      range: range ?? existingZone.range,
+      status: status ?? existingZone.status,
+      cashOnDelivery: cashOnDelivery ?? existingZone.cashOnDelivery,
+      createdAt: existingZone.createdAt || new Date()
+    };
+
+    // Step 4: Push to new city
+    const updated = await ZoneData.updateOne(
+      { city },
+      {
+        $push: { zones: updatedZone },
+        $set: { updatedAt: new Date() }
+      },
+      { upsert: true }
+    );
+
+    return res.status(200).json({
+      message: "Zone moved/updated successfully",
+      updatedZone
+    });
+
   } catch (error) {
     console.error("Update error:", error);
     return res.status(500).json({ message: "An error occurred", error: error.message });
   }
 };
+
 
 exports.addAddress = async (req, res) => {
   try {

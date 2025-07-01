@@ -1,7 +1,7 @@
 const express = require('express');
 require('dotenv').config()
 const connectDb = require('./database/database')
-require('./config/scheduler/notification')
+// require('./config/scheduler/notification')
 
 const cors = require('cors')
 connectDb();

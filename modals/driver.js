@@ -5,9 +5,21 @@ const driverSchema = new mongoose.Schema({
    driverName:String,
    image:String,
    status:Boolean,
-   address:{city:String,
+   email:String,
+   password:String,
+   address:{
+    city:String,
     mobileNo:String,
-    locality:String
-}
+    locality:String,
+    },
+  aadharCard: {
+    front:String,
+    back: String
+  },
+  drivingLicence: {
+    front: String,
+    back: String
+  },
+    Police_Verification_Copy:String,
 },{timestamps:true})
 module.exports=mongoose.model('driver',driverSchema)

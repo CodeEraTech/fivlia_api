@@ -1,7 +1,10 @@
 const mongoose = require('mongoose');
 const Category = require('../modals/category');
 const Banner = require('../modals/banner');
+const Filter = require("../modals/filter");     
 const brand = require('../modals/brand')
+const { getBannersWithinRadius } = require('../config/google');
+const Attribute = require('../modals/attribute')
 const Products = require('../modals/Product')
 const User = require('../modals/User')
 const Stock = require('../modals/StoreStock')
@@ -116,14 +119,13 @@ exports.getBanner = async (req, res) => {
     const userId = req.user;
 
     const user = await User.findById(userId).lean();
-    if (!user || !user.location?.city || !user.location?.zone) {
+    if (!user || !user.location?.latitude || !user.location?.longitude) {
       console.log("❌ User location missing or incomplete");
       return res.status(400).json({ message: "User location not found" });
     }
 
-    const userCity = user.location.city;
-    const userZone = user.location.zone.toLowerCase();
-    console.log("✅ User Location =>", { userCity, userZone });
+    const userLat = user.location.latitude;
+    const userLng = user.location.longitude;
 
     // 🟢 Get active city names
     const activeCities = await CityData.find({ status: true }, 'city').lean();
@@ -131,7 +133,7 @@ exports.getBanner = async (req, res) => {
     console.log("📍 Active City Names:", activeCityNames);
 
     // 🟢 Get active zone IDs
-    const zoneDocs = await ZoneData.find({}, 'zones').lean();
+    const zoneDocs = await ZoneData.find({status:true}, 'zones').lean();
     const activeZoneIds = [];
     zoneDocs.forEach(doc => {
       (doc.zones || []).forEach(zone => {
@@ -153,40 +155,11 @@ exports.getBanner = async (req, res) => {
     }
 
     const allBanners = await Banner.find(filters).lean();
+    const matchedBanners =await getBannersWithinRadius(userLat, userLng, allBanners);
+    console.log(matchedBanners)
     console.log("🎯 All banners fetched:", allBanners.length);
 
-    const filteredBanners = allBanners.filter(banner => {
-      const bannerCityName = banner.city?.name?.toLowerCase();
-
-      const cityMatch = bannerCityName === userCity.toLowerCase();
-      const isCityActive = activeCityNames.includes(bannerCityName);
-
-      console.log("🏙️ City Match:", {
-        bannerCityName,
-        cityMatch,
-        isCityActive
-      });
-
-      if (!cityMatch || !isCityActive) return false;
-
-  const zoneMatch = (banner.zones || []).some(zone => {
-  const zoneName = zone?.address?.toLowerCase();
-  const isZoneMatch = zoneName?.includes(userZone);
-
-  console.log("📦 Zone Match:", {
-    zoneId: zone?._id?.toString(),
-    zoneName,
-    isZoneMatch,
-  });
-
-  return isZoneMatch;
-});
-
-
-      return zoneMatch;
-    });
-
-    if (!filteredBanners.length) {
+    if (!matchedBanners.length) {
       return res.status(200).json({
         message: "No banners found for your location.",
         count: 0,
@@ -196,8 +169,8 @@ exports.getBanner = async (req, res) => {
 
     return res.status(200).json({
       message: "Banners fetched successfully.",
-      count: filteredBanners.length,
-      data: filteredBanners
+      count: matchedBanners.length,
+      data: matchedBanners
     });
 
   } catch (error) {
@@ -214,16 +187,15 @@ exports.getBanner = async (req, res) => {
 exports.updateBannerStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status,title,city,zones,type2,address,latitude,longitude,mainCategory,subCategory,subSubCategory} = req.body;
+    const { status,title,city,zones,type2,zoneId,address,latitude,longitude,mainCategory,subCategory,subSubCategory,range} = req.body;
 
  const image = req.files?.image?.[0].path
 
 const cityDoc = await ZoneData.findById(city).lean();
 
-
     const updatedBanner = await Banner.updateOne(
-      {_id:id},
-      {$set:{ status,title,image,...(cityDoc?{city: { _id: cityDoc._id, name: cityDoc.city }}:{}),mainCategory,subCategory,type2,subSubCategory,'zones.$.address':address,'zones.$.latitude':latitude,'zones.$.longitude':longitude }}
+      {_id:id,'zones._id': zoneId},
+      {$set:{ status,title,image,...(cityDoc?{city: { _id: cityDoc._id, name: cityDoc.city }}:{}),mainCategory,subCategory,type2,subSubCategory,'zones.$.address':address,'zones.$.latitude':latitude,'zones.$.longitude':longitude,'zones.$.range':range }}
     );
 console.log(updatedBanner);
 
@@ -327,6 +299,76 @@ exports.addCategory = async (req, res) => {
   }
 };
 
+exports.editMainCategory = async (req, res) => {
+  try {
+    const {
+      id, // ID of the main category (_id)
+      name,
+      description,
+      attribute,
+      filter
+    } = req.body;
+
+    const image = req.files?.image?.[0]?.path;
+
+    if (!id) return res.status(400).json({ message: "Category ID is required" });
+
+    const category = await Category.findById(id);
+    if (!category) return res.status(404).json({ message: "Category not found" });
+
+    // Parse attributes and filters
+    let parsedAttributes = [];
+    if (attribute) {
+      try {
+        const attrIds = JSON.parse(attribute); // expects array of _id
+        const attrDocs = await Attribute.find({ _id: { $in: attrIds } });
+        parsedAttributes = attrDocs.map(attr => attr.Attribute_name);
+      } catch (err) {
+        return res.status(400).json({ message: "Invalid attribute data", error: err.message });
+      }
+    }
+
+    let parsedFilters = [];
+    if (filter) {
+      try {
+        const rawFilters = JSON.parse(filter); // [{ _id, selected: [valueId1, valueId2] }]
+        for (const f of rawFilters) {
+          const filterDoc = await Filter.findById(f._id);
+          if (!filterDoc) continue;
+
+          const selectedItems = filterDoc.Filter.filter(item =>
+            f.selected.includes(item._id.toString())
+          );
+
+          parsedFilters.push({
+            _id: filterDoc._id,
+            Filter_name: filterDoc.Filter_name,
+            selected: selectedItems.map(item => ({
+              _id: item._id,
+              name: item.name,
+            }))
+          });
+        }
+      } catch (err) {
+        return res.status(400).json({ message: "Invalid filter data", error: err.message });
+      }
+    }
+
+    if (name) category.name = name;
+    if (description) category.description = description;
+    if (image) category.image = image;
+    if (parsedAttributes.length > 0) category.attribute = parsedAttributes;
+    if (parsedFilters.length > 0) category.filter = parsedFilters;
+
+    await category.save();
+
+    res.status(200).json({ message: "Main category updated successfully", data: category });
+
+  } catch (error) {
+    console.error("editMainCategory error:", error);
+    res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+};
 
 
 exports.getCategories = async (req, res) => {
@@ -433,14 +475,14 @@ exports.getCategories = async (req, res) => {
 
 exports.brand = async (req,res) => {
   try {
-  const{brandName,description}=req.body
+  const{brandName,description,featured}=req.body
   const image=req.files.image?.[0].path
     if (!image) {
       console.log(image);
       
       return res.status(400).json({ message: "Image is required" });
     }
-  const newBrand = await brand.create({brandName,brandLogo:image,description})
+  const newBrand = await brand.create({brandName,brandLogo:image,description,featured})
     return res.status(200).json({ message: "sucess",newBrand});
     } catch (error) {
     console.error(error);
@@ -453,24 +495,20 @@ exports.getBrand = async (req, res) => {
     const { id } = req.query;
     const db = mongoose.connection.db;
 
-    // 🔁 Helper: Attach inventory to products
-    const attachInventory = async (products = []) => {
-      const productIds = products.map(p => p._id.toString());
+    const rawProducts = await db.collection("products").find({}).toArray();
 
-      // Get stock docs for these productIds
-      const stockDocs = await Stock.find({
-        "stock.productId": { $in: productIds }
-      }).lean();
+    const stockDocs = await Stock.find({}).lean();
 
-      const stockMap = {};
-      for (const doc of stockDocs) {
-        for (const item of doc.stock || []) {
-          const key = `${item.productId}_${item.variantId}`;
-          stockMap[key] = item.quantity;
-        }
+    const stockMap = {};
+    for (const doc of stockDocs) {
+      for (const item of doc.stock || []) {
+        const key = `${item.productId}_${item.variantId}`;
+        stockMap[key] = item.quantity;
       }
+    }
 
-      // Inject inventory into each product
+    // Helper to attach inventory
+    const attachInventory = (products = []) => {
       for (const product of products) {
         product.inventory = [];
 
@@ -495,15 +533,13 @@ exports.getBrand = async (req, res) => {
       const b = await brand.findById(id).lean();
       if (!b) return res.status(404).json({ message: "Brand not found" });
 
-      const rawProducts = await db.collection("products").find({}).toArray();
-
       const products = rawProducts.filter(
         (p) =>
           typeof p.brand_Name === "object" &&
           p.brand_Name._id?.toString() === b._id.toString()
       );
 
-      const productsWithStock = await attachInventory(products);
+      const productsWithStock = attachInventory(products);
 
       return res.json({
         ...b,
@@ -514,26 +550,34 @@ exports.getBrand = async (req, res) => {
     // 🔁 For all brands
     const brands = await brand.find({}).lean();
 
-    const brandsWithProducts = await Promise.all(
-      brands.map(async (b) => {
-        const rawProducts = await db.collection("products").find({}).toArray();
+    const allBrands = [];
+    const featuredBrands = [];
 
-        const products = rawProducts.filter(
-          (p) =>
-            typeof p.brand_Name === "object" &&
-            p.brand_Name._id?.toString() === b._id.toString()
-        );
+    for (const b of brands) {
+      const products = rawProducts.filter(
+        (p) =>
+          typeof p.brand_Name === "object" &&
+          p.brand_Name._id?.toString() === b._id.toString()
+      );
 
-        const productsWithStock = await attachInventory(products);
+      const productsWithStock = attachInventory(products);
 
-        return {
-          ...b,
-          products: productsWithStock,
-        };
-      })
-    );
+      const brandData = {
+        ...b,
+        products: productsWithStock,
+      };
 
-    return res.json(brandsWithProducts);
+      allBrands.push(brandData);
+
+      if (b.featured === true || b.featured === 'true') {
+        featuredBrands.push(brandData);
+      }
+    }
+
+    return res.json({
+      featuredBrands,
+      allBrands,
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({
@@ -543,16 +587,14 @@ exports.getBrand = async (req, res) => {
   }
 };
 
-
-
 exports.editBrand = async (req, res) => {
   try {
     const { id } = req.params;
-    const { brandName, description } = req.body;
+    const { brandName, description,featured } = req.body;
 
 const image = req.files.image?.[0].path    
 
-    const edit = await brand.updateOne(  { _id: id }, {brandName, description, brandLogo:image}, { new: true });
+    const edit = await brand.updateOne(  { _id: id }, {brandName,featured, description, brandLogo:image}, { new: true });
 
     return res.status(200).json({ message: "Done", edit });
   } catch (error) {
@@ -666,8 +708,6 @@ exports.editFilter = async (req, res) => {
   }
 };
 
-
-
 exports.getFilter=async (req,res) => {
   try {
   const Filter=await Filters.find()
@@ -746,5 +786,170 @@ exports.addFiltersToCategory = async (req, res) => {
   } catch (error) {
     console.error("❌ Error adding filters to category:", error.message);
     res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+exports.addMainCategory = async (req, res) => {
+  try {
+    const { name, description, attribute, filter } = req.body;
+    const image = req.files?.image?.[0]?.path;
+
+    if (!name || !description || !image) {
+      return res.status(400).json({ message: "Name, description and image are required" });
+    }
+
+    let parsedFilters = [];
+
+    if (filter) {
+      const rawFilters = JSON.parse(filter); // [{ _id, selected: [valueId1, valueId2] }]
+
+      for (const f of rawFilters) {
+        const filterId = f._id;
+        const selectedIds = f.selected || [];
+
+        const filterDoc = await Filter.findById(filterId);
+        if (!filterDoc) continue;
+
+        // Match items by _id
+        const selectedItems = filterDoc.Filter.filter(item =>
+          selectedIds.includes(item._id.toString())
+        );
+
+        parsedFilters.push({
+          _id: filterDoc._id,
+          Filter_name: filterDoc.Filter_name,
+          selected: selectedItems.map(item => ({
+            _id: item._id,
+            name: item.name
+          }))
+        });
+      }
+    }
+    let attributeArray = [];
+try {
+  attributeArray = JSON.parse(attribute); // This turns string into array
+} catch (err) {
+  return res.status(400).json({ message: "Invalid JSON in attribute", error: err.message });
+}
+console.log('attributeArray',attributeArray)
+const setAttributes = await Attribute.find({
+  _id: { $in: attributeArray },
+});
+console.log('setAttributes',setAttributes)
+console.log('parsedFilters',parsedFilters)
+
+
+    const newCategory = new Category({
+      name,
+      description,
+      image,
+      subcat: [],
+      status: true,
+      attribute: setAttributes.map(attr => attr.Attribute_name),
+      filter: parsedFilters
+    });
+
+    const result = await newCategory.save();
+
+    res.status(201).json({ message: "Main Category added", id: result._id });
+  } catch (error) {
+    console.error("Error while adding category:", error);
+    res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+};
+
+exports.getMainCategory = async (req, res) => {
+  try {
+    const data = await Category.find();
+
+    const enriched = await Promise.all(
+      data.map(async (category) => {
+        // Get total products for this category (and nested)
+        const categoryIds = [category._id.toString()];
+
+        category.subcat?.forEach((sub) => {
+          categoryIds.push(sub._id.toString());
+          sub.subsubcat?.forEach((subsub) => {
+            categoryIds.push(subsub._id.toString());
+          });
+        });
+
+        const productCount = await Products.countDocuments({
+          $or: [
+            { "category._id": { $in: categoryIds } },
+            { subCategoryId: { $in: categoryIds } },
+            { subSubCategoryId: { $in: categoryIds } },
+          ],
+        });
+
+        // Return category with totalProducts field
+        return {
+          ...category._doc, // include all original fields
+          totalProducts: productCount,
+        };
+      })
+    );
+
+    res.status(200).send({
+      message: "Success",
+      result: enriched,
+    });
+  } catch (err) {
+    console.error("getMainCategory error:", err);
+    res.status(500).send({
+      message: "Server Error",
+      error: err.message,
+    });
+  }
+};
+
+exports.GetSubCategories = async (req, res) => {
+  try {
+    const categoryId = req.params.categoryId;
+
+    // Step 1: Find category by _id
+    const category = await Category.findOne({ "_id":categoryId });
+
+    if (!category) {
+      return res.status(404).json({ error: "Category not found" });
+    }
+
+    // Step 2: Return subcat array
+    res.status(200).json({ subcategories: category.subcat || [] });
+
+  } catch (err) {
+    console.error("GetSubCategories Error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+
+exports.GetSubSubCategories = async (req, res) => {
+  try {
+    const subcatId = req.params.subcatId;
+
+    // Step 1: Find the category document that contains the given subcat _id
+    const category = await Category.findOne({
+     "subcat._id":subcatId
+});
+
+    if (!category) {
+      return res.status(404).json({ error: "SubCategory not found" });
+    }
+
+    // Step 2: Find that specific subcategory inside the array
+    const subcategory = category.subcat.find(
+      (item) => item._id.toString() === subcatId
+    );
+
+    if (!subcategory) {
+      return res.status(404).json({ error: "SubCategory not found in category" });
+    }
+
+    res.status(200).json({ subsubcategories: subcategory.subsubcat || [] });
+
+  } catch (err) {
+    console.error("GetSubSubCategories Error:", err);
+    res.status(500).json({ error: "Internal server error" });
   }
 };

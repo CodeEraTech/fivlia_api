@@ -10,8 +10,9 @@ const bannerSchema = new mongoose.Schema({
   zones: [
     {
       address: { type: String, required: true },
-      latitude: { type: String, required: true },
-      longitude: { type: String, required: true }
+      latitude: { type: Number, required: true },
+      longitude: { type: Number, required: true },
+      range:Number
     }
   ],
     mainCategory: {name:{type:String}, _id:{type:mongoose.Schema.Types.ObjectId,ref:'Categories'},slug:String},

@@ -35,6 +35,7 @@ const TempOrderSchema = new mongoose.Schema({
   totalPrice: Number,
   deliveryCharges:Number,
   platformFee:Number,
+  cartIds:[{type:mongoose.Schema.Types.ObjectId,ref:'carts'}]
 }, { timestamps: true });
 
 module.exports = {

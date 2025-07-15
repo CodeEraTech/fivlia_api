@@ -13,9 +13,10 @@ const addressSchema = new mongoose.Schema({
   state:{type: String},
   latitude:{type:Number},
   longitude:{type:Number},
+  range:{type:Number,default:5000},
   city: {type:String},
   addressType: { type: String, enum: ['home', 'work', 'other', 'default'] },
-  default:{type:Boolean}
+  default:{type:Boolean,default:false}
 },{timestamps:true});
 
 module.exports=mongoose.model('Address',addressSchema)

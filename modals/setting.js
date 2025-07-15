@@ -22,10 +22,13 @@ links:{
 },
 Password:String,
 Platform_Fee:Number,
+codLimit:Number,
 GST_Number:String,
 Description:String,
 Delivery_Charges:Number,
-DeliveryStatus:String
+DeliveryStatus:String,
+PaymentGateways:{RazorPayKey:{test:String,live:String,status:Boolean},PhonePe:{test:String,live:String,status:Boolean}},
+PaymentGatewayStatus:Boolean
 });
 
 module.exports ={

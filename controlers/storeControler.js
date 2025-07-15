@@ -1,29 +1,66 @@
 const Store = require('../modals/store');
 const Stock = require('../modals/StoreStock')
+const admin = require("../firebase/firebase");
 const Products = require('../modals/Product');
 const CategoryModel = require('../modals/category');
 const {ZoneData} = require('../modals/cityZone'); // your Locations model
+const crypto = require("crypto");
+// const sendVerificationEmail = require("../config/nodeMailer");
 
 exports.storeLogin = async (req, res) => {
   try {
-  const {PhoneNumber, password} = req.body
-  const credit = await Store.findOne({PhoneNumber})
+    const { email, password } = req.body;
 
-  if(!credit){
-    return res.status(404).json({message:"Username Not Found"})
-  }
+    const store = await Store.findOne({ email });
+    if (!store) {
+      return res.status(404).json({ message: "Store not found" });
+    }
 
-  if (password !== credit.password) {
-    return res.status(401).json({ message: "Invalid credentials." });
-  }
+    if (store.password !== password) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
 
-  return res.status(200).json({ message: "Login successful", storeId:credit._id });
+    // 🔐 Check if email is verified
+    // if (!store.emailVerified) {
+    //   // 1. Generate a token
+    //   const token = crypto.randomBytes(32).toString("hex");
 
-} catch (error) {
-    console.error("Error creating store:", error);
+    //   // 2. Save to DB
+    //   store.verificationToken = token;
+    //   await store.save();
+
+    //   // 3. Send email
+    //   await sendVerificationEmail(email, token);
+
+    //   return res.status(403).json({
+    //     message: "Please verify your email. A new verification link has been sent.",
+    //   });
+    // }
+
+    return res.status(200).json({
+      message: "Login successful",
+      storeId: store._id,
+    });
+
+  } catch (error) {
+    console.error("Login Error:", error);
     return res.status(500).json({ message: "Server error", error: error.message });
   }
-}
+};
+
+exports.verifyEmail = async (req, res) => {
+  const { token } = req.query;
+
+  const store = await Store.findOne({ verificationToken: token });
+  if (!store) return res.status(400).send("Invalid or expired token");
+
+  store.emailVerified = true;
+  store.verificationToken = null;
+  await store.save();
+
+  res.send("✅ Email verified successfully. You can now log in.");
+};
+
 
 exports.createStore = async (req, res) => {
   try {
@@ -37,7 +74,9 @@ exports.createStore = async (req, res) => {
       Longitude,
       ownerName,
       PhoneNumber,
+      email,
       password,
+      status,
       Description,
       Category: categoryInput
     } = req.body;
@@ -82,7 +121,7 @@ exports.createStore = async (req, res) => {
     for (let zones of zone) {
       zones = zones.toString().trim();
       const zdoc =cityDoc.zones.find(z => z._id.toString() === zones) ;
-      if (zdoc) zoneObjs.push({ _id: zdoc._id, name: zdoc.address,title: zdoc.zoneTitle });
+      if (zdoc) zoneObjs.push({ _id: zdoc._id, name: zdoc.address,title: zdoc.zoneTitle,latitude:zdoc.latitude,longitude:zdoc.longitude,range:zdoc.range,status:zdoc.status});
     }
 console.log('city',cityObj);
 console.log('zone',zoneObjs);
@@ -133,7 +172,11 @@ console.log('zone',zoneObjs);
       Longitude:  parseFloat(Longitude),
       ownerName,
       PhoneNumber,
+      email,
       password,
+      emailVerified: false,          // ⬅️ Add this line
+      verificationToken: null,
+      status,
       Description,
       Category:   finalCategoryIds,
       image,
@@ -151,6 +194,101 @@ console.log('zone',zoneObjs);
     return res.status(500).json({ message: "Server error", error: err.message });
   }
 };
+
+
+exports.storeEdit = async (req, res) => {
+  try {
+    const { storeId } = req.params;
+    let updateObj = {};
+
+    const {
+      storeName,
+      city,
+      zone,
+      Latitude,
+      Longitude,
+      ownerName,
+      PhoneNumber,
+      email,
+      password,
+      status,
+      Description,
+      Category: categoryInput
+    } = req.body;
+
+    // ✅ Store name
+    if (storeName) updateObj.storeName = storeName;
+
+    // ✅ City & zone logic only if city is passed
+    if (city) {
+      const cityDoc = await ZoneData.findById(city).lean();
+      if (!cityDoc) return res.status(400).json({ message: "City not found" });
+
+      updateObj.city = { _id: cityDoc._id, name: cityDoc.city };
+
+      if (zone) {
+        let zoneArray = typeof zone === "string" ? JSON.parse(zone) : zone;
+        const zoneObjs = [];
+
+        for (let z of zoneArray) {
+          z = z.toString().trim();
+          const zdoc = cityDoc.zones.find(zoneObj => zoneObj._id.toString() === z);
+          if (zdoc) {
+            zoneObjs.push({ _id: zdoc._id, name: zdoc.address,title: zdoc.zoneTitle,latitude:zdoc.latitude,longitude:zdoc.longitude,range:zdoc.range,status:zdoc.status });
+          }
+        }
+
+        updateObj.zone = zoneObjs;
+      }
+    }
+
+    // ✅ Latitude & Longitude
+    if (Latitude) updateObj.Latitude = parseFloat(Latitude);
+    if (Longitude) updateObj.Longitude = parseFloat(Longitude);
+
+    // ✅ Owner info
+    if (ownerName) updateObj.ownerName = ownerName;
+    if (PhoneNumber) updateObj.PhoneNumber = PhoneNumber;
+    if (email) updateObj.email = email;
+    if (password) updateObj.password = password;
+
+    if (status !== undefined) updateObj.status = status;
+    if (Description) updateObj.Description = Description;
+
+    // ✅ Category
+    if (categoryInput) {
+      let catArray = typeof categoryInput === "string" ? JSON.parse(categoryInput) : categoryInput;
+      catArray = catArray.map(id => id.trim());
+      const finalCategoryIds = [];
+
+      for (const cid of catArray) {
+        const cat = await CategoryModel.findById(cid).lean();
+        if (cat) finalCategoryIds.push(cat._id);
+      }
+
+      updateObj.Category = finalCategoryIds;
+    }
+
+    // ✅ Image
+    const image = req.files?.image?.[0]?.path;
+    if (image) updateObj.image = image;
+
+    // ✅ Perform update
+    const updatedStore = await Store.findByIdAndUpdate(storeId, updateObj, { new: true });
+
+    if (!updatedStore) {
+      return res.status(404).json({ message: "Store not found" });
+    }
+
+    return res.status(200).json({ message: "Store updated", store: updatedStore });
+
+  } catch (error) {
+    console.error("Error editing store:", error);
+    return res.status(500).json({ message: "Server Error", error: error.message });
+  }
+};
+
+
 
 exports.getStore = async (req, res) => {
   try {
@@ -207,22 +345,38 @@ exports.getStore = async (req, res) => {
       stockMap[key] = item.quantity;
     }
 
-    // 🔁 Replace inventory array in each product
-    for (const product of products) {
-      product.inventory = [];
+ for (const product of products) {
+  product.inventory = [];
 
-      if (Array.isArray(product.variants)) {
-        for (const variant of product.variants) {
-          const key = `${product._id}_${variant._id}`;
-          const quantity = stockMap[key] || 0;
+  if (Array.isArray(product.variants)) {
+    for (const variant of product.variants) {
+      const key = `${product._id}_${variant._id}`;
 
-          product.inventory.push({
-            variantId: variant._id,
-            quantity
-          });
-        }
+      const stockData = stockEntries.find(
+        item => item.productId.toString() === product._id.toString() &&
+                item.variantId.toString() === variant._id.toString()
+      );
+
+      const quantity = stockData?.quantity || 0;
+
+      // ✅ Update price and mrp directly in the variant
+      if (stockData?.price != null) {
+        variant.sell_price = stockData.price;
       }
+
+      if (stockData?.mrp != null) {
+        variant.mrp = stockData.mrp;
+      }
+
+      // Still add quantity info to inventory
+      product.inventory.push({
+        variantId: variant._id,
+        quantity
+      });
     }
+  }
+}
+
 
     return res.status(200).json({
       store,

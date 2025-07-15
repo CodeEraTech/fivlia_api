@@ -12,6 +12,7 @@ const locationSchema=new mongoose.Schema({
 
 const variantSchema = new mongoose.Schema({
   sell_price: { type: Number},
+  image:String
 },{strict:false});
 
 const productSchema = new mongoose.Schema({

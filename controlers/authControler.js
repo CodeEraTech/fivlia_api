@@ -18,8 +18,7 @@ require('dotenv').config()
 
 exports.users = async (req,res) => {
     try {
-      const userId = req.user
-    const user=await Login.find(userId)
+    const user=await Login.find()
     res.json(user)
      } catch (error) {
         console.error(error);

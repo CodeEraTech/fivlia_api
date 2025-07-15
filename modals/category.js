@@ -28,7 +28,6 @@ const categorySchema = new mongoose.Schema({
   attribute:[{type:String}],
   filter: [{_id: { type: mongoose.Schema.Types.ObjectId },Filter_name: { type: String },
  selected: [{_id: { type: mongoose.Schema.Types.ObjectId },name: { type: String }}],
- 
  }],
   status:{type:Boolean,default:true}
 });

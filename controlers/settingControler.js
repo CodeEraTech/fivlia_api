@@ -2,21 +2,17 @@ const {Settings,SettingAdmin} = require('../modals/setting');
 const Order = require('../modals/order');
 const User = require('../modals/User');  
 
-exports.addSettings = async (req, res) => {
+exports.getSettings = async (req, res) => {
   try {
-    const data = req.body;
+   const settings = await SettingAdmin.findOne().lean();
+    if (!settings) {
+      return res.status(404).json({ message: "Settings not found" });
+    }
 
-    const newSettings = new Settings(data);
-    await newSettings.save();
-
-    return res.status(200).json({
-      message: "Settings added successfully",
-      settings: newSettings
-    });
-
+    return res.status(200).json({message: "Settings",settings});
   } catch (error) {
-    console.error("Add Settings Error =>", error);
-    return res.status(500).json({ message: "Error adding settings", error: error.message });
+    console.error("Get User Settings Error =>", error);
+    return res.status(500).json({ message: "Error getting settings", error: error.message });
   }
 };
 

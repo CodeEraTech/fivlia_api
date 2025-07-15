@@ -7,6 +7,7 @@ const Status = require('../modals/deliveryStatus')
 const {SettingAdmin} = require('../modals/setting')
 const Address = require('../modals/Address')
 const stock = require('../modals/StoreStock')
+const Notification = require("../modals/Notification");
 const sendNotification = require('../firebase/pushnotification');
 const Store = require('../modals/store');
 const deliveryStatus = require('../modals/deliveryStatus')
@@ -34,11 +35,17 @@ if (lastOrder?.orderId?.startsWith('OID')) {
     const chargesData = await SettingAdmin.findOne();
     const cartItems = await Cart.find({ _id: { $in: cartIds } });
     // console.log(chargesData);
+  if (!cartItems) {
+   return res.status(400).json({ message: `Cart item with ID ${cartId} not found.` });
+  }
+
     const itemsTotal = cartItems.reduce((sum, item) => {
       return sum + Number(item.price) * Number(item.quantity);
     }, 0);
+const platformFeeRate = (chargesData.Platform_Fee || 0) / 100;
+const platformFeeAmount = itemsTotal * platformFeeRate;
 
-    const totalPrice = itemsTotal + chargesData.Delivery_Charges + chargesData.Platform_Fee;
+    const totalPrice = itemsTotal + chargesData.Delivery_Charges + platformFeeAmount;
 
     const paymentOption = cartItems[0].paymentOption; // from zone
 
@@ -53,8 +60,13 @@ const orderItems = [];
 
 for (const item of cartItems) {
   const product = await Products.findById(item.productId).lean();
+  if (!product) {
+    console.error(`Product not found: ${item.productId}`);
+    return res.status(400).json({
+      message: `Product not found for ID: ${item.productId}`,
+    });
+  }
   const gst = product.tax
-
   orderItems.push({
     productId: item.productId,
     varientId: item.varientId,
@@ -109,10 +121,10 @@ for (const item of cartItems) {
         storeId,
         paymentStatus: "Pending",
         cashOnDelivery,
+        cartIds,
         deliveryCharges: chargesData.Delivery_Charges,
         platformFee: chargesData.Platform_Fee,
       });
-   await Cart.deleteMany({ _id: { $in: cartIds } });
       return res.status(200).json({
         message: "Proceed to payment",
         tempOrderId: tempOrder._id,
@@ -168,6 +180,7 @@ exports.verifyPayment = async (req, res) => {
           }
         );
       }
+       await Cart.deleteMany({ _id: { $in: tempOrder.cartIds } });
     }
 
     // 5. Delete the temp order
@@ -187,7 +200,6 @@ exports.verifyPayment = async (req, res) => {
     return res.status(500).json({ message: "Server error", error: error.message });
   }
 };
-
 
 exports.getOrders = async (req, res) => {
   try {
@@ -452,13 +464,29 @@ exports.test = async (req, res) => {
 
 exports.driver = async (req, res) => {
   try {
-  const {driverName,status}=req.body
-  const image = req.files.image?.[0].path
+  const {driverName,status,email,password}=req.body
+  const image = req.files.image?.[0].path  
+  const Police_Verification_Copy = req.files.Police_Verification_Copy?.[0].path  
+const aadharFront = req.files.aadharCard?.[0]?.path;
+const aadharBack = req.files.aadharCard?.[1]?.path;
+
+const dlFront = req.files.drivingLicence?.[0]?.path;
+const dlBack = req.files.drivingLicence?.[1]?.path;
   const address = JSON.parse(req.body.address);
   const totalDrivers = await driver.countDocuments();
 const paddedNumber = String(totalDrivers + 1).padStart(3, "0");
 const driverId = `FV${paddedNumber}`
-const newDriver = await driver.create({driverId,driverName,status,image,address})
+const newDriver = await driver.create({driverId,driverName,status,image,address,email,password,
+        Police_Verification_Copy,
+        aadharCard: {
+          front: aadharFront,
+          back: aadharBack
+        },
+        drivingLicence: {
+          front: dlFront,
+          back: dlBack
+        }
+      })
  return res.status(200).json({ message: 'Driver added successfully', newDriver}); 
 } catch (error) {
    console.error(error);
@@ -479,7 +507,7 @@ exports.getDriver = async (req,res) => {
 exports.editDriver = async (req, res) => {
   try {
     const { driverId } = req.params;
-    const { driverName, status } = req.body;
+    const { driverName, status, email,password} = req.body;
 
     let address = {};
     if (req.body.address) {
@@ -491,11 +519,34 @@ exports.editDriver = async (req, res) => {
     }
 
     const image = req.files?.image?.[0]?.path;
+    const Police_Verification_Copy = req.files.Police_Verification_Copy?.[0].path  
+    const aadharFront = req.files.aadharCard?.[0]?.path;
+    const aadharBack = req.files.aadharCard?.[1]?.path;
 
+    const dlFront = req.files.drivingLicence?.[0]?.path;
+    const dlBack = req.files.drivingLicence?.[1]?.path;
+    
     const updateData = {
       driverName,
       status,
+      email,
+      password,
       ...(image && { image }),
+      ...(Police_Verification_Copy && {
+     Police_Verification_Copy
+      }),
+       ...(aadharFront && aadharBack && {
+        aadharCard: {
+          front: aadharFront,
+          back: aadharBack,
+        },
+      }),
+      ...(dlFront && dlBack && {
+        drivingLicence: {
+          front: dlFront,
+          back: dlBack,
+        },
+      }),
       ...(address && { address }),
     };
 
@@ -505,5 +556,38 @@ exports.editDriver = async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+exports.getNotification = async (req,res) => {
+  try {
+  const notifications = await Notification.find().sort({ createdAt: -1 });
+    return res.status(200).json({ message: "✅ Notifications", notifications });
+  } catch (error) {
+    console.error("❌ Get Notification Error:", error);
+    return res.status(500).json({ message: "❌ Failed to fetch notifications" });
+  }
+}
+
+exports.notification = async (req, res) => {
+  try {
+    const { title, description, city} = req.body;
+    const image = req.files?.image?.[0]?.path
+    console.log(image)
+    const newNotification = await Notification.create({
+      title,
+      description,
+      image,
+      city
+    });
+
+    return res.status(200).json({
+      message: "✅ Notification created successfully",
+      notification: newNotification,
+    });
+
+  } catch (error) {
+    console.error("❌ Notification error:", error.message);
+    return res.status(500).json({ message: "❌ Failed to create notification", error: error.message });
   }
 };

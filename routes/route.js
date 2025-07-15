@@ -3,22 +3,26 @@ const upload = require('../midllerware/multer');
 const router = express.Router()
 const verifyToken = require('../midllerware/authToken');
 //abc
+
+const {driverLogin,getDriverOrder} = require('../controlers/driverControler')
+
+const  {getDashboardStats,getStoreDashboardStats} = require('../controlers/dashboardControler')
 const {getDeliveryEstimate} = require('../controlers/DeliveryControler')
 
-const { createStore,storeLogin,getStore,addCategoryInStore,removeCategoryInStore } = require('../controlers/storeControler');
+const { createStore,storeLogin,verifyEmail,getStore,addCategoryInStore,removeCategoryInStore,storeEdit } = require('../controlers/storeControler');
 
-const { settings,addSettings,adminSetting } = require('../controlers/settingControler');
+const { settings,getSettings,adminSetting } = require('../controlers/settingControler');
 const { users, addUser,updateProfile,Login,signin,register,verifyMobile } = require('../controlers/authControler');
 
 const { intro, getIntro } = require('../controlers/controlers')
 
-const { placeOrder, getOrders,orderStatus,test,driver,getDriver,editDriver,verifyPayment,getOrderDetails,deliveryStatus,updatedeliveryStatus,getdeliveryStatus} = require('../controlers/orderControler')
+const { placeOrder, getOrders,orderStatus,test,driver,getDriver,editDriver,verifyPayment,getOrderDetails,deliveryStatus,updatedeliveryStatus,getdeliveryStatus,notification,getNotification} = require('../controlers/orderControler')
 
 const { addCart,getCart,getDicount,discount,quantity,deleteCart } = require('../controlers/cartControler')
 
-const { update, banner, getBanner, getAllBanner, updateBannerStatus, addCategory, getCategories, brand, getBrand, editCat,updateAt,editBrand,addFilter,editFilter,getFilter,deleteFilter,deleteFilterVal,addFiltersToCategory } = require('../controlers/categorycontroler');
+const { update, banner, getBanner, getAllBanner, updateBannerStatus, addCategory, getCategories, brand, getBrand, editCat,updateAt,editBrand,addFilter,editFilter,getFilter,deleteFilter,deleteFilterVal,addFiltersToCategory,addMainCategory,getMainCategory,editMainCategory,GetSubSubCategories,GetSubCategories } = require('../controlers/categorycontroler');
 
-const { addProduct, addAtribute, getAttributes, getProduct, getFeatureProduct, searchProduct, bestSelling,editAttributes,unit,getUnit,getVarients,filter,bulkProductUpload,updateProduct,deleteProduct,getAttributesId,notification,getNotification,getRelatedProducts,updateStock,adminProducts,deleteAttribute } = require('../controlers/ProductControler')
+const { addProduct, addAtribute, getAttributes, getProduct, getFeatureProduct, searchProduct, bestSelling,editAttributes,unit,getUnit,getVarients,filter,bulkProductUpload,updateProduct,deleteProduct,getAttributesId,getRelatedProducts,updateStock,adminProducts,deleteAttribute,rating } = require('../controlers/ProductControler')
 
 const cityZone = require('../modals/cityZone');
 const { addCity, updateCityStatus, getAviableCity, getCity, updateZoneStatus, getAllZone, getZone, updateLocation,addAddress,getAddress,EditAddress,deleteAddress,setDefault } = require('../controlers/areaControler');
@@ -38,7 +42,6 @@ router.post('/addCart',upload,verifyToken, addCart)
 router.post('/placeOrder', placeOrder);
 router.post('/verifyPayment', verifyPayment);
 router.post('/filter',filter)
-router.post('/addSettings',addSettings)
 router.post('/createStore',upload,createStore)
 router.post('/Product/bulk',upload,bulkProductUpload),
 router.put('/adminSetting', adminSetting)
@@ -47,22 +50,30 @@ router.post('/address',verifyToken, addAddress);
 router.post('/updateStock/:productId', updateStock);
 router.post('/driver',upload, driver);
 router.post('/deliveryStatus',upload, deliveryStatus);
+router.post('/rating',verifyToken, rating);
+
+router.post('/addMainCategory',upload,addMainCategory)
 
 router.post('/storeLogin', storeLogin)
 router.post('/discount', discount)
 router.post('/addCity', addCity)
 router.post('/location',verifyToken, updateLocation)
 router.post('/notification',upload, notification)
+router.post('/driverLogin',driverLogin)
 
-router.get('/getNotification',verifyToken, getNotification)
+router.get('/getDashboardStats',getDashboardStats)
+router.get('/getStoreDashboardStats/:storeId',getStoreDashboardStats)
+router.get('/verify-email',verifyEmail)
+router.get('/getNotification', getNotification)
 router.get('/getOrderDetails',verifyToken, getOrderDetails)
 router.get('/getDriver', getDriver)
+router.get('/getDriverOrder', getDriverOrder)
 router.get('/getIntro', getIntro)
 router.get('/getAllZone', getAllZone)
 router.get('/getZone', getZone)
 router.get('/getBanner',verifyToken, getBanner)
 router.get('/getAllBanner', getAllBanner)
-router.get('/users',verifyToken, users)
+router.get('/users', users)
 router.get('/getCity', getCity)
 router.get('/getAviableCity', getAviableCity)
 router.get("/categories", getCategories);
@@ -73,23 +84,29 @@ router.get('/getProducts',verifyToken, getProduct)
 router.get('/adminProducts', adminProducts)
 router.get('/getFeatureProduct',verifyToken, getFeatureProduct)
 router.get('/bestSelling',verifyToken, bestSelling)
-router.get('/search', searchProduct)
+router.get('/search',verifyToken, searchProduct)
 router.get('/getUnit', getUnit)
 router.get('/getCart',verifyToken, getCart)
 router.get('/getDiscount', getDicount)
 router.get('/getVarients/:id', getVarients)
 router.get('/orders', getOrders);
+router.get('/getSettings',getSettings)
 router.get('/settings',verifyToken,settings);
 router.get('/getAddress',verifyToken,getAddress);
 router.get('/getStore',getStore);
-router.get('/relatedProduct/:productId',getRelatedProducts)
+router.get('/relatedProduct/:productId',verifyToken,getRelatedProducts)
 router.get('/getFilter',getFilter);
+router.get('/getMainCategory', getMainCategory);
 router.get('/getDeliveryEstimate',verifyToken,getDeliveryEstimate);
 router.get('/send-test-notification',test)
 router.get('/getdeliveryStatus',getdeliveryStatus)
+router.get('/GetSubSubCategories/:subcatId',GetSubSubCategories)
+router.get('/GetSubCategories/:categoryId',GetSubCategories)
 
 router.put('/editBrand/:id', upload, editBrand)
+router.put('/editMainCategory', upload, editMainCategory)
 router.put('/editDriver/:driverId', upload, editDriver)
+router.put('/storeEdit/:storeId',upload,storeEdit)
 router.put('/updatedeliveryStatus/:id',upload, updatedeliveryStatus)
 router.put('/EditAddress/:id', EditAddress)
 router.put('/addFilterInCategory/:id', addFiltersToCategory)

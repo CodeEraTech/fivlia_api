@@ -4,6 +4,7 @@ const Products = require('../modals/Product');
 const Attribute = require('../modals/attribute');
 const Store = require('../modals/store')
 const Filters = require('../modals/filter')
+const { getStoresWithinRadius } = require('../config/google');
 const User = require('../modals/User')
 const {Cart} = require('../modals/cart')
 const Category = require('../modals/category');
@@ -14,6 +15,7 @@ const Notification = require('../modals/Notification');
 const cloudinary = require('../config/cloudinary');
 const moment = require('moment-timezone');
 const Stock = require("../modals/StoreStock");
+const Rating = require("../modals/rating")
 
 exports.addAtribute=async (req,res) => {
     try {
@@ -56,7 +58,6 @@ exports.editAttributes = async (req, res) => {
   }
 };
 
-
 exports.getAttributes=async (req,res) => {
   try {
   const Attributes=await Attribute.find()
@@ -92,10 +93,10 @@ exports.deleteAttribute=async (req,res) => {
 exports.addProduct = async (req, res) => {
   try {
     const {
-      productName, description, category, subCategory, subSubCategory,rating,
+      productName, description, category, subCategory, subSubCategory, rating,
       sku, ribbon, brand_Name, sold_by, type, location, online_visible,
       inventory, tax, feature_product, fulfilled_by, variants, minQuantity,
-      maxQuantity, ratings, unit, mrp, sell_price,filter,returnProduct
+      maxQuantity, ratings, unit, mrp, sell_price, filter, returnProduct
     } = req.body;
 
     const MultipleImage = req.files?.MultipleImage?.map(file => file.path) || [];
@@ -104,107 +105,89 @@ exports.addProduct = async (req, res) => {
     let parsedVariants = [];
     if (variants) {
       try {
-        parsedVariants = JSON.parse(variants);
+        parsedVariants = typeof variants === 'string' ? JSON.parse(variants) : variants;
       } catch (e) {
         parsedVariants = [];
       }
     }
 
-  let finalFilterArray = [];
-
-if (req.body.filter) {
-  let parsedFilter;
-  try {
-    parsedFilter = typeof req.body.filter === 'string'
-      ? JSON.parse(req.body.filter)
-      : req.body.filter;
-  } catch {
-    parsedFilter = [];
-  }
-
-  for (let item of parsedFilter) {
-  const filterDoc = await Filters.findById(item._id);
-  if (!filterDoc) continue;
-
-  let selectedArray = [];
-
-  const selectedIds = Array.isArray(item.selected) ? item.selected : [item.selected];
-
-  for (const selId of selectedIds) {
-    const selectedObj = filterDoc.Filter.find(f => f._id.toString() === selId);
-    if (selectedObj) {
-      selectedArray.push({
-        _id: selectedObj._id,
-        name: selectedObj.name
-      });
-    }
-  }
-
-  if (selectedArray.length > 0) {
-    finalFilterArray.push({
-      _id: filterDoc._id,
-      Filter_name: filterDoc.Filter_name,
-      selected: selectedArray
-    });
-  }
-}
-}
-
-    let parsedLocation = [];
-    if (location) {
+    let finalFilterArray = [];
+    if (req.body.filter) {
+      let parsedFilter;
       try {
-        parsedLocation = typeof location === 'string' ? JSON.parse(location) : location;
-      } catch (e) {
-        parsedLocation = [];
+        parsedFilter = typeof req.body.filter === 'string'
+          ? JSON.parse(req.body.filter)
+          : req.body.filter;
+      } catch {
+        parsedFilter = [];
       }
-    }
 
-const productLocation = [];
+      for (let item of parsedFilter) {
+        const filterDoc = await Filters.findById(item._id);
+        if (!filterDoc) continue;
 
-for (let loc of parsedLocation) {
-  try {
-    if (!loc.city || !Array.isArray(loc.city)) continue;
+        let selectedArray = [];
+        const selectedIds = Array.isArray(item.selected) ? item.selected : [item.selected];
 
-    for (let cityObj of loc.city) {
-      const cityName = cityObj.name;
-      if (!cityName) continue;
-
-      const cityData = await ZoneData.findOne({ city: cityName });
-      if (!cityData) continue;
-
-      let matchedZones = [];
-      if (loc.zone && Array.isArray(loc.zone) && loc.zone.length > 0) {
-        for (let zoneObj of loc.zone) {
-          const zoneName = zoneObj.name;
-          const zoneMatch = cityData.zones.find(zone => zone.address === zoneName);
-          if (zoneMatch) {
-            matchedZones.push({ _id: zoneMatch._id, name: zoneMatch.address });
+        for (const selId of selectedIds) {
+          const selectedObj = filterDoc.Filter.find(f => f._id.toString() === selId);
+          if (selectedObj) {
+            selectedArray.push({ _id: selectedObj._id, name: selectedObj.name });
           }
         }
+
+        if (selectedArray.length > 0) {
+          finalFilterArray.push({
+            _id: filterDoc._id,
+            Filter_name: filterDoc.Filter_name,
+            selected: selectedArray
+          });
+        }
       }
-
-      productLocation.push({
-        city: [{ _id: cityData._id, name: cityData.city }],
-        zone: matchedZones
-      });
     }
-  } catch (err) {
-    continue;
-  }
-}
 
-    let brandObj = null;
-    if (brand_Name) {
-      brandObj = await brand.findOne({ brandName: brand_Name });
+    let parsedLocation = [];
+    try {
+      parsedLocation = typeof location === 'string' ? JSON.parse(location) : location;
+    } catch {}
+
+    const productLocation = [];
+    for (let loc of parsedLocation) {
+      try {
+        if (!loc.city || !Array.isArray(loc.city)) continue;
+        for (let cityObj of loc.city) {
+          const cityName = cityObj.name;
+          if (!cityName) continue;
+
+          const cityData = await ZoneData.findOne({ city: cityName });
+          if (!cityData) continue;
+
+          let matchedZones = [];
+          if (loc.zone && Array.isArray(loc.zone)) {
+            for (let zoneObj of loc.zone) {
+              const zoneName = zoneObj.name;
+              const zoneMatch = cityData.zones.find(zone => zone.address === zoneName);
+              if (zoneMatch) {
+                matchedZones.push({ _id: zoneMatch._id, name: zoneMatch.address });
+              }
+            }
+          }
+
+          productLocation.push({
+            city: [{ _id: cityData._id, name: cityData.city }],
+            zone: matchedZones
+          });
+        }
+      } catch {}
     }
+
+    const brandObj = brand_Name ? await brand.findOne({ brandName: brand_Name }) : null;
 
     let categories = [];
-    if (category) {
-      try {
-        categories = typeof category === 'string' ? JSON.parse(category) : category;
-      } catch {
-        categories = [category];
-      }
+    try {
+      categories = typeof category === 'string' ? JSON.parse(category) : category;
+    } catch {
+      categories = [category];
     }
 
     const categoryIds = categories.filter(c => /^[0-9a-fA-F]{24}$/.test(c));
@@ -217,97 +200,85 @@ for (let loc of parsedLocation) {
       ]
     }).lean();
 
-    const productCategories = foundCategories.map(cat => ({
-      _id: cat._id,
-      name: cat.name
+    const productCategories = foundCategories.map(cat => ({ _id: cat._id, name: cat.name }));
+
+    const foundSubCategory = subCategory && foundCategories[0]?.subcat?.find(sub =>
+      sub.name === subCategory || sub._id.toString() === subCategory
+    );
+
+    const foundSubSubCategory = subSubCategory && foundSubCategory?.subsubcat?.find(subsub =>
+      subsub.name === subSubCategory || subsub._id.toString() === subSubCategory
+    );
+
+    let returnProductData = null;
+    if (returnProduct) {
+      try {
+        const parsedReturn = typeof returnProduct === 'string' ? JSON.parse(returnProduct) : returnProduct;
+        returnProductData = { title: parsedReturn.title?.trim() || "" };
+
+        if (req.files?.file?.[0]?.path) {
+          const cloudUpload = await cloudinary.uploader.upload(req.files.file?.[0].path, {
+            folder: "returnProduct"
+          });
+          if (cloudUpload?.secure_url) {
+            returnProductData.image = cloudUpload.secure_url;
+          }
+        }
+      } catch {}
+    }
+
+    const parsedVariantsArray = parsedVariants.map(v => ({
+      ...v,
+      _id: new mongoose.Types.ObjectId()
     }));
 
-    let foundSubCategory = null;
-    if (subCategory && foundCategories.length > 0) {
-      foundSubCategory = foundCategories[0].subcat?.find(sub =>
-        sub.name === subCategory || sub._id.toString() === subCategory
-      );
+    const variantImageMap = {};
+    if (req.files) {
+      Object.keys(req.files).forEach(key => {
+        if (Array.isArray(req.files[key]) && req.files[key][0]?.path) {
+          variantImageMap[key] = req.files[key][0].path;
+        }
+      });
     }
 
-    let foundSubSubCategory = null;
-    if (subSubCategory && foundSubCategory) {
-      foundSubSubCategory = foundSubCategory.subsubcat?.find(subsub =>
-        subsub.name === subSubCategory || subsub._id.toString() === subSubCategory
-      );
+    const finalInventoryArray = parsedVariantsArray.map(variant => ({
+      _id: new mongoose.Types.ObjectId(),
+      variantId: variant._id,
+      quantity: 0
+    }));
+
+    const finalVariants = [];
+    for (let variant of parsedVariantsArray) {
+      const discount = variant.mrp && variant.sell_price ? Math.round(((variant.mrp - variant.sell_price) / variant.mrp) * 100) : 0;
+      let image = "";
+      if (variant.imageKey && variantImageMap[variant.imageKey]) {
+        try {
+          const cloudUpload = await cloudinary.uploader.upload(variantImageMap[variant.imageKey], {
+            folder: "variantImages"
+          });
+          image = cloudUpload?.secure_url || "";
+        } catch {}
+      }
+      finalVariants.push({
+        ...variant,
+        discountValue: discount,
+        ...(image && { image })
+      });
     }
 
-let returnProductData = null;
-
-if (returnProduct) {
-  try {
-    const parsedReturn = typeof returnProduct === 'string'
-  ? JSON.parse(returnProduct)
-  : returnProduct;
-
-returnProductData = {
-  title: parsedReturn.title?.trim() || ""
-};
-
-if (req.files?.file?.[0]?.path) {
-  const cloudUpload = await cloudinary.uploader.upload(req.files.file?.[0].path, {
-    folder: "returnProduct"
-  });
-
-  if (cloudUpload?.secure_url) {
-    returnProductData.image = cloudUpload.secure_url;
-  }
-}
-console.log("🧾 Final returnProductData:", returnProductData);
-
-  } catch (err) {
-    console.warn("❗ Failed to parse returnProduct:", err.message);
-  }
-}
-
-let parsedVariantsArray = [];
-try {
-  parsedVariantsArray = parsedVariants.map(v => {
-    const newId = new mongoose.Types.ObjectId(); 
-    return {
-      ...v,
-      _id: newId
-    };
-  });
-} catch {
-  parsedVariantsArray = [];
-}
-
-const finalInventoryArray = parsedVariantsArray.map(variant => ({
-  _id: new mongoose.Types.ObjectId(),  // inventory _id
-  variantId: variant._id,              // same as variant._id
-  quantity: 0                          // default quantity
-}));
-
-// ✅ STEP 3: Add discount and finalize variants
-const finalVariants = parsedVariantsArray.map(variant => {
-  const discount = variant.mrp && variant.sell_price
-    ? Math.round(((variant.mrp - variant.sell_price) / variant.mrp) * 100)
-    : 0;
-
-  return {
-    ...variant,
-    discountValue: discount
-  };
-});
-
-    const newProduct = await Products.create({
+    await Products.create({
       ...(productName && { productName }),
       ...(description && { description }),
-      ...(rating && {rating}),
+      ...(rating && { rating }),
       ...(image && { productThumbnailUrl: image }),
       ...(MultipleImage.length && { productImageUrl: MultipleImage }),
       ...(productCategories.length && { category: productCategories }),
       ...(foundSubCategory && { subCategory: { _id: foundSubCategory._id, name: foundSubCategory.name } }),
       ...(foundSubSubCategory && { subSubCategory: { _id: foundSubSubCategory._id, name: foundSubSubCategory.name } }),
       ...(sku && { sku }),
-      ...(returnProduct && {returnProduct:returnProductData}),
+      ...(returnProduct && { returnProduct: returnProductData }),
       ...(ribbon && { ribbon }),
-      ...(unit && typeof unit === 'string' && {unit: { name: unit }}),
+      ...(unit && typeof unit === 'string' && { unit: { name: unit } }),
       ...(brandObj && { brand_Name: { _id: brandObj._id, name: brandObj.brandName } }),
       ...(sold_by && { sold_by }),
       ...(type && { type }),
@@ -323,10 +294,9 @@ const finalVariants = parsedVariantsArray.map(variant => {
       ...(finalVariants.length && { variants: finalVariants }),
       ...(ratings && { ratings }),
       ...(mrp && { mrp }),
-      ...(sell_price && { sell_price }),
+      ...(sell_price && { sell_price })
     });
 
-    console.log("✅ Product Added");
     return res.status(200).json({ message: "Product Added" });
   } catch (error) {
     console.error("Server error:", error);
@@ -334,23 +304,24 @@ const finalVariants = parsedVariantsArray.map(variant => {
   }
 };
 
+
 exports.getProduct = async (req, res) => {
   try {
     const { id } = req.query;
     const userId = req.user._id;
 
     const user = await User.findById(userId).lean();
-    if (!user?.location?.city || !user?.location?.zone) {
+    if (!user?.location?.latitude || !user?.location?.longitude) {
       return res.status(400).json({ message: "User location not found" });
     }
 
-    const userCity = user.location.city.toLowerCase();
-    const userZone = user.location.zone.toLowerCase();
+    const userLat = user.location.latitude;
+    const userLng = user.location.longitude;
 
     const [activeCities, zoneDocs, stores] = await Promise.all([
       CityData.find({ status: true }, 'city').lean(),
-      ZoneData.find({}, 'zones').lean(),
-      Store.find().lean()
+      ZoneData.find({status: true}, 'zones').lean(),
+      getStoresWithinRadius(userLat, userLng)
     ]);
 
     const activeCitySet = new Set(activeCities.map(c => c.city.toLowerCase()));
@@ -362,16 +333,11 @@ exports.getProduct = async (req, res) => {
       });
     });
 
-    const allowedStores = stores.filter(store => {
-      const city = store.city?.name?.toLowerCase();
-      if (!city || !activeCitySet.has(city) || city !== userCity) return false;
+    const allowedStores = Array.isArray(stores?.matchedStores) ? stores.matchedStores : [];
 
-      return (store.zone || []).some(z => 
-        activeZoneIdSet.has(z._id?.toString()) && z.name?.toLowerCase().includes(userZone)
-      );
-    });
-
-    if (!allowedStores.length) {
+console.log(stores)
+console.log('allowedStores',allowedStores)    
+if (!allowedStores.length) {
       return res.status(200).json({
         message: "No matching products found for your location.",
         products: [],
@@ -434,33 +400,55 @@ exports.getProduct = async (req, res) => {
       Cart.find({ userId }).lean()
     ]);
 
-    const stockMap = {};
-    stockDocs.forEach(stockDoc => {
-      stockDoc.stock?.forEach(entry => {
-        const key = `${entry.productId}_${entry.variantId}`;
-        stockMap[key] = entry.quantity;
-      });
-    });
+ const stockMap = {};
+const stockDetailMap = {};
+
+stockDocs.forEach(doc => {
+  (doc.stock || []).forEach(entry => {
+    const key = `${entry.productId}_${entry.variantId}`;
+    stockMap[key] = entry.quantity;
+    stockDetailMap[key] = entry; // ✅ includes price, mrp
+  });
+});
+
 
     const cartMap = {};
-    cartDocs.forEach(doc => {
-      cartMap[doc.productId.toString()] = doc.quantity;
+    cartDocs.forEach(item => {
+      const key = `${item.productId}_${item.varientId}`;
+      cartMap[key] = item.quantity;
     });
 
-    products.forEach(product => {
-      product.inventory = [];
-      product.variants?.forEach(variant => {
-        const key = `${product._id}_${variant._id}`;
-        const quantity = stockMap[key] || 0;
-        product.inventory.push({ variantId: variant._id, quantity });
-      });
+products.forEach(product => {
+  product.inventory = [];
+  product.inCart = { status: false, qty: 0, variantIds: [] };
 
-      const pid = product._id.toString();
-      product.inCart = {
-        status: cartMap.hasOwnProperty(pid),
-        qty: cartMap[pid] || 0
-      };
-    });
+  product.variants?.forEach(variant => {
+    const key = `${product._id}_${variant._id}`;
+    const quantity = stockMap[key] || 0;
+    const cartQty = cartMap[key] || 0;
+
+    // ✅ Override price and mrp from stockMapDetail if available
+const stockEntry = stockDetailMap[key]; 
+
+    if (stockEntry?.price != null) {
+      variant.sell_price = stockEntry.price;
+    }
+
+    if (stockEntry?.mrp != null) {
+      variant.mrp = stockEntry.mrp;
+    }
+
+    // 🧾 Add quantity to inventory
+    product.inventory.push({ variantId: variant._id, quantity });
+
+    // 🛒 Cart info
+    if (cartQty > 0) {
+      product.inCart.status = true;
+      product.inCart.qty += cartQty;
+      product.inCart.variantIds.push(variant._id);
+    }
+  });
+});
 
     let filter = [];
     if (id) {
@@ -487,49 +475,41 @@ exports.getProduct = async (req, res) => {
   }
 };
 
+
 exports.bestSelling = async (req, res) => {
   try {
     const userId = req.user._id;
     console.log("🔐 Authenticated User ID:", userId);
 
     const user = await User.findById(userId).lean();
-    if (!user || !user.location?.city || !user.location?.zone) {
-      console.warn("⚠️ Incomplete user location:", user?.location);
+    if (!user || !user.location?.latitude || !user.location?.longitude) {
       return res.status(400).json({ message: "User location not found" });
     }
 
-    const userCity = user.location.city;
-    const userZone = user.location.zone.toLowerCase();
-    console.log("📍 User Location =>", { city: userCity, zone: userZone });
+    const userLat = user.location.latitude;
+    const userLng = user.location.longitude;
 
-    const activeCities = await CityData.find({ status: true }, 'city').lean();
-    const zoneDocs = await ZoneData.find({}, 'zones').lean();
+    const [activeCities, zoneDocs, stores, cartDocs] = await Promise.all([
+      CityData.find({ status: true }, 'city').lean(),
+      ZoneData.find({}, 'zones').lean(),
+      getStoresWithinRadius(userLat, userLng),
+      Cart.find({ userId }).lean(),
+    ]);
 
-    const activeZoneIds = [];
-    zoneDocs.forEach(doc => {
-      (doc.zones || []).forEach(zone => {
+
+
+    const activeCitySet = new Set(activeCities.map(c => c.city?.toLowerCase()));
+    const activeZoneIds = new Set();
+
+    for (const doc of zoneDocs) {
+      for (const zone of doc.zones || []) {
         if (zone.status && zone._id) {
-          activeZoneIds.push(zone._id.toString());
+          activeZoneIds.add(zone._id.toString());
         }
-      });
-    });
-
-    const stores = await Store.find().lean();
-    const allowedStores = stores.filter(store => {
-      const storeCity = store.city?.name?.toLowerCase();
-      const isCityMatch = storeCity === userCity.toLowerCase();
-      const isCityActive = activeCities.some(c => c.city?.toLowerCase() === storeCity);
-
-      if (!isCityMatch || !isCityActive) return false;
-
-      return (store.zone || []).some(z => {
-        const zoneId = z?._id?.toString();
-        const zoneName = z?.name?.toLowerCase();
-        return activeZoneIds.includes(zoneId) && zoneName?.includes(userZone);
-      });
-    });
-
-    console.log(`✅ Matched Stores: ${allowedStores.length}`);
+      }
+    }
+console.log('stores',stores)
+    const allowedStores = Array.isArray(stores?.matchedStores) ? stores.matchedStores : [];
 
     if (!allowedStores.length) {
       return res.status(200).json({
@@ -539,80 +519,88 @@ exports.bestSelling = async (req, res) => {
     }
 
     const allCategoryIds = new Set();
-    for (const store of allowedStores) {
-      const storeCategories = Array.isArray(store.Category)
-        ? store.Category
-        : store.Category ? [store.Category] : [];
+    const categoryIds = allowedStores.flatMap(store =>
+      Array.isArray(store.Category) ? store.Category : [store.Category]
+    );
 
-      for (const catId of storeCategories) {
-        if (!catId) continue;
+    const uniqueCatIds = [...new Set(categoryIds.filter(Boolean).map(id => id.toString()))];
 
-        const category = await Category.findById(catId).lean();
-        if (!category) continue;
-
-        allCategoryIds.add(category._id.toString());
-
-        (category.subcat || []).forEach(sub => {
-          if (sub?._id) allCategoryIds.add(sub._id.toString());
-          (sub.subsubcat || []).forEach(subsub => {
-            if (subsub?._id) allCategoryIds.add(subsub._id.toString());
-          });
-        });
+    const categories = await Category.find({ _id: { $in: uniqueCatIds } }).lean();
+    for (const category of categories) {
+      allCategoryIds.add(category._id.toString());
+      for (const sub of category.subcat || []) {
+        if (sub?._id) allCategoryIds.add(sub._id.toString());
+        for (const subsub of sub.subsubcat || []) {
+          if (subsub?._id) allCategoryIds.add(subsub._id.toString());
+        }
       }
     }
 
     const categoryArray = Array.from(allCategoryIds);
     const allowedStoreIds = allowedStores.map(s => s._id.toString());
 
-    // ✅ Fetch stock documents for allowed stores
-const stockDocs = await Stock.find({ storeId: { $in: allowedStoreIds } }).lean();
-
-const stockMap = {}; // { "productId_variantId": quantity }
+    const stockDocs = await Stock.find({ storeId: { $in: allowedStoreIds } }).lean();
+  const stockMap = {};
+const stockDetailMap = {}; // 👈 to store full item (price, mrp etc.)
 
 for (const stockDoc of stockDocs) {
   for (const item of stockDoc.stock || []) {
     const key = `${item.productId}_${item.variantId}`;
     stockMap[key] = item.quantity;
+    stockDetailMap[key] = item; // 👈 Store full stock item
   }
 }
 
-
-    console.log(`📦 Total Categories Considered: ${categoryArray.length}`);
-    console.log(`🏪 Store IDs Allowed: ${allowedStoreIds.length}`);
-
     const best = await Products.find({
       $or: [
-        { "category": { $elemMatch: { _id: { $in: categoryArray } } } },
-        { "subCategory": { $elemMatch: { _id: { $in: categoryArray } } } },
-        { "subSubCategory": { $elemMatch: { _id: { $in: categoryArray } } } }
+        { "category._id": { $in: categoryArray } },
+        { "subCategory._id": { $in: categoryArray } },
+        { "subSubCategory._id": { $in: categoryArray } }
       ]
-    })
-      .sort({ purchases: -1 })
-      .limit(10)
-      .lean();
+    }).sort({ purchases: -1 }).limit(10).lean();
 
-for (const product of best) {
+    // ✅ Build cart map from user cart
+    const cartMap = {};
+    for (const item of cartDocs) {
+      const key = `${item.productId}_${item.varientId}`;
+      cartMap[key] = item.quantity;
+    }
+    // ✅ Map inventory and cart into products
+  for (const product of best) {
   product.inventory = [];
+  product.inCart = { status: false, qty: 0, variantIds: [] };
 
   if (Array.isArray(product.variants)) {
     for (const variant of product.variants) {
-      const key = `${product._id}_${variant._id}`;
-      const quantity = stockMap[key] || 0;
+   const key = `${product._id}_${variant._id}`;
+const quantity = stockMap[key] || 0;
+const cartQty = cartMap[key] || 0;
 
-      product.inventory.push({
-        variantId: variant._id,
-        quantity
-      });
+const stockEntry = stockDetailMap[key];
+if (stockEntry?.price != null) {
+  variant.sell_price = stockEntry.price;
+}
+if (stockEntry?.mrp != null) {
+  variant.mrp = stockEntry.mrp;
+}
+
+product.inventory.push({ variantId: variant._id, quantity });
+
+
+      if (cartQty > 0) {
+        product.inCart.status = true;
+        product.inCart.qty += cartQty;
+        product.inCart.variantIds.push(variant._id); // 👈 store the variantId in cart
+      }
     }
   }
 }
 
-    console.log(`🔥 Best-Selling Products Found: ${best.length}`);
 
     return res.status(200).json({
       message: "Success",
       best,
-      count:best.length
+      count: best.length
     });
 
   } catch (error) {
@@ -624,104 +612,213 @@ for (const product of best) {
   }
 };
 
-exports.searchProduct=async (req,res) => {
+
+exports.searchProduct = async (req, res) => {
   try {
-    const {name}=req.query
-    const filter = {}
-    if(name){
-      filter.productName = {$regex:name,$options:'i'}
-    }
-const product=await Products.find(filter)
+    const { name } = req.query;
+    const userId = req.user._id || req.user;
 
-res.json(product)
-
-  } catch (error) {
-      console.error("Server error:", error);
-    return res.status(500).json({ message: "An error occured!", error: error.message });
-  }
-}
-
-exports.getFeatureProduct = async (req, res) => {
-  try {
-    const userId = req.user;
+    // 1. Get user location
     const user = await User.findById(userId).lean();
-
-    if (!user || !user.location?.city || !user.location?.zone) {
+    if (!user || !user.location?.latitude || !user.location?.longitude) {
       return res.status(400).json({ message: "User location not found" });
     }
 
-    const userCity = user.location.city;
-    const userZone = user.location.zone.toLowerCase();
+    const userLat = user.location.latitude;
+    const userLng = user.location.longitude;
 
-    const activeCities = await CityData.find({ status: true }, 'city').lean();
-    const zoneDocs = await ZoneData.find({}, 'zones').lean();
-    const activeZoneIds = [];
+    // 2. Get nearby stores and user cart
+    const [stores, cartDocs] = await Promise.all([
+      getStoresWithinRadius(userLat, userLng),
+      Cart.find({ userId }).lean()
+    ]);
 
-    zoneDocs.forEach(doc => {
-      (doc.zones || []).forEach(zone => {
-        if (zone.status && zone._id) {
-          activeZoneIds.push(zone._id.toString());
-        }
-      });
-    });
+    const allowedStores = Array.isArray(stores?.matchedStores) ? stores.matchedStores : [];
+    const allowedStoreIds = allowedStores.map(s => s._id.toString());
 
-    const stores = await Store.find().lean();
+    // 3. Build search filter
+    const searchFilter = {};
+    if (name) {
+      searchFilter.productName = { $regex: name, $options: 'i' };
+    }
 
-    const allowedStores = stores.filter(store => {
-      const storeCityName = store.city?.name;
-      const cityMatch = storeCityName?.toLowerCase() === userCity.toLowerCase();
-      const isCityActive = activeCities.some(
-        c => c.city?.toLowerCase() === storeCityName?.toLowerCase()
-      );
+    // 4. Collect allowed category/subcategory/subsub from stores
+    const categoryIds = new Set();
+    const storeCategoryIds = allowedStores.flatMap(store =>
+      Array.isArray(store.Category)
+        ? store.Category.map(id => id?.toString())
+        : store.Category ? [store.Category.toString()] : []
+    );
 
-      if (!cityMatch || !isCityActive) return false;
+    const uniqueCategoryIds = [...new Set(storeCategoryIds)];
 
-      return (store.zone || []).some(z => {
-        const zoneId = z?._id?.toString();
-        const zoneName = z?.name?.toLowerCase();
-        const isZoneActive = activeZoneIds.includes(zoneId);
-        const isUserZoneMatch = zoneName?.includes(userZone);
-        return isZoneActive && isUserZoneMatch;
-      });
-    });
-
-    const allCategoryIds = new Set();
-    for (const store of allowedStores) {
-      const categoryIds = Array.isArray(store.Category)
-        ? store.Category.map(id => id.toString())
-        : [store.Category?.toString()];
-
-      for (const catId of categoryIds) {
-        const category = await Category.findById(catId).lean();
-        if (!category) continue;
-
-        allCategoryIds.add(category._id.toString());
-
-        (category.subcat || []).forEach(sub => {
-          allCategoryIds.add(sub._id.toString());
+    if (uniqueCategoryIds.length > 0) {
+      const categories = await Category.find({ _id: { $in: uniqueCategoryIds } }).lean();
+      for (const cat of categories) {
+        categoryIds.add(cat._id.toString());
+        (cat.subcat || []).forEach(sub => {
+          if (sub?._id) categoryIds.add(sub._id.toString());
           (sub.subsubcat || []).forEach(subsub => {
-            allCategoryIds.add(subsub._id.toString());
+            if (subsub?._id) categoryIds.add(subsub._id.toString());
           });
         });
       }
     }
 
-    const categoryArray = Array.from(allCategoryIds);
+    const categoryArray = [...categoryIds];
 
-    // ✅ Fetch stock documents for allowed stores
-const allowedStoreIds = allowedStores.map(store => store._id.toString());
-const stockDocs = await Stock.find({ storeId: { $in: allowedStoreIds } }).lean();
+    // 5. Get filtered products
+    const products = await Products.find({
+      ...searchFilter,
+      $or: [
+        { "category._id": { $in: categoryArray } },
+        { subCategoryId: { $in: categoryArray } },
+        { subSubCategoryId: { $in: categoryArray } }
+      ]
+    }).lean();
 
-const stockMap = {}; // { "productId_variantId": quantity }
+    // 6. Get stock from nearby stores
+    const stockDocs = await Stock.find({ storeId: { $in: allowedStoreIds } }).lean();
 
-for (const stockDoc of stockDocs) {
-  for (const item of stockDoc.stock || []) {
-    const key = `${item.productId}_${item.variantId}`;
-    stockMap[key] = item.quantity;
+    const stockMap = {};
+    const stockDetailMap = {};
+    for (const doc of stockDocs) {
+      for (const item of doc.stock || []) {
+        const key = `${item.productId}_${item.variantId}`;
+        stockMap[key] = item.quantity;
+        stockDetailMap[key] = item;
+      }
+    }
+
+    // 7. Create cart map
+    const cartMap = {};
+    for (const item of cartDocs) {
+      const key = `${item.productId}_${item.varientId}`;
+      cartMap[key] = item.quantity;
+    }
+
+    // 8. Append inventory, price, mrp, cart data
+    for (const product of products) {
+      product.inventory = [];
+      product.inCart = { status: false, qty: 0, variantIds: [] };
+
+      for (const variant of product.variants || []) {
+        const key = `${product._id}_${variant._id}`;
+        const quantity = stockMap[key] || 0;
+        const cartQty = cartMap[key] || 0;
+
+        // Override price and mrp from stock entry
+        const stockEntry = stockDetailMap[key];
+        if (stockEntry?.price != null) {
+          variant.sell_price = stockEntry.price;
+        }
+        if (stockEntry?.mrp != null) {
+          variant.mrp = stockEntry.mrp;
+        }
+
+        product.inventory.push({ variantId: variant._id, quantity });
+
+        if (cartQty > 0) {
+          product.inCart.status = true;
+          product.inCart.qty += cartQty;
+          product.inCart.variantIds.push(variant._id);
+        }
+      }
+    }
+
+    return res.status(200).json({
+      message: "Search results fetched successfully.",
+      products,
+      count: products.length
+    });
+
+  } catch (error) {
+    console.error("Server error:", error);
+    return res.status(500).json({ message: "An error occurred!", error: error.message });
   }
-}
+};
 
 
+exports.getFeatureProduct = async (req, res) => {
+  try {
+    const userId = req.user;
+
+    const user = await User.findById(userId).lean();
+    if (!user || !user.location?.latitude || !user.location?.longitude) {
+      return res.status(400).json({ message: "User location not found" });
+    }
+
+    const userLat = user.location.latitude;
+    const userLng = user.location.longitude;
+
+    const [activeCities, zoneDocs, stores, cartDocs] = await Promise.all([
+      CityData.find({ status: true }, 'city').lean(),
+      ZoneData.find({}, 'zones').lean(),
+      getStoresWithinRadius(userLat, userLng),
+      Cart.find({ userId }).lean()
+    ]);
+
+
+
+    const activeCitySet = new Set(activeCities.map(c => c.city.toLowerCase()));
+
+    const activeZoneIds = new Set();
+    for (const doc of zoneDocs) {
+      (doc.zones || []).forEach(zone => {
+        if (zone.status && zone._id) {
+          activeZoneIds.add(zone._id.toString());
+        }
+      });
+    }
+
+    // 🌍 Filter stores by location and zone
+const allowedStores = Array.isArray(stores?.matchedStores) ? stores.matchedStores : [];
+console.log(allowedStores)
+    const allowedStoreIds = allowedStores.map(store => store._id.toString());
+
+    // 📦 Build set of all category/sub/subsub IDs
+    const categoryIds = new Set();
+    const storeCategoryIds = allowedStores.flatMap(store =>
+      Array.isArray(store.Category)
+        ? store.Category.map(id => id?.toString())
+        : store.Category ? [store.Category.toString()] : []
+    );
+
+    const uniqueCategoryIds = [...new Set(storeCategoryIds)];
+
+    if (uniqueCategoryIds.length > 0) {
+      const categories = await Category.find({ _id: { $in: uniqueCategoryIds } }).lean();
+      for (const cat of categories) {
+        categoryIds.add(cat._id.toString());
+        (cat.subcat || []).forEach(sub => {
+          if (sub?._id) categoryIds.add(sub._id.toString());
+          (sub.subsubcat || []).forEach(subsub => {
+            if (subsub?._id) categoryIds.add(subsub._id.toString());
+          });
+        });
+      }
+    }
+
+    const categoryArray = [...categoryIds];
+
+    // 🧾 Build stock map
+    const stockDocs = await Stock.find({ storeId: { $in: allowedStoreIds } }).lean();
+    const stockMap = {};
+    for (const doc of stockDocs) {
+      for (const item of doc.stock || []) {
+        const key = `${item.productId}_${item.variantId}`;
+        stockMap[key] = item.quantity;
+      }
+    }
+
+    // 🛒 Cart map
+    const cartMap = {};
+    for (const item of cartDocs) {
+      const key = `${item.productId}_${item.varientId}`;
+      cartMap[key] = item.quantity;
+    }
+
+    // 🛍 Fetch products with matching categories & feature flag
     const products = await Products.find({
       feature_product: true,
       $or: [
@@ -731,21 +828,46 @@ for (const stockDoc of stockDocs) {
       ]
     }).lean();
 
-    for (const product of products) {
+ for (const product of products) {
   product.inventory = [];
+  product.inCart = { status: false, qty: 0, variantIds: [] };
 
   if (Array.isArray(product.variants)) {
     for (const variant of product.variants) {
       const key = `${product._id}_${variant._id}`;
       const quantity = stockMap[key] || 0;
+      const cartQty = cartMap[key] || 0;
 
-      product.inventory.push({
-        variantId: variant._id,
-        quantity
-      });
+      // ✅ Find stock entry for this product+variant
+      const stockEntry = stockDocs
+        .flatMap(doc => doc.stock || [])
+        .find(
+          s => String(s.productId) === String(product._id) &&
+               String(s.variantId) === String(variant._id)
+        );
+
+      // ✅ Override variant's price and mrp if available
+      if (stockEntry?.price != null) {
+        variant.sell_price = stockEntry.price;
+      }
+
+      if (stockEntry?.mrp != null) {
+        variant.mrp = stockEntry.mrp;
+      }
+
+      // 📦 Add to inventory
+      product.inventory.push({ variantId: variant._id, quantity });
+
+      // 🛒 Add to inCart
+      if (cartQty > 0) {
+        product.inCart.status = true;
+        product.inCart.qty += cartQty;
+        product.inCart.variantIds.push(variant._id);
+      }
     }
   }
 }
+
 
     return res.status(200).json({
       message: 'It is feature product.',
@@ -758,6 +880,7 @@ for (const stockDoc of stockDocs) {
     return res.status(500).json({ message: "An error occurred!", error: error.message });
   }
 };
+
 
 exports.unit=async (req,res) => {
   try {
@@ -939,17 +1062,61 @@ exports.updateProduct = async (req, res) => {
     }
     console.log("🧾 Existing product variants:", JSON.stringify(existingProduct.variants, null, 2));
 
+    const variantImageMap = {};
+
+    if (req.files) {
+      for (const key of Object.keys(req.files)) {
+        if (!/^var\d+$/i.test(key)) continue;
+
+        const file = req.files[key]?.[0];
+        if (!file?.path) {
+          console.warn(`❗ No file path found for ${key}`);
+          continue;
+        }
+console.log("⛳ Uploading variant key:", key, "| Path:", file.path);
+        try {
+          const uploaded = await cloudinary.uploader.upload(file.path, {
+            folder: "products/variants",
+          });
+
+          if (uploaded?.secure_url) {
+            variantImageMap[key] = uploaded.secure_url;
+            console.log(`✅ Uploaded ${key}: ${uploaded.secure_url}`);
+          } else {
+            console.warn(`❗ Cloudinary didn't return secure_url for ${key}`);
+          }
+        } catch (err) {
+          console.error(`❌ Error uploading ${key} to Cloudinary:`, err.message);
+        }
+      }
+    }
+
     let finalFilterArray = [];
     if (req.body.filter) {
-      let parsedFilter;
-      try {
-        parsedFilter = typeof req.body.filter === 'string'
-          ? JSON.parse(req.body.filter)
-          : req.body.filter;
-        console.log("🧾 Parsed filter:", JSON.stringify(parsedFilter, null, 2));
-      } catch (err) {
-        console.warn("❗ Failed to parse filter:", err.message);
-        parsedFilter = [];
+      parsedFilter = [];
+
+      if (typeof req.body.filter === 'string') {
+        try {
+          const firstParsed = JSON.parse(req.body.filter);
+          if (Array.isArray(firstParsed)) {
+            for (const str of firstParsed) {
+              try {
+                const obj = JSON.parse(str);
+                if (Array.isArray(obj)) {
+                  parsedFilter.push(...obj);
+                } else {
+                  parsedFilter.push(obj);
+                }
+              } catch (innerErr) {
+                console.warn("❗ Error parsing filter inner string:", innerErr.message);
+              }
+            }
+          }
+        } catch (outerErr) {
+          console.warn("❗ Error parsing filter outer string:", outerErr.message);
+        }
+      } else if (Array.isArray(req.body.filter)) {
+        parsedFilter = req.body.filter;
       }
 
       for (let item of parsedFilter) {
@@ -1068,8 +1235,6 @@ exports.updateProduct = async (req, res) => {
       }
     }
 
-    console.log('🧾 Final productLocation:', JSON.stringify(productLocation, null, 2));
-
     let brandObj = null;
     if (brand_Name) {
       if (typeof brand_Name === "string") {
@@ -1168,23 +1333,46 @@ exports.updateProduct = async (req, res) => {
       }
     }
 
-    // Generate inventory from existing product variants
-    const parsedVariantsArray = existingProduct.variants || [];
-    console.log("🧾 Parsed variants array:", JSON.stringify(parsedVariantsArray, null, 2));
+    let parsedVariantsArray = [];
+    if (req.body.variants) {
+      try {
+        parsedVariantsArray = typeof req.body.variants === 'string'
+          ? JSON.parse(req.body.variants)
+          : req.body.variants;
+      } catch (err) {
+        console.error("❌ Failed to parse variants:", err.message);
+      }
+    }
 
-    const finalInventoryArray = parsedVariantsArray.map(variant => ({
+    const parsedVariantsWithIds = parsedVariantsArray.map(v => ({
+      ...v,
+      _id: v._id || new mongoose.Types.ObjectId()
+    }));
+
+    const finalInventoryArray = parsedVariantsWithIds.map(variant => ({
       _id: new mongoose.Types.ObjectId(),
       variantId: variant._id,
       quantity: 0
     }));
-    console.log("🧾 Final inventory:", JSON.stringify(finalInventoryArray, null, 2));
 
-    const finalVariants = parsedVariantsArray.map(variant => {
-      const discount = variant.mrp && variant.sell_price
-        ? Math.round(((variant.mrp - variant.sell_price) / variant.mrp) * 100)
-        : 0;
-      return { ...variant, discountValue: discount };
-    });
+    console.log("🧾 Final inventory:", JSON.stringify(finalInventoryArray, null, 2));
+    console.log("🧾 variantImageMap keys:", Object.keys(variantImageMap));
+    console.log("🧾 parsedVariantsWithIds:", parsedVariantsWithIds.map(v => v.imageKey));
+
+// 👇 This replaces old logic: overwrite entire variants list based on what you send
+const finalVariants = parsedVariantsWithIds.map(variant => {
+  const image = variantImageMap[variant.imageKey] || variant.image || "";
+  const discountValue = variant.mrp && variant.sell_price
+    ? Math.round(((variant.mrp - variant.sell_price) / variant.mrp) * 100)
+    : 0;
+
+  return {
+    ...variant,
+    _id: variant._id || new mongoose.Types.ObjectId(),
+    image,
+    discountValue
+  };
+});
 
     const updateData = {
       ...(productName && { productName }),
@@ -1211,7 +1399,7 @@ exports.updateProduct = async (req, res) => {
       ...(minQuantity && { minQuantity }),
       ...(maxQuantity && { maxQuantity }),
       ...(finalFilterArray.length && { filter: finalFilterArray }),
-      ...(finalVariants.length && { variants: finalVariants }),
+      ...(finalVariants.length && { variants: finalVariants}),
       ...(ratings && { ratings }),
       ...(mrp && { mrp }),
       ...(status && { status }),
@@ -1237,92 +1425,112 @@ exports.updateProduct = async (req, res) => {
 exports.getRelatedProducts = async (req, res) => {
   try {
     const { productId } = req.params;
+    const userId = req.user?._id;
 
     if (!productId) {
       return res.status(400).json({ message: "Product ID is required" });
     }
 
-    const product = await Products.findById(productId).lean();
+    // Fetch base data
+    const [product, allProducts, cartDocs] = await Promise.all([
+      Products.findById(productId).lean(),
+      Products.find({ _id: { $ne: productId } }).lean(),
+      userId ? Cart.find({ userId }).lean() : []
+    ]);
+
     if (!product) {
       return res.status(404).json({ message: "Product not found" });
     }
 
-    const allProducts = await Products.find({ _id: { $ne: product._id } }).lean();
-
-    const scoredProducts = allProducts.map((p) => {
-      let score = 0;
-
-      if (String(p.category) === String(product.category)) score += 1;
-      if (String(p.brand) === String(product.brand_Name)) score += 1;
-
-      // Check if type is array and has intersection
-      if (Array.isArray(p.type) && Array.isArray(product.type)) {
-        const matchedTypes = p.type.filter((t) => product.type.includes(t));
-        if (matchedTypes.length > 0) score += 2;
-      }
-
-      return { ...p, relevanceScore: score };
+    // 🛒 Build cart map: { "productId_variantId": quantity }
+    const cartMap = {};
+    cartDocs.forEach(item => {
+      const key = `${item.productId}_${item.varientId}`;
+      cartMap[key] = item.quantity;
     });
 
-    // Sort by highest score first
-    const sorted = scoredProducts
+    // 🔍 Score related products by relevance
+ const scoredProducts = allProducts.map(p => {
+  let score = 0;
+
+  // ✅ Category Match (compare by _id inside array of objects)
+  const productCatIds = (product.category || []).map(c => String(c._id));
+  const pCatIds = (p.category || []).map(c => String(c._id));
+
+  if (pCatIds.some(catId => productCatIds.includes(catId))) {
+    score += 1;
+  }
+
+  // ✅ Brand Match
+  if (
+    product.brand_Name?._id &&
+    p.brand_Name?._id &&
+    String(product.brand_Name._id) === String(p.brand_Name._id)
+  ) {
+    score += 1;
+  }
+
+  // ✅ Type Match (assuming it's array of strings)
+  const matchedTypes = (p.type || []).filter(t => (product.type || []).includes(t));
+  if (matchedTypes.length > 0) {
+    score += 2;
+  }
+
+  return { ...p, relevanceScore: score };
+});
+
+
+    // 📊 Sort and limit to top 10
+    const relatedProducts = scoredProducts
       .filter(p => p.relevanceScore > 0)
       .sort((a, b) => b.relevanceScore - a.relevanceScore)
-      .slice(0, 10); // limit to 10
+      .slice(0, 10);
 
-    return res.status(200).json({message:"Related Product", relatedProducts: sorted });
+  for (const product of relatedProducts) {
+  product.inventory = [];
+  product.inCart = { status: false, qty: 0, variantIds: [] };
 
-  } catch (err) {
-    console.error("Error fetching related products:", err);
-    return res.status(500).json({ message: "Server error", error: err.message });
-  }
-};
+  product.variants?.forEach(variant => {
+    const key = `${product._id}_${variant._id}`;
+    const cartQty = cartMap[key] || 0;
 
-exports.notification=async (req,res) => {
-  try {
-  const {title,description,time,city}=req.body
-  const image = req.files.image?.[0].path
-   const utcTime = moment.tz(time, "Asia/Kolkata").utc().toDate();
-  const newNotificaton = await Notification.create({title,description,image,time:utcTime,city})
-  res.status(200).json({message: "Notification Createded successfully",newNotificaton});
-} catch (error) {
-     console.error(error);
-    res.status(500).json({ message: "Notification Not Createded", error: error.message });
-  }
+    // 🔥 You can fetch quantity/stock if needed, for now it's 0
+    const quantity = 0;
+    
+    // 🧠 Simulate fetching stockData (from stock DB if you have it)
+    // Example: replace this with actual query if needed
+    const stockData = null; // ← replace this with actual find from DB if needed
+
+    // ✅ Override price and mrp in variant if stockData is present
+    if (stockData?.price != null) {
+      variant.sell_price = stockData.price;
+    }
+
+    if (stockData?.mrp != null) {
+      variant.mrp = stockData.mrp;
+    }
+
+    // 📦 Push inventory
+    product.inventory.push({ variantId: variant._id, quantity });
+
+    // 🛒 Cart info
+    if (cartQty > 0) {
+      product.inCart.status = true;
+      product.inCart.qty += cartQty;
+      product.inCart.variantIds.push(variant._id);
+    }
+  });
 }
 
-exports.getNotification = async (req, res) => {
-  try {
-    const user = req.user; 
-    let userCity = user.city;
 
-    if (user.Address?.length > 0) {
-      const latestAddress = user.Address[user.Address.length - 1];
-      if (latestAddress.city) {
-        userCity = latestAddress.city;
-      }
-    }
+    return res.status(200).json({
+      message: "Related Product",
+      relatedProducts
+    });
 
-    if (!userCity) {
-      return res.status(400).json({ message: "City not found in user profile or address" });
-    }
-
-    const matchingCities = await ZoneData.find({ city: userCity }).select('_id');
-    const cityIds = matchingCities.map(c => c._id);
-
-
-    const notifications = await Notification.find({
-      $or: [
-        { global: true },
-        { city: { $in: cityIds } }
-      ]
-    }).sort({ time: -1 });
-
-    return res.status(200).json({ message: "Notifications fetched", notifications });
-
-  } catch (error) {
-    console.error("Error fetching notifications:", error);
-    return res.status(500).json({ message: "Internal server error", error: error.message });
+  } catch (err) {
+    console.error("❌ Error fetching related products:", err);
+    return res.status(500).json({ message: "Server error", error: err.message });
   }
 };
 
@@ -1344,12 +1552,25 @@ exports.updateStock = async (req, res) => {
 
     if (!storeStock) {
       const newStock = await Stock.create({
-        storeId,
-        stock: stock.map(item => ({
+          storeId,
+          stock: stock.map(item => {
+        const newItem = {
           productId,
           variantId: item.variantId,
-          quantity: item.quantity
-        }))
+          quantity: item.quantity,
+        };
+      
+        if (item.price != null && item.price !== 0) {
+          newItem.price = item.price;
+        }
+      
+        if (item.mrp != null && item.mrp !== 0) {
+          newItem.mrp = item.mrp;
+        }
+      
+        return newItem;
+      })
+
       });
 
       return res.status(201).json({
@@ -1367,11 +1588,21 @@ exports.updateStock = async (req, res) => {
 
       if (index !== -1) {
         storeStock.stock[index].quantity = item.quantity;
+
+        if (item.price != null && item.price !== 0) {
+          storeStock.stock[index].price = item.price;
+        }
+        if (item.mrp != null && item.mrp !== 0) {
+          storeStock.stock[index].mrp = item.mrp;
+        }
+console.log(item.mrp)
       } else {
         storeStock.stock.push({
           productId,
           variantId: item.variantId,
-          quantity: item.quantity
+          quantity: item.quantity,
+          price:storeStock.stock[index].price,
+          mrp:storeStock.stock[index].mrp
         });
       }
     }
@@ -1436,3 +1667,66 @@ return res.status(200).json({message:'Products',Product:filteredProducts,count:f
     res.status(500).json({ message: "Server error", error: error.message });
   }
 }
+
+exports.rating = async (req,res) => {
+  try {
+  const userId = req.user
+  const {rating,Note,order_id} = req.body
+  const userData = await User.findById(userId)
+  console.log(userData);
+  
+  const newRating = await Rating.create({rating,Note,order_id,userInfo:{userId:userId,userName:userData.name}})
+  return res.status(200).json({message:"Rating Created Successfully",newRating})
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({message:"Server Error"})
+  }
+}
+
+// exports.notification=async (req,res) => {
+//   try {
+//   const {title,description,time,city}=req.body
+//   const image = req.files.image?.[0].path
+//    const utcTime = moment.tz(time, "Asia/Kolkata").utc().toDate();
+//   const newNotificaton = await Notification.create({title,description,image,time:utcTime,city})
+//   res.status(200).json({message: "Notification Createded successfully",newNotificaton});
+// } catch (error) {
+//      console.error(error);
+//     res.status(500).json({ message: "Notification Not Createded", error: error.message });
+//   }
+// }
+
+// exports.getNotification = async (req, res) => {
+//   try {
+//     const user = req.user; 
+//     let userCity = user.city;
+
+//     if (user.Address?.length > 0) {
+//       const latestAddress = user.Address[user.Address.length - 1];
+//       if (latestAddress.city) {
+//         userCity = latestAddress.city;
+//       }
+//     }
+
+//     if (!userCity) {
+//       return res.status(400).json({ message: "City not found in user profile or address" });
+//     }
+
+//     const matchingCities = await ZoneData.find({ city: userCity }).select('_id');
+//     const cityIds = matchingCities.map(c => c._id);
+
+
+//     const notifications = await Notification.find({
+//       $or: [
+//         { global: true },
+//         { city: { $in: cityIds } }
+//       ]
+//     }).sort({ time: -1 });
+
+//     return res.status(200).json({ message: "Notifications fetched", notifications });
+
+//   } catch (error) {
+//     console.error("Error fetching notifications:", error);
+//     return res.status(500).json({ message: "Internal server error", error: error.message });
+//   }
+// };

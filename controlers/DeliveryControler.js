@@ -1,4 +1,4 @@
-const { calculateDeliveryTime, reverseGeocode } = require('../config/google');
+const { calculateDeliveryTime, reverseGeocode,getStoresWithinRadius } = require('../config/google');
 const Store = require('../modals/store');
 const User = require('../modals/User');
 const { ZoneData } = require('../modals/cityZone');
@@ -28,85 +28,91 @@ exports.getDeliveryEstimate = async (req, res) => {
       return res.status(200).json({ status: false, message: "User location not set" });
     }
 
-    let { city, zone } = user.location;
+    // let { city, zone } = user.location;
 
     // 🧠 Always run reverseGeocode to compare city/zone
-    const geoInfo = await reverseGeocode(currentLat, currentLong);
+    // const geoInfo = await reverseGeocode(currentLat, currentLong);
 
-    if (!geoInfo?.city || !geoInfo?.zone) {
-      return res.status(200).json({ status: false, message: "Could not determine user's zone" });
-    }
+    // if (!geoInfo?.city || !geoInfo?.zone) {
+    //   return res.status(200).json({ status: false, message: "Could not determine user's zone" });
+    // }
 
-    const newCity = geoInfo.city;
-    const newZone = geoInfo.zone;
+    // const newCity = geoInfo.city;
+    // const newZone = geoInfo.zone;
 
-    console.log(newCity,newZone);
+    // console.log(newCity,newZone);
     
-    const cityChanged = !city || city.toLowerCase() !== newCity.toLowerCase();
-    const zoneChanged = !zone || zone.toLowerCase() !== newZone.toLowerCase();
+    // const cityChanged = !city || city.toLowerCase() !== newCity.toLowerCase();
+    // const zoneChanged = !zone || zone.toLowerCase() !== newZone.toLowerCase();
 
     // ⚠️ If city/zone changed, update in DB
-    if (cityChanged || zoneChanged) {
-      user.location.city = newCity;
-      user.location.zone = newZone;
-      await user.save();
-      city = newCity;
-      zone = newZone;
-    }
+    // if (cityChanged || zoneChanged) {
+    //   user.location.city = newCity;
+    //   user.location.zone = newZone;
+    //   await user.save();
+    //   city = newCity;
+    //   zone = newZone;
+    // }
 
     // 🚀 Now use city and zone
-    const userZoneDoc = await ZoneData.findOne({ city });
-    if (!userZoneDoc)
-      return res.json({ status: false, message: "Sorry, we are not available in your city yet." });
+    // const userZoneDoc = await ZoneData.findOne({ city });
+    // if (!userZoneDoc)
+    //   return res.json({ status: false, message: "Sorry, we are not available in your city yet." });
 
-    const matchedZone = userZoneDoc.zones.find(z =>
-      z.address.toLowerCase().includes(zone.toLowerCase())
-    );
-    console.log(matchedZone);
+    // const matchedZone = userZoneDoc.zones.find(z =>
+    //   z.address.toLowerCase().includes(zone.toLowerCase())
+    // );
+    // console.log(matchedZone);
     
 
-    if (!matchedZone)
-      return res.json({ status: false, message: "Sorry, we are not available in your zone yet." });
+    // if (!matchedZone)
+    //   return res.json({ status: false, message: "Sorry, we are not available in your zone yet." });
+// console.log(city)
+    // const stores = await Store.find({ "city.name": city });
+    // console.log(stores);
 
-    const stores = await Store.find({
-      zone: { $elemMatch: { _id: matchedZone._id } }
-    });
-console.log(stores);
+    // if (!stores.length)
+    //   return res.json({ status: false, message: "Sorry, no stores available in your zone." });
 
-    if (!stores.length)
-      return res.json({ status: false, message: "Sorry, no stores available in your zone." });
+  const { zoneAvailable, matchedStores } = await getStoresWithinRadius(currentLat, currentLong);
 
-    const results = await Promise.all(
-      stores.map(async (store) => {
-        if (!store.Latitude || !store.Longitude) return null;
+if (!zoneAvailable) {
+  return res.json({ status: false, message: "Service zone not available" });
+}
 
-        const result = await calculateDeliveryTime(
-          parseFloat(store.Latitude),
-          parseFloat(store.Longitude),
-          currentLat,
-          currentLong
-        );
+const results = await Promise.all(
+  matchedStores.map(async (store) => {
+    if (!store.Latitude || !store.Longitude) return null;
 
-        if (!result) return null;
-
-        return {
-          storeId: store._id,
-          storeName: store.storeName,
-          city: store.city?.name || null,
-          distance: result.distanceText,
-          duration: addFiveMinutes(result.trafficDurationText),
-          raw: result,
-        };
-      })
+    const result = await calculateDeliveryTime(
+      parseFloat(store.Latitude),
+      parseFloat(store.Longitude),
+      currentLat,
+      currentLong
     );
 
-    const filtered = results.filter(Boolean);
-    res.json({ status: true, filtered });
+    if (!result) return null;
+
+    return {
+      storeId: store._id,
+      storeName: store.storeName,
+      city: store.city?.name || null,
+      distance: result.distanceText,
+      duration: addFiveMinutes(result.trafficDurationText),
+      raw: result,
+    };
+  })
+);
+
+const filtered = results.filter(Boolean);
+if (filtered.length === 0) {
+  return res.json({ status: false, filtered });
+}
+
+res.json({ status: true, filtered });
 
   } catch (err) {
     console.error("💥 Delivery Error:", err);
     res.status(500).json({ status: false, message: "Server error", error: err.message });
   }
 };
-
-

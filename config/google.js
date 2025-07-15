@@ -1,4 +1,7 @@
 require('dotenv').config();
+const Store = require('../modals/store');
+const haversine = require('haversine-distance'); 
+ const {ZoneData} = require("../modals/cityZone");
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
 // 🧮 Calculate delivery time between store and user
@@ -28,7 +31,7 @@ const calculateDeliveryTime = async (storeLat, storeLng, userLat, userLng) => {
         trafficDurationValue: 0,
       };
     }
-
+console.log(storeLat, storeLng, userLat, userLng)
     return {
       distanceText: element.distance.text,
       durationText: element.duration.text,
@@ -70,7 +73,77 @@ const reverseGeocode = async (lat, lng) => {
   }
 };
 
+function isWithinZone(userLat, userLng, zone) {
+  const userLocation = { lat: userLat, lon: userLng };
+  const zoneLocation = { lat: zone.latitude, lon: zone.longitude };
+
+  const distance = haversine(userLocation, zoneLocation);
+  console.log(distance,zone.range)
+  return distance <= zone.range;
+}
+
+
+async function getStoresWithinRadius(userLat, userLng) {
+  const allStores = await Store.find({ status: true });
+
+  const cityZoneDocs = await ZoneData.find({});
+  const activeZones = cityZoneDocs.flatMap(doc =>
+    doc.zones.filter(z => z.status === true)
+  );
+
+  const matchedZones = activeZones.filter(zone =>
+    isWithinZone(userLat, userLng, zone)
+  );
+
+  // ✅ If no matching zone found, return early with message
+  if (matchedZones.length === 0) {
+    return { zoneAvailable: false };
+  }
+
+  const matchedZoneIds = matchedZones.map(z => z._id.toString());
+
+  const matchedStores = allStores.filter(store =>
+    store.zone.some(z => matchedZoneIds.includes(z._id.toString()))
+  );
+  
+  return { zoneAvailable: true, matchedStores };
+}
+
+
+function isWithinBanner(userLat, userLng, zone) {
+  const userLocation = { lat: userLat, lon: userLng };
+  const zoneLocation = { lat: zone.latitude, lon: zone.longitude };
+
+  const distance = haversine(userLocation, zoneLocation);
+  console.log(`🛰️ Banner zone check | Distance: ${distance} | Range: ${zone.range}`);
+  return distance <= zone.range;
+}
+
+async function getBannersWithinRadius(userLat, userLng, banners = []) {
+  const allZones = await ZoneData.find({});
+
+  return banners.filter(banner => {
+    const bannerCity = banner.city?.name?.toLowerCase();
+
+    const cityDoc = allZones.find(city =>
+      city.city.toLowerCase() === bannerCity
+    );
+
+    if (!cityDoc) return false;
+
+    const validZone = cityDoc.zones.find(zone =>
+      zone.status === true && isWithinBanner(userLat, userLng, zone)
+    );
+
+    return Boolean(validZone);
+  });
+}
+
 module.exports = {
   calculateDeliveryTime,
-  reverseGeocode
+  reverseGeocode,
+  getStoresWithinRadius,
+  getBannersWithinRadius
 };
+
+

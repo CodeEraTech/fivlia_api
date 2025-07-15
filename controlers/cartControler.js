@@ -4,24 +4,48 @@ const Address = require('../modals/Address')
 const Store = require('../modals/store')
 const User = require('../modals/User')
 const stock = require('../modals/StoreStock')
+const haversine = require("haversine-distance");
 
 exports.addCart = async (req, res) => {
   try {
     const userId = req.user; 
     const { name, quantity, price,mrp, productId, varientId } = req.body;
     const image = req.files?.image?.[0]?.path;
+    const user = await User.findOne(userId).lean()
+    const userLat = parseFloat(user?.location?.latitude);
+    const userLng = parseFloat(user?.location?.longitude);
 
-    const userZoneShort = userId?.location?.zone;
+    if (!userLat || !userLng) {
+      return res.status(400).json({ message: "User location not available." });
+    }
 
-    const zoneData = await ZoneData.findOne({
-      "zones.address": { $regex: userZoneShort, $options: "i" }
+    // ✅ Fetch all active zones
+    const zoneDocs = await ZoneData.find({});
+    const activeZones = zoneDocs.flatMap(doc => doc.zones.filter(z => z.status === true));
+
+    // ✅ Find matched zone by Haversine logic
+    const matchedZone = activeZones.find(zone => {
+      if (!zone.latitude || !zone.longitude || !zone.range) return false;
+      const distance = haversine(
+        { lat: userLat, lon: userLng },
+        { lat: zone.latitude, lon: zone.longitude }
+      );
+      return distance <= zone.range;
     });
 
-    const matchedZone = zoneData.zones.find(z =>
-      z.address.toLowerCase().includes(userZoneShort.toLowerCase())
-    );
+    if (!matchedZone) {
+      return res.status(400).json({ message: "No active zone found for your location." });
+    }
 
-    const paymentOption = matchedZone.cashOnDelivery === true;
+
+const checkCart = await Cart.findOne({ productId: productId, userId: req.user })
+
+if (checkCart) {
+  await Cart.deleteOne({ _id: checkCart._id });
+  console.log("🗑️ Product removed from cart");
+} else {
+  console.log("⚠️ Product not found in cart");
+}
 
     const cartItem = await Cart.create({
       image,
@@ -31,8 +55,7 @@ exports.addCart = async (req, res) => {
       mrp,
       productId,
       varientId,
-      userId,
-      paymentOption
+      userId
     });
 
     return res.status(200).json({ message: 'Item Added To Database', item: cartItem });
@@ -47,28 +70,24 @@ exports.getCart = async (req, res) => {
   try {
     const { id } = req.user;
 
-    // Parallel fetch: cart, user, address
     const [items, user, address] = await Promise.all([
       Cart.find({ userId: id }),
       User.findById(id),
       Address.findOne({ userId: id, default: true }),
     ]);
-
+console.log('address',address)
     if (!user) {
       return res.status(404).json({ status: false, message: "User not found." });
     }
 
-    const normalize = (str) =>
-      str?.toLowerCase().replace(/[^\w\s]/gi, "").split(/\s+/).filter(Boolean);
+    let userLat, userLng, usedFallback = false;
 
-    let userCity, userZone, usedFallback = false;
-
-    if (address) {
-      userCity = address.city?.toLowerCase();
-      userZone = address.address?.toLowerCase();
-    } else if (user.location?.city && user.location?.zone) {
-      userCity = user.location.city?.toLowerCase();
-      userZone = user.location.zone?.toLowerCase();
+    if (address?.latitude && address?.longitude) {
+      userLat = parseFloat(address.latitude);
+      userLng = parseFloat(address.longitude);
+    } else if (user?.location?.latitude && user?.location?.longitude) {
+      userLat = parseFloat(user.location.latitude);
+      userLng = parseFloat(user.location.longitude);
       usedFallback = true;
     } else {
       return res.status(200).json({
@@ -78,47 +97,47 @@ exports.getCart = async (req, res) => {
       });
     }
 
-    const userZoneKeywords = normalize(userZone);
+    const allCities = await ZoneData.find({});
+    let matchedZone = null;
 
-    const cityZoneDoc = await ZoneData.findOne({
-      city: { $regex: new RegExp(`^${userCity}$`, "i") },
-    });
+    for (const city of allCities) {
+      for (const zone of city.zones) {
+        if (!zone?.latitude || !zone?.longitude || !zone?.range || zone.status !== true) continue;
+        const distance = haversine(
+          { lat: userLat, lon: userLng },
+          { lat: zone.latitude, lon: zone.longitude }
+        );
 
-    if (!cityZoneDoc) {
-      return res.status(200).json({
-        status: false,
-        message: "City not serviceable.",
-        items,
-      });
+        if (distance <= zone.range) {
+          matchedZone = zone;
+          break;
+        }
+      }
+      if (matchedZone) break;
     }
-
-    const matchedZone = cityZoneDoc.zones.find((z) => {
-      const zoneKeywords = normalize(z.address);
-      return userZoneKeywords.some((k) => zoneKeywords.includes(k));
-    });
-
+const paymentOption = matchedZone.cashOnDelivery === true;
     if (!matchedZone) {
       return res.status(200).json({
         status: false,
-        message: "Zone not serviceable.",
+        message: "No service available in your zone please change your address.",
         items,
       });
     }
 
     const store = await Store.findOne({
+      status: true,
       zone: { $elemMatch: { _id: matchedZone._id } },
     });
 
     if (!store) {
       return res.status(200).json({
         status: false,
-        message: "No store found for your location.",
+        message: "No store found for your location please change your address.",
         items,
       });
     }
 
     const stockDoc = await stock.findOne({ storeId: store._id });
-
     const stockMap = new Map();
     stockDoc?.stock?.forEach((s) => {
       stockMap.set(`${s.productId}_${s.variantId}`, s.quantity);
@@ -143,6 +162,7 @@ exports.getCart = async (req, res) => {
         status: false,
         message: "Some items are out of stock or quantity is insufficient.",
         items: updatedItems,
+        paymentOption,
         StoreID: store._id,
       });
     }
@@ -152,6 +172,7 @@ exports.getCart = async (req, res) => {
         status: false,
         message: "Please select a default address to proceed with checkout.",
         items: updatedItems,
+        paymentOption,
         StoreID: store._id,
       });
     }
@@ -160,6 +181,7 @@ exports.getCart = async (req, res) => {
       status: true,
       message: "Cart items are available.",
       items: updatedItems,
+      paymentOption,
       StoreID: store._id,
     });
 
@@ -172,7 +194,6 @@ exports.getCart = async (req, res) => {
     });
   }
 };
-
 
 
 exports.discount=async (req,res) => {

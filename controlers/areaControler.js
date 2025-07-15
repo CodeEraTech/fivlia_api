@@ -2,6 +2,7 @@ const {CityData,ZoneData} = require('../modals/cityZone');
 const Location = require('../modals/location');
 const User = require('../modals/User');
 const Address = require('../modals/Address');
+const { getStoresWithinRadius } = require('../config/google');
 const StoreStock = require('../modals/StoreStock');
 const Store = require('../modals/store')
 exports.addCity = async (req, res) => {
@@ -240,59 +241,30 @@ exports.addAddress = async (req, res) => {
       house_No,
       address,
       state,
-      street,
       latitude,
       longitude,
       city,
       addressType,
       floor,
-      landmark
+      landmark,
+      range
     } = req.body;
 
-    console.log("📦 Address Body:", req.body);
-
     const user = await User.findById(id);
-    if (!user) return res.status(404).json({ message: "User not found" });
-
     // ✅ Step 1: Fetch all stores
-    const stores = await Store.find().lean();
 
-  const normalizeWords = str =>
-  str?.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/).filter(Boolean) || [];
+    const userLat = latitude
+    const userLng = longitude
+    const { zoneAvailable, matchedStores }  =await getStoresWithinRadius(userLat,userLng)
 
-const matchingStore = stores.find(store => {
-  const storeCity = store.city?.name?.toLowerCase();
-  const inputCity = city?.toLowerCase();
+    if(!zoneAvailable){
+       return res.status(200).json({
+        status: false,
+        message: "Service area not available.",
+      });
+    }
 
-  if (storeCity !== inputCity) return false;
-
-  const blacklist = ["road", "near", "india", "haryana", "sector", "nagar", "mohalla", "basti", "vihar",
-  "colony", "area", "lane", "street", "society", "market", "mandi", "gali", "locality",
-  "ward", "city", "village", "town", "district", "state", "tehsil", "block",
-  "main", "behind", "opposite", "front", "back", "east", "west", "north", "south",
-  "no", "plot", "house", "building", "flat", "floor", "tower", "mall", "residency",
-  "phase", "pocket", "number", "line", "extension", "extension", "corner", "park",
-  "soc", "apt", "apartment", "complex", "chowk", "gate",city?.toLowerCase() || "",state?.toLowerCase() || ""];
-
-const filterWords = words => words.filter(word => !blacklist.includes(word));
-
-const userAddressWords = filterWords(
-  normalizeWords(`${address || ""} ${street || ""}`)
-);
-
-  return (store.zone || []).some(zone => {
-    const zoneWords = [
-      ...normalizeWords(zone.name),
-      ...normalizeWords(zone.title),
-    ];
-
-    // Check if any user word matches zone words (like "red", "square", "sector", "13")
-    return userAddressWords.some(word => zoneWords.includes(word));
-  });
-});
-
-
-    if (!matchingStore) {
+    if (matchedStores.length === 0) {
       return res.status(200).json({
         status: false,
         message: "No store available in your area. Please try a different address.",
@@ -308,6 +280,7 @@ const userAddressWords = filterWords(
       house_No,
       address,
       state,
+      range,
       latitude,
       longitude,
       city,

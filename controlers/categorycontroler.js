@@ -44,7 +44,9 @@ console.log("updateData:", updatedCategory);
 exports.banner = async (req,res) => {
   try {
    let {title,type,city,zones,mainCategory,subCategory,subSubCategory,status,type2}=req.body
-   const image = req.files.image?.[0].path;
+      const rawImagePath = req.files?.image?.[0]?.key || "";
+    const image = rawImagePath ? `/${rawImagePath}` : "";
+
 
    if (typeof zones === 'string') {
       try {
@@ -130,7 +132,6 @@ exports.getBanner = async (req, res) => {
     // 🟢 Get active city names
     const activeCities = await CityData.find({ status: true }, 'city').lean();
     const activeCityNames = activeCities.map(c => c.city?.toLowerCase());
-    console.log("📍 Active City Names:", activeCityNames);
 
     // 🟢 Get active zone IDs
     const zoneDocs = await ZoneData.find({status:true}, 'zones').lean();
@@ -187,26 +188,80 @@ exports.getBanner = async (req, res) => {
 exports.updateBannerStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status,title,city,zones,type2,zoneId,address,latitude,longitude,mainCategory,subCategory,subSubCategory,range} = req.body;
+    const {
+      status, title, city, zones, type2, address,
+      latitude, longitude, mainCategory, subCategory, subSubCategory, range
+    } = req.body;
 
- const image = req.files?.image?.[0].path
+    const rawImagePath = req.files?.image?.[0]?.key;
+    const image = rawImagePath ? `/${rawImagePath}` : "";
 
-const cityDoc = await ZoneData.findById(city).lean();
+    const updateData = { status, title, type2 };
 
-    const updatedBanner = await Banner.updateOne(
-      {_id:id,'zones._id': zoneId},
-      {$set:{ status,title,image,...(cityDoc?{city: { _id: cityDoc._id, name: cityDoc.city }}:{}),mainCategory,subCategory,type2,subSubCategory,'zones.$.address':address,'zones.$.latitude':latitude,'zones.$.longitude':longitude,'zones.$.range':range }}
-    );
-console.log(updatedBanner);
+    if (rawImagePath) updateData.image = image;
+
+    // Handle city
+    const cityDoc = await ZoneData.findById(city).lean();
+    if (cityDoc) {
+      updateData.city = { _id: cityDoc._id, name: cityDoc.city };
+    }
+
+    // 🔹 Fetch and build category objects (like in addBanner)
+    if (mainCategory) {
+      const foundCategory = await Category.findById(mainCategory).lean();
+      if (!foundCategory) {
+        return res.status(404).json({ message: `Category ${mainCategory} not found` });
+      }
+      updateData.mainCategory = {
+        _id: foundCategory._id,
+        name: foundCategory.name,
+        slug: slugify(foundCategory.name, { lower: true })
+      };
+
+      if (subCategory) {
+        const foundSubCategory = foundCategory.subcat.find(
+          sub => sub._id.toString() === subCategory
+        );
+        if (!foundSubCategory) {
+          return res.status(404).json({ message: `SubCategory ${subCategory} not found` });
+        }
+        updateData.subCategory = {
+          _id: foundSubCategory._id,
+          name: foundSubCategory.name,
+          slug: slugify(foundSubCategory.name, { lower: true })
+        };
+
+        if (subSubCategory) {
+          const foundSubSubCategory = foundSubCategory.subsubcat.find(
+            subsub => subsub._id.toString() === subSubCategory
+          );
+          if (!foundSubSubCategory) {
+            return res.status(404).json({ message: `SubSubCategory ${subSubCategory} not found` });
+          }
+          updateData.subSubCategory = {
+            _id: foundSubSubCategory._id,
+            name: foundSubSubCategory.name,
+            slug: slugify(foundSubSubCategory.name, { lower: true })
+          };
+        }
+      }
+    }
+
+    // Handle zones
+    if (zones) updateData.zones = zones;
+
+    // Update document
+    const updatedBanner = await Banner.updateOne({ _id: id }, { $set: updateData });
 
     if (updatedBanner.modifiedCount === 0) {
-  return res.status(404).json({ message: 'No matching banner or zone found, or data unchanged.' });
-}
+      return res.status(404).json({ message: 'No matching banner or data unchanged.' });
+    }
 
-    return res.status(200).json({ message: 'Banner status updated.', banner: updatedBanner });
+    return res.status(200).json({ message: 'Banner updated successfully.', banner: updatedBanner });
+
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ message: 'Error updating banner status.', error: err.message });
+    return res.status(500).json({ message: 'Error updating banner.', error: err.message });
   }
 };
 
@@ -302,21 +357,21 @@ exports.addCategory = async (req, res) => {
 exports.editMainCategory = async (req, res) => {
   try {
     const {
-      id, // ID of the main category (_id)
+      id,
       name,
       description,
       attribute,
       filter
     } = req.body;
-
-    const image = req.files?.image?.[0]?.path;
+   const rawImagePath = req.files?.image?.[0]?.key || "";
+    const image = rawImagePath ? `/${rawImagePath}` : "";
 
     if (!id) return res.status(400).json({ message: "Category ID is required" });
 
     const category = await Category.findById(id);
     if (!category) return res.status(404).json({ message: "Category not found" });
 
-    // Parse attributes and filters
+    // Parse attributes
     let parsedAttributes = [];
     if (attribute) {
       try {
@@ -328,6 +383,7 @@ exports.editMainCategory = async (req, res) => {
       }
     }
 
+    // Parse filters (including brand logic)
     let parsedFilters = [];
     if (filter) {
       try {
@@ -336,24 +392,39 @@ exports.editMainCategory = async (req, res) => {
           const filterDoc = await Filter.findById(f._id);
           if (!filterDoc) continue;
 
-          const selectedItems = filterDoc.Filter.filter(item =>
-            f.selected.includes(item._id.toString())
-          );
+          if (filterDoc.Filter_name === "Brand") {
+            // 🔥 Special logic for brand
+            const brandDocs = await brand.find({ _id: { $in: f.selected } });
+            parsedFilters.push({
+              _id: filterDoc._id,
+              Filter_name: "Brand",
+              selected: brandDocs.map((b) => ({
+                _id: b._id,
+                name: b.brandName
+              }))
+            });
+          } else {
+            // 🧠 Regular filter
+            const selectedItems = filterDoc.Filter.filter(item =>
+              f.selected.includes(item._id.toString())
+            );
 
-          parsedFilters.push({
-            _id: filterDoc._id,
-            Filter_name: filterDoc.Filter_name,
-            selected: selectedItems.map(item => ({
-              _id: item._id,
-              name: item.name,
-            }))
-          });
+            parsedFilters.push({
+              _id: filterDoc._id,
+              Filter_name: filterDoc.Filter_name,
+              selected: selectedItems.map(item => ({
+                _id: item._id,
+                name: item.name,
+              }))
+            });
+          }
         }
       } catch (err) {
         return res.status(400).json({ message: "Invalid filter data", error: err.message });
       }
     }
 
+    // 🔁 Update fields
     if (name) category.name = name;
     if (description) category.description = description;
     if (image) category.image = image;
@@ -476,7 +547,9 @@ exports.getCategories = async (req, res) => {
 exports.brand = async (req,res) => {
   try {
   const{brandName,description,featured}=req.body
-  const image=req.files.image?.[0].path
+       const rawImagePath = req.files?.image?.[0]?.key || "";
+    const image = rawImagePath ? `/${rawImagePath}` : "";
+
     if (!image) {
       console.log(image);
       
@@ -493,51 +566,62 @@ exports.brand = async (req,res) => {
 exports.getBrand = async (req, res) => {
   try {
     const { id } = req.query;
-    const db = mongoose.connection.db;
-
-    const rawProducts = await db.collection("products").find({}).toArray();
-
-    const stockDocs = await Stock.find({}).lean();
-
-    const stockMap = {};
-    for (const doc of stockDocs) {
-      for (const item of doc.stock || []) {
-        const key = `${item.productId}_${item.variantId}`;
-        stockMap[key] = item.quantity;
-      }
-    }
-
-    // Helper to attach inventory
-    const attachInventory = (products = []) => {
-      for (const product of products) {
-        product.inventory = [];
-
-        if (Array.isArray(product.variants)) {
-          for (const variant of product.variants) {
-            const key = `${product._id}_${variant._id}`;
-            const quantity = stockMap[key] || 0;
-
-            product.inventory.push({
-              variantId: variant._id,
-              quantity,
-            });
-          }
-        }
-      }
-
-      return products;
-    };
 
     // 🔍 If specific brand ID
     if (id) {
       const b = await brand.findById(id).lean();
       if (!b) return res.status(404).json({ message: "Brand not found" });
 
-      const products = rawProducts.filter(
-        (p) =>
-          typeof p.brand_Name === "object" &&
-          p.brand_Name._id?.toString() === b._id.toString()
-      );
+      // 🔥 Fetch only products of that brand
+      const products = await mongoose.connection.db
+        .collection("products")
+        .find({ "brand_Name._id": new mongoose.Types.ObjectId(id) })
+        .toArray();
+
+      // Collect all variant/product combinations
+      const productVariantPairs = [];
+      for (const p of products) {
+        for (const v of p.variants || []) {
+          productVariantPairs.push({
+            productId: p._id.toString(),
+            variantId: v._id.toString()
+          });
+        }
+      }
+
+      // 🔥 Build query for only required stock entries
+      const stockDocs = await Stock.find({
+        "stock.productId": { $in: productVariantPairs.map(p => p.productId) }
+      }).lean();
+
+      // Build stockMap
+      const stockMap = {};
+      for (const doc of stockDocs) {
+        for (const item of doc.stock || []) {
+          const key = `${item.productId}_${item.variantId}`;
+          stockMap[key] = item.quantity;
+        }
+      }
+
+      // Add inventory
+      const attachInventory = (products = []) => {
+        for (const product of products) {
+          product.inventory = [];
+
+          if (Array.isArray(product.variants)) {
+            for (const variant of product.variants) {
+              const key = `${product._id}_${variant._id}`;
+              const quantity = stockMap[key] || 0;
+
+              product.inventory.push({
+                variantId: variant._id,
+                quantity,
+              });
+            }
+          }
+        }
+        return products;
+      };
 
       const productsWithStock = attachInventory(products);
 
@@ -547,30 +631,16 @@ exports.getBrand = async (req, res) => {
       });
     }
 
-    // 🔁 For all brands
+    // 🔁 For all brands (no products or stock)
     const brands = await brand.find({}).lean();
 
     const allBrands = [];
     const featuredBrands = [];
 
     for (const b of brands) {
-      const products = rawProducts.filter(
-        (p) =>
-          typeof p.brand_Name === "object" &&
-          p.brand_Name._id?.toString() === b._id.toString()
-      );
-
-      const productsWithStock = attachInventory(products);
-
-      const brandData = {
-        ...b,
-        products: productsWithStock,
-      };
-
-      allBrands.push(brandData);
-
+      allBrands.push(b);
       if (b.featured === true || b.featured === 'true') {
-        featuredBrands.push(brandData);
+        featuredBrands.push(b);
       }
     }
 
@@ -592,8 +662,8 @@ exports.editBrand = async (req, res) => {
     const { id } = req.params;
     const { brandName, description,featured } = req.body;
 
-const image = req.files.image?.[0].path    
-
+     const rawImagePath = req.files?.image?.[0]?.key || "";
+    const image = rawImagePath ? `/${rawImagePath}` : "";
     const edit = await brand.updateOne(  { _id: id }, {brandName,featured, description, brandLogo:image}, { new: true });
 
     return res.status(200).json({ message: "Done", edit });
@@ -602,7 +672,6 @@ const image = req.files.image?.[0].path
     return res.status(500).json({ message: "An error occurred!", error: error.message });
   }
 };
-
 
 exports.editCat = async (req, res) => {
   try {
@@ -740,7 +809,6 @@ exports.deleteFilterVal=async (req,res) => {
   }
 }
 
-
 // if (req.file && req.file.path) {
 //       updateData.image = req.file.path;
 //     }
@@ -792,9 +860,10 @@ exports.addFiltersToCategory = async (req, res) => {
 exports.addMainCategory = async (req, res) => {
   try {
     const { name, description, attribute, filter } = req.body;
-    const image = req.files?.image?.[0]?.path;
+     const rawImagePath = req.files?.image?.[0]?.key || "";
+    const imagePath = rawImagePath ? `/${rawImagePath}` : "";
 
-    if (!name || !description || !image) {
+    if (!name || !description || !imagePath) {
       return res.status(400).json({ message: "Name, description and image are required" });
     }
 
@@ -810,43 +879,57 @@ exports.addMainCategory = async (req, res) => {
         const filterDoc = await Filter.findById(filterId);
         if (!filterDoc) continue;
 
-        // Match items by _id
-        const selectedItems = filterDoc.Filter.filter(item =>
-          selectedIds.includes(item._id.toString())
-        );
+        if (filterDoc.Filter_name === "Brand") {
+          // ✅ Fetch brand names from the Brand model
+          const selectedBrands = await brand.find({
+            _id: { $in: selectedIds },
+          });
 
-        parsedFilters.push({
-          _id: filterDoc._id,
-          Filter_name: filterDoc.Filter_name,
-          selected: selectedItems.map(item => ({
-            _id: item._id,
-            name: item.name
-          }))
-        });
+          parsedFilters.push({
+            _id: filterDoc._id,
+            Filter_name: "Brand",
+            selected: selectedBrands.map((b) => ({
+              _id: b._id,
+              name: b.brandName,
+            })),
+          });
+        } else {
+          // Normal filter (e.g. Types, Size, etc.)
+          const selectedItems = filterDoc.Filter.filter(item =>
+            selectedIds.includes(item._id.toString())
+          );
+
+          parsedFilters.push({
+            _id: filterDoc._id,
+            Filter_name: filterDoc.Filter_name,
+            selected: selectedItems.map(item => ({
+              _id: item._id,
+              name: item.name
+            }))
+          });
+        }
       }
     }
-    let attributeArray = [];
-try {
-  attributeArray = JSON.parse(attribute); // This turns string into array
-} catch (err) {
-  return res.status(400).json({ message: "Invalid JSON in attribute", error: err.message });
-}
-console.log('attributeArray',attributeArray)
-const setAttributes = await Attribute.find({
-  _id: { $in: attributeArray },
-});
-console.log('setAttributes',setAttributes)
-console.log('parsedFilters',parsedFilters)
 
+    let attributeArray = [];
+    try {
+      attributeArray = JSON.parse(attribute); // This turns string into array
+    } catch (err) {
+      return res.status(400).json({ message: "Invalid JSON in attribute", error: err.message });
+    }
+
+    const setAttributes = await Attribute.find({
+      _id: { $in: attributeArray },
+    });
 
     const newCategory = new Category({
       name,
       description,
-      image,
+      image:imagePath,
       subcat: [],
       status: true,
       attribute: setAttributes.map(attr => attr.Attribute_name),
-      filter: parsedFilters
+      filter: parsedFilters,
     });
 
     const result = await newCategory.save();

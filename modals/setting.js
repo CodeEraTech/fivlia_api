@@ -1,15 +1,5 @@
+const { firebase } = require('googleapis/build/src/apis/firebase');
 const mongoose = require('mongoose');
-
-const settingSchema = new mongoose.Schema({
-
-  platform_Fee:String,
-  links:{ 
-  about_us: { type: String },
-    privacy_Policy:String,
-  termAndCondition:String
-},
-  contactUs:String
-});
 
 const settingAdminSchema = new mongoose.Schema({
 Owner_Name: { type: String },
@@ -18,7 +8,8 @@ Owner_Number: { type: Number },
 links:{ 
   about_us: { type: String },
   privacy_Policy:String,
-  termAndCondition:String
+  termAndCondition:String,
+  seller:String
 },
 Password:String,
 Platform_Fee:Number,
@@ -27,12 +18,15 @@ GST_Number:String,
 Description:String,
 Delivery_Charges:Number,
 DeliveryStatus:String,
+Auth:[{firebase:{status:Boolean},whatsApp:{appKey:String,authKey:String,status:Boolean}}],
 PaymentGateways:{RazorPayKey:{test:String,live:String,status:Boolean},PhonePe:{test:String,live:String,status:Boolean}},
-PaymentGatewayStatus:Boolean
+PaymentGatewayStatus:Boolean,
+Map_Api:[{google:{api_key:String,status:Boolean},apple:{api_key:String,status:Boolean}, ola:{api_key:String,status:Boolean}}],
+minPrice:Number,
+maxPrice:Number
 });
 
 module.exports ={
- Settings: mongoose.model("Settings", settingSchema),
  SettingAdmin: mongoose.model("SettingAdmin", settingAdminSchema)
 }
 

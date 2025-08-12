@@ -5,8 +5,7 @@ const haversine = require('haversine-distance');
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
 // 🧮 Calculate delivery time between store and user
-const calculateDeliveryTime = async (storeLat, storeLng, userLat, userLng) => {
-  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+const calculateDeliveryTime = async (storeLat, storeLng, userLat, userLng, apiKey) => {
 
   const url = `https://maps.googleapis.com/maps/api/distancematrix/json?units=metric&origins=${storeLat},${storeLng}&destinations=${userLat},${userLng}&departure_time=now&mode=driving&key=${apiKey}`;
 
@@ -42,7 +41,7 @@ console.log(storeLat, storeLng, userLat, userLng)
     };
   } catch (error) {
     console.error('❌ Error fetching ETA:', error.message);
-    return null;
+    throw error;
   }
 };
 
@@ -139,11 +138,21 @@ async function getBannersWithinRadius(userLat, userLng, banners = []) {
   });
 }
 
+function findAvailableDriversNearUser(userLat, userLng, driverLat, driverLng) {
+  const user = { lat: userLat, lon: userLng };
+  const driverz = { lat: driverLat, lon: driverLng };
+
+  return Math.round(haversine(user, driverz)); // meters
+}
+
+
+
 module.exports = {
   calculateDeliveryTime,
   reverseGeocode,
   getStoresWithinRadius,
-  getBannersWithinRadius
+  getBannersWithinRadius,
+  findAvailableDriversNearUser
 };
 
 

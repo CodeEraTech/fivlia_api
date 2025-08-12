@@ -9,12 +9,11 @@ const haversine = require("haversine-distance");
 exports.addCart = async (req, res) => {
   try {
     const userId = req.user; 
-    const { name, quantity, price,mrp, productId, varientId } = req.body;
-    const image = req.files?.image?.[0]?.path;
+    const { name, quantity, price,mrp, productId, varientId,image } = req.body;
     const user = await User.findOne(userId).lean()
     const userLat = parseFloat(user?.location?.latitude);
     const userLng = parseFloat(user?.location?.longitude);
-
+console.log(image)
     if (!userLat || !userLng) {
       return res.status(400).json({ message: "User location not available." });
     }
@@ -23,7 +22,6 @@ exports.addCart = async (req, res) => {
     const zoneDocs = await ZoneData.find({});
     const activeZones = zoneDocs.flatMap(doc => doc.zones.filter(z => z.status === true));
 
-    // ✅ Find matched zone by Haversine logic
     const matchedZone = activeZones.find(zone => {
       if (!zone.latitude || !zone.longitude || !zone.range) return false;
       const distance = haversine(
@@ -37,7 +35,7 @@ exports.addCart = async (req, res) => {
       return res.status(400).json({ message: "No active zone found for your location." });
     }
 
-
+const paymentOption = matchedZone.cashOnDelivery === true;
 const checkCart = await Cart.findOne({ productId: productId, userId: req.user })
 
 if (checkCart) {
@@ -55,7 +53,8 @@ if (checkCart) {
       mrp,
       productId,
       varientId,
-      userId
+      userId,
+      paymentOption
     });
 
     return res.status(200).json({ message: 'Item Added To Database', item: cartItem });

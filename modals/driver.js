@@ -7,6 +7,7 @@ const driverSchema = new mongoose.Schema({
    status:Boolean,
    email:String,
    password:String,
+   wallet:Number,
    address:{
     city:String,
     mobileNo:String,
@@ -20,6 +21,13 @@ const driverSchema = new mongoose.Schema({
     front: String,
     back: String
   },
+  // ... existing code ...
+activeStatus: {
+  type: String,
+  enum: ['online', 'offline'],
+  default: 'offline'
+},
     Police_Verification_Copy:String,
+    fcmToken:String
 },{timestamps:true})
 module.exports=mongoose.model('driver',driverSchema)

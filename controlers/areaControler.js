@@ -73,6 +73,12 @@ exports.updateLocation = async (req, res) => {
       return res.status(400).json({ message: "Missing userId or coordinates" });
     }
 
+    const user = await User.findById(id);
+    if (user.mobileNumber === "+919999999999") {
+      return res.status(200).json({ message: "Location updated successfully!" });
+    }
+
+
     const updatedUser = await User.findByIdAndUpdate(
       id,
       {

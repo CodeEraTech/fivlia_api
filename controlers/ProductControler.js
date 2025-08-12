@@ -12,10 +12,11 @@ const Unit = require('../modals/unit');
 const {CityData, ZoneData } = require('../modals/cityZone');
 const brand = require('../modals/brand')
 const Notification = require('../modals/Notification');
-const cloudinary = require('../config/cloudinary');
+const cloudinary = require('../config/aws');
 const moment = require('moment-timezone');
 const Stock = require("../modals/StoreStock");
 const Rating = require("../modals/rating")
+const path = require('path')
 
 exports.addAtribute=async (req,res) => {
     try {
@@ -94,13 +95,15 @@ exports.addProduct = async (req, res) => {
   try {
     const {
       productName, description, category, subCategory, subSubCategory, rating,
-      sku, ribbon, brand_Name, sold_by, type, location, online_visible,
+      ribbon, brand_Name, sold_by, type, location, online_visible,
       inventory, tax, feature_product, fulfilled_by, variants, minQuantity,
       maxQuantity, ratings, unit, mrp, sell_price, filter, returnProduct
     } = req.body;
 
-    const MultipleImage = req.files?.MultipleImage?.map(file => file.path) || [];
-    const image = req.files?.image?.[0]?.path || "";
+  const MultipleImage = req.files?.MultipleImage?.map(file => `/${file.key}`) || [];
+
+const imageKey = req.files?.image?.[0]?.key || "";
+const image = imageKey ? `/${imageKey}` : "";
 
     let parsedVariants = [];
     if (variants) {
@@ -211,21 +214,21 @@ exports.addProduct = async (req, res) => {
     );
 
     let returnProductData = null;
-    if (returnProduct) {
-      try {
-        const parsedReturn = typeof returnProduct === 'string' ? JSON.parse(returnProduct) : returnProduct;
-        returnProductData = { title: parsedReturn.title?.trim() || "" };
+if (returnProduct) {
+  try {
+    const parsedReturn = typeof returnProduct === 'string' ? JSON.parse(returnProduct) : returnProduct;
+    returnProductData = { title: parsedReturn.title?.trim() || "" };
 
-        if (req.files?.file?.[0]?.path) {
-          const cloudUpload = await cloudinary.uploader.upload(req.files.file?.[0].path, {
-            folder: "returnProduct"
-          });
-          if (cloudUpload?.secure_url) {
-            returnProductData.image = cloudUpload.secure_url;
-          }
-        }
-      } catch {}
-    }
+    // ✅ Get image key from S3-uploaded file
+const uploadedFile = req.files?.file?.[0];
+if (uploadedFile && uploadedFile.key) {
+  returnProductData.image = `/${uploadedFile.key}`;  // prepend '/'
+}
+  } catch (err) {
+    console.error("ReturnProduct parse/upload error:", err);
+  }
+}
+
 
     const parsedVariantsArray = parsedVariants.map(v => ({
       ...v,
@@ -247,24 +250,33 @@ exports.addProduct = async (req, res) => {
       quantity: 0
     }));
 
-    const finalVariants = [];
-    for (let variant of parsedVariantsArray) {
-      const discount = variant.mrp && variant.sell_price ? Math.round(((variant.mrp - variant.sell_price) / variant.mrp) * 100) : 0;
-      let image = "";
-      if (variant.imageKey && variantImageMap[variant.imageKey]) {
-        try {
-          const cloudUpload = await cloudinary.uploader.upload(variantImageMap[variant.imageKey], {
-            folder: "variantImages"
-          });
-          image = cloudUpload?.secure_url || "";
-        } catch {}
-      }
-      finalVariants.push({
-        ...variant,
-        discountValue: discount,
-        ...(image && { image })
-      });
-    }
+ const finalVariants = [];
+for (let variant of parsedVariantsArray) {
+  const discount = variant.mrp && variant.sell_price
+    ? Math.round(((variant.mrp - variant.sell_price) / variant.mrp) * 100)
+    : 0;
+
+  const imageKey = req.files?.[variant.imageKey]?.[0]?.key;
+  const image = imageKey ? `/${imageKey}` : "";
+
+  finalVariants.push({
+    ...variant,
+    discountValue: discount,
+    ...(image && { image })
+  });
+}
+
+const lastProduct = await Products.findOne({ sku: { $regex: /^FIV\d+$/ } })
+  .sort({ createdAt: -1 })
+  .lean();
+
+let nextNumber = 1;
+if (lastProduct?.sku) {
+  const lastNumber = parseInt(lastProduct.sku.replace("FIV", ""), 10);
+  nextNumber = lastNumber + 1;
+}
+
+const sku = `FIV${String(nextNumber).padStart(3, "0")}`;
 
     await Products.create({
       ...(productName && { productName }),
@@ -611,7 +623,6 @@ product.inventory.push({ variantId: variant._id, quantity });
     });
   }
 };
-
 
 exports.searchProduct = async (req, res) => {
   try {
@@ -1047,13 +1058,15 @@ exports.updateProduct = async (req, res) => {
     const id = req.params.id;
     const {
       productName, description, category, subCategory, subSubCategory,
-      sku, ribbon, rating, filter, brand_Name, sold_by, type, location, online_visible,
+      ribbon, rating, filter, brand_Name, sold_by, type, location, online_visible,
       tax, feature_product, fulfilled_by, minQuantity,
       maxQuantity, ratings, unit, mrp, sell_price, status, returnProduct
     } = req.body;
 
-    const MultipleImage = req.files?.MultipleImage?.map(file => file.path) || [];
-    const image = req.files?.image?.[0]?.path || "";
+ const MultipleImage = req.files?.MultipleImage?.map(file => `/${file.key}`) || [];
+
+const imageKey = req.files?.image?.[0]?.key || "";
+const image = imageKey ? `/${imageKey}` : "";
 
     // Fetch the existing product to get its variants
     const existingProduct = await Products.findById(id).select('variants');
@@ -1311,20 +1324,11 @@ console.log("⛳ Uploading variant key:", key, "| Path:", file.path);
           title: parsedReturn.title?.trim() || ""
         };
 
-        if (req.files?.file?.[0]?.path) {
-          try {
-            const cloudUpload = await cloudinary.uploader.upload(req.files.file[0].path, {
-              folder: "returnProduct"
-            });
-            if (cloudUpload?.secure_url) {
-              returnProductData.image = cloudUpload.secure_url;
-            } else {
-              console.warn("❗ Cloudinary upload failed, no secure_url returned");
-            }
-          } catch (uploadErr) {
-            console.warn("❗ Failed to upload returnProduct image:", uploadErr.message);
-          }
-        } else {
+        const uploadedFile = req.files?.file?.[0];
+if (uploadedFile && uploadedFile.key) {
+  returnProductData.image = `/${uploadedFile.key}`;
+}
+ else {
           console.warn("❗ No file provided for returnProduct image");
         }
         console.log("🧾 Final returnProductData:", JSON.stringify(returnProductData, null, 2));
@@ -1361,7 +1365,8 @@ console.log("⛳ Uploading variant key:", key, "| Path:", file.path);
 
 // 👇 This replaces old logic: overwrite entire variants list based on what you send
 const finalVariants = parsedVariantsWithIds.map(variant => {
-  const image = variantImageMap[variant.imageKey] || variant.image || "";
+  const imageKey = req.files?.[variant.imageKey]?.[0]?.key;
+  const image = imageKey ? `/${imageKey}` : variant.image || "";
   const discountValue = variant.mrp && variant.sell_price
     ? Math.round(((variant.mrp - variant.sell_price) / variant.mrp) * 100)
     : 0;
@@ -1374,6 +1379,7 @@ const finalVariants = parsedVariantsWithIds.map(variant => {
   };
 });
 
+
     const updateData = {
       ...(productName && { productName }),
       ...(description && { description }),
@@ -1382,8 +1388,7 @@ const finalVariants = parsedVariantsWithIds.map(variant => {
       ...(MultipleImage.length && { productImageUrl: MultipleImage }),
       ...(productCategories.length && { category: productCategories }),
       ...(foundSubCategory && { subCategory: { _id: foundSubCategory._id, name: foundSubCategory.name } }),
-      ...(foundSubSubCategory && { subSubCategory: { _id: foundSubSubCategory._id, name: foundSubSubCategory.name } }),
-      ...(sku && { sku }),
+      ...(foundSubSubCategory && { subSubCategory: { _id: foundSubSubCategory._id, name:        foundSubSubCategory.name } }),
       ...(ribbon && { ribbon }),
       ...(returnProductData && { returnProduct: returnProductData }),
       ...(unitObj && { unit: { _id: unitObj._id, name: unitObj.unitname } }),
@@ -1579,8 +1584,7 @@ exports.updateStock = async (req, res) => {
       });
     }
 
-    // ✅ If store already exists, update or push variants
-    for (const item of stock) {
+  for (const item of stock) {
       const index = storeStock.stock.findIndex(
         s => s.productId.toString() === productId &&
              s.variantId.toString() === item.variantId
@@ -1595,15 +1599,21 @@ exports.updateStock = async (req, res) => {
         if (item.mrp != null && item.mrp !== 0) {
           storeStock.stock[index].mrp = item.mrp;
         }
-console.log(item.mrp)
       } else {
-        storeStock.stock.push({
+        const newItem = {
           productId,
           variantId: item.variantId,
           quantity: item.quantity,
-          price:storeStock.stock[index].price,
-          mrp:storeStock.stock[index].mrp
-        });
+        };
+
+        if (item.price != null && item.price !== 0) {
+          newItem.price = item.price;
+        }
+        if (item.mrp != null && item.mrp !== 0) {
+          newItem.mrp = item.mrp;
+        }
+
+        storeStock.stock.push(newItem);
       }
     }
 

@@ -3,16 +3,17 @@ const upload = require('../midllerware/multer');
 const router = express.Router()
 const verifyToken = require('../midllerware/authToken');
 //abc
+const {forwebbestselling,forwebgetProduct,forwebgetFeatureProduct,forwebsearchProduct,forwebgetRelatedProducts,forwebgetBanner,getDeliveryEstimateForWebsite} = require('../controlers/websiteapicontroler')
 
-const {driverLogin,getDriverOrder} = require('../controlers/driverControler')
+const {driverLogin,acceptOrder,driverOrderStatus,acceptedOrder,activeStatus,driverWallet,transactionList,cancelOrders,getDriverDetail,completedOrders,editProfile,deleteDriver} = require('../controlers/driverControler')
 
-const  {getDashboardStats,getStoreDashboardStats} = require('../controlers/dashboardControler')
+const  {getDashboardStats,getStoreDashboardStats,walletAdmin} = require('../controlers/dashboardControler')
 const {getDeliveryEstimate} = require('../controlers/DeliveryControler')
 
 const { createStore,storeLogin,verifyEmail,getStore,addCategoryInStore,removeCategoryInStore,storeEdit } = require('../controlers/storeControler');
 
-const { settings,getSettings,adminSetting } = require('../controlers/settingControler');
-const { users, addUser,updateProfile,Login,signin,register,verifyMobile } = require('../controlers/authControler');
+const { settings,getSettings,adminSetting,getSmsType } = require('../controlers/settingControler');
+const { users, addUser,updateProfile,Login,signin,deleteAccount,register,verifyMobile,verifyOtp } = require('../controlers/authControler');
 
 const { intro, getIntro } = require('../controlers/controlers')
 
@@ -28,6 +29,7 @@ const cityZone = require('../modals/cityZone');
 const { addCity, updateCityStatus, getAviableCity, getCity, updateZoneStatus, getAllZone, getZone, updateLocation,addAddress,getAddress,EditAddress,deleteAddress,setDefault } = require('../controlers/areaControler');
 
 router.post('/Login', Login)
+router.post('/verifyOtp', verifyOtp)
 router.post('/signin', signin)
 router.post('/register', register)
 router.post('/verifyMobile', verifyMobile)
@@ -60,14 +62,17 @@ router.post('/addCity', addCity)
 router.post('/location',verifyToken, updateLocation)
 router.post('/notification',upload, notification)
 router.post('/driverLogin',driverLogin)
+router.post('/activeStatus',activeStatus)
 
+
+router.get('/getSmsType',getSmsType)
 router.get('/getDashboardStats',getDashboardStats)
+router.get('/acceptedOrder/:mobileNumber',acceptedOrder)
 router.get('/getStoreDashboardStats/:storeId',getStoreDashboardStats)
 router.get('/verify-email',verifyEmail)
 router.get('/getNotification', getNotification)
 router.get('/getOrderDetails',verifyToken, getOrderDetails)
 router.get('/getDriver', getDriver)
-router.get('/getDriverOrder', getDriverOrder)
 router.get('/getIntro', getIntro)
 router.get('/getAllZone', getAllZone)
 router.get('/getZone', getZone)
@@ -82,7 +87,21 @@ router.get('/getAttributes', getAttributes)
 router.get('/getAttributesId/:id', getAttributesId)
 router.get('/getProducts',verifyToken, getProduct)
 router.get('/adminProducts', adminProducts)
+router.get('/walletAdmin', walletAdmin)
 router.get('/getFeatureProduct',verifyToken, getFeatureProduct)
+
+router.get('/website/bestSelling', forwebbestselling)
+router.get('/website/getProduct', forwebgetProduct)
+router.get('/website/featureProduct', forwebgetFeatureProduct)
+router.get('/website/searchProduct', forwebsearchProduct)
+router.get('/website/relatedProducts', forwebgetRelatedProducts)
+router.get('/website/forwebgetBanner', forwebgetBanner)
+
+
+router.get('/completedOrders/:mobileNumber', completedOrders)
+router.get('/getDriverDetail/:id', getDriverDetail)
+router.get('/cancelOrders/:driverId', cancelOrders)
+router.get('/transactionList/:driverId', transactionList)
 router.get('/bestSelling',verifyToken, bestSelling)
 router.get('/search',verifyToken, searchProduct)
 router.get('/getUnit', getUnit)
@@ -98,11 +117,15 @@ router.get('/relatedProduct/:productId',verifyToken,getRelatedProducts)
 router.get('/getFilter',getFilter);
 router.get('/getMainCategory', getMainCategory);
 router.get('/getDeliveryEstimate',verifyToken,getDeliveryEstimate);
+router.get('/getDeliveryEstimateForWebsite',getDeliveryEstimateForWebsite);
 router.get('/send-test-notification',test)
 router.get('/getdeliveryStatus',getdeliveryStatus)
 router.get('/GetSubSubCategories/:subcatId',GetSubSubCategories)
 router.get('/GetSubCategories/:categoryId',GetSubCategories)
-
+ 
+router.put('/editProfile/:id',upload, editProfile)
+router.put('/driverWallet/:orderId', driverWallet)
+router.put('/driverOrderStatus', driverOrderStatus)
 router.put('/editBrand/:id', upload, editBrand)
 router.put('/editMainCategory', upload, editMainCategory)
 router.put('/editDriver/:driverId', upload, editDriver)
@@ -132,6 +155,10 @@ router.delete('/deleteFilter/:id',deleteFilter);
 router.delete('/deleteFilterVal/:id',deleteFilterVal)
 router.delete('/removeCategoryInStore/:id',removeCategoryInStore)
 router.delete('/deleteAttribute/:id',deleteAttribute)
+router.delete('/deleteAccount',verifyToken,deleteAccount)
+router.delete('/deleteDriver/:id',deleteDriver)
+router.put('/acceptOrder', acceptOrder)
+
 
 router.get('/zones', (req, res) => {
   res.json(cityZone);

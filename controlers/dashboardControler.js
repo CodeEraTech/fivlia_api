@@ -166,3 +166,37 @@ exports.getStoreDashboardStats = async (req, res) => {
     res.status(500).json({ message: "Something went wrong", error: err.message });
   }
 };
+
+exports.walletAdmin = async (req, res) => {
+  try {
+    const stores = await Store.find({}, { _id: 1, name: 1 });
+
+    const orders = await Order.find({}, { storeId: 1, totalPrice: 1 });
+
+    const totalCash = orders.reduce((sum, order) => sum + (order.totalPrice || 0), 0);
+
+    const storeTotals = {};
+    stores.forEach(store => {
+      storeTotals[store._id.toString()] = 0;
+    });
+
+    orders.forEach(order => {
+      const store = order.storeId?.toString();
+      if (storeTotals[store] !== undefined) {
+        storeTotals[store] += order.totalPrice || 0;
+      }
+    });
+
+    res.status(200).json({
+      message: "Wallet",
+      totalCash,
+      storeTotals
+    });
+  } catch (error) {
+    console.error("Dashboard error:", error);
+    res.status(500).json({
+      message: "Something went wrong",
+      error: error.message
+    });
+  }
+};

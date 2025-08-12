@@ -12,6 +12,7 @@ const storeScheema = new mongoose.Schema({
     Longitude:String,
     status:{type:Boolean,default:true},
     Description:String,
+    wallet:Number,
     Authorized_Store:{type:Boolean,default:true},
     Category:[{type:mongoose.Schema.ObjectId,ref:'Category'}],
     image:String,

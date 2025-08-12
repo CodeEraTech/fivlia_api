@@ -1,12 +1,14 @@
 const {Order,TempOrder} = require('../modals/order')
 const Products = require('../modals/Product')
 const {Cart} = require('../modals/cart')
+const autoAssignDriver = require('../config/driverOrderAccept/AutoAssignDriver')
 const driver = require('../modals/driver')
 const User = require('../modals/User')
 const Status = require('../modals/deliveryStatus')
 const {SettingAdmin} = require('../modals/setting')
 const Address = require('../modals/Address')
 const stock = require('../modals/StoreStock')
+const admin_transaction = require('../modals/adminTranaction')
 const Notification = require("../modals/Notification");
 const sendNotification = require('../firebase/pushnotification');
 const Store = require('../modals/store');
@@ -36,7 +38,7 @@ if (lastOrder?.orderId?.startsWith('OID')) {
     const cartItems = await Cart.find({ _id: { $in: cartIds } });
     // console.log(chargesData);
   if (!cartItems) {
-   return res.status(400).json({ message: `Cart item with ID ${cartId} not found.` });
+   return res.status(400).json({ message: `Cart item with ID ${cartIds} not found.` });
   }
 
     const itemsTotal = cartItems.reduce((sum, item) => {
@@ -46,10 +48,9 @@ const platformFeeRate = (chargesData.Platform_Fee || 0) / 100;
 const platformFeeAmount = itemsTotal * platformFeeRate;
 
     const totalPrice = itemsTotal + chargesData.Delivery_Charges + platformFeeAmount;
-
-    const paymentOption = cartItems[0].paymentOption; // from zone
-
-if (paymentMode === true && paymentOption === false) {
+const paymentOption = cartItems[0].paymentOption;
+console.log('paymentOption',paymentOption)
+if (paymentMode === true && paymentOption !== true) {
   return res.status(401).json({ message: "Cash On Delivery is not available in your zone" });
 }
 
@@ -105,10 +106,33 @@ for (const item of cartItems) {
     }
   );
  }
+await Store.findByIdAndUpdate(
+  storeId,
+  { $inc: { wallet: totalPrice } },
+  { new: true }
+);
+const lastAmount = await admin_transaction.findById('6899c9b7eeb3a6cd3a142237').lean()
 
+const updatedWallet = await admin_transaction.findByIdAndUpdate(
+  '6899c9b7eeb3a6cd3a142237',
+  { $inc: { wallet: totalPrice } },
+  { new: true }, 
+);
+
+console.log('wallet',updatedWallet)
+
+console.log('lastAmount',lastAmount)
+
+await admin_transaction.create({
+     currentAmount:updatedWallet.wallet,
+     lastAmount:lastAmount.wallet,
+     type:'Credit',
+     amount: totalPrice,
+     orderId:nextOrderId,
+     description:'Item Price Added',
+})
 
       await Cart.deleteMany({ _id: { $in: cartIds } });
-
       return res.status(200).json({ message: "Order placed successfully",  order: newOrder,});
 
     } else {
@@ -181,12 +205,32 @@ exports.verifyPayment = async (req, res) => {
         );
       }
        await Cart.deleteMany({ _id: { $in: tempOrder.cartIds } });
+
+const updatedWallet = await admin_transaction.findByIdAndUpdate(
+  '6899c9b7eeb3a6cd3a142237',
+  { $inc: { wallet: totalPrice } }, 
+  { new: true }
+);
+const lastAmount = updatedWallet.wallet - totalPrice;
+
+await admin_transaction.create({
+     currentAmount:updatedWallet.wallet,
+     lastAmount:lastAmount,
+     type:'Credit',
+     amount: totalPrice,
+     orderId:nextOrderId,
+     description:'Item Price Added',
+})
+
     }
 
     // 5. Delete the temp order
     await TempOrder.findByIdAndDelete(tempOrderId);
-
-    // 6. Respond
+    await Store.findByIdAndUpdate(
+  tempOrder.storeId,
+  { $inc: { wallet: tempOrder.totalPrice } },
+  { new: true }
+);
     return res.status(200).json({
       status: paymentStatus ? true : false,
       message: paymentStatus
@@ -297,8 +341,8 @@ exports.getOrderDetails = async (req, res) => {
 
       // 2. Fetch driver details if driverId exists
       let driverInfo = {};
-      if (order.driver?.driverId) {
-        driverInfo = await driver.findOne({ driverId: order.driver.driverId }).lean();
+      if (order.driver && order.driver.driverId) {
+        driverInfo = await driver.findOne({ _id: order.driver.driverId }).lean();
 
           driverInfo = {
             driverId: driverInfo.driverId || '',
@@ -360,18 +404,24 @@ exports.orderStatus = async (req, res) => {
     const updateData = { orderStatus: status };
 
     if (driverId) {
-      const driverDoc = await driver.findOne({ driverId });
-      if (!driverDoc) return res.status(404).json({ message: "Driver not found" });
+      const driverDoc = await driver.findOne({ _id:driverId });
+      // if (!driverDoc) return res.status(404).json({ message: "Driver not found" });
 
       updateData.driver = {
-        driverId: driverDoc.driverId,
+        driverId: driverDoc._id,
         name: driverDoc.driverName,
+        mobileNumber:driverDoc.address.mobileNo
       };
     }
 
     // 1. Update order status
     const updatedOrder = await Order.findByIdAndUpdate(id, updateData, { new: true });
     if (!updatedOrder) return res.status(404).json({ message: "Order not found" });
+if (status === 'Accepted') {
+  autoAssignDriver(updatedOrder).catch(err => {
+    console.error('Driver assignment failed:', err.message);
+  });
+}
 
     // 2. Get user & status info
     const user = await User.findById(updatedOrder.userId).lean();
@@ -413,7 +463,8 @@ exports.deliveryStatus=async (req,res) => {
     if (lastStatus && !isNaN(parseInt(lastStatus.statusCode))) {
       nextStatusCode = (parseInt(lastStatus.statusCode) + 1).toString();
     }
-   const image = req.files.image?.[0].path
+     const rawImagePath = req.files?.image?.[0]?.key || "";
+    const image = rawImagePath ? `/${rawImagePath}` : "";
      const newStatus = await deliveryStatus.create({statusCode:nextStatusCode,statusTitle,status,image})
      return res.status(200).json({message:'New Status Created',newStatus})
   } catch (error) {
@@ -425,7 +476,8 @@ exports.updatedeliveryStatus=async (req,res) => {
   try {
      const {id} = req.params
      const {statusCode,statusTitle,status}=req.body
-      const image = req.files.image?.[0].path
+        const rawImagePath = req.files?.image?.[0]?.key || "";
+    const image = rawImagePath ? `/${rawImagePath}` : "";
      const newStatus = await deliveryStatus.findByIdAndUpdate(id,{statusCode,statusTitle,image,status})
      return res.status(200).json({message:'Status Updated',newStatus})
   } catch (error) {
@@ -465,13 +517,16 @@ exports.test = async (req, res) => {
 exports.driver = async (req, res) => {
   try {
   const {driverName,status,email,password}=req.body
-  const image = req.files.image?.[0].path  
-  const Police_Verification_Copy = req.files.Police_Verification_Copy?.[0].path  
-const aadharFront = req.files.aadharCard?.[0]?.path;
-const aadharBack = req.files.aadharCard?.[1]?.path;
+    const rawImagePath = req.files?.image?.[0]?.key || "";
+    const image = rawImagePath ? `/${rawImagePath}` : ""; 
+   const policeKey = req.files?.Police_Verification_Copy?.[0]?.key;
+    const Police_Verification_Copy = policeKey ? `/${policeKey}` : "";
+ const aadharFrontKey = req.files?.aadharCard?.[0]?.key;
+    const aadharBackKey = req.files?.aadharCard?.[1]?.key;
 
-const dlFront = req.files.drivingLicence?.[0]?.path;
-const dlBack = req.files.drivingLicence?.[1]?.path;
+    const dlFrontKey = req.files?.drivingLicence?.[0]?.key;
+    const dlBackKey = req.files?.drivingLicence?.[1]?.key;
+
   const address = JSON.parse(req.body.address);
   const totalDrivers = await driver.countDocuments();
 const paddedNumber = String(totalDrivers + 1).padStart(3, "0");
@@ -479,12 +534,12 @@ const driverId = `FV${paddedNumber}`
 const newDriver = await driver.create({driverId,driverName,status,image,address,email,password,
         Police_Verification_Copy,
         aadharCard: {
-          front: aadharFront,
-          back: aadharBack
+         front: aadharFrontKey ? `/${aadharFrontKey}` : "",
+      back: aadharBackKey ? `/${aadharBackKey}` : "",
         },
         drivingLicence: {
-          front: dlFront,
-          back: dlBack
+      front: dlFrontKey ? `/${dlFrontKey}` : "",
+      back: dlBackKey ? `/${dlBackKey}` : "",
         }
       })
  return res.status(200).json({ message: 'Driver added successfully', newDriver}); 
@@ -517,15 +572,16 @@ exports.editDriver = async (req, res) => {
         return res.status(400).json({ message: "Invalid address JSON" });
       }
     }
+  const rawImagePath = req.files?.image?.[0]?.key || "";
+    const image = rawImagePath ? `/${rawImagePath}` : ""; 
+      const policeKey = req.files?.Police_Verification_Copy?.[0]?.key;
+    const Police_Verification_Copy = policeKey ? `/${policeKey}` : "";
+     const aadharFrontKey = req.files?.aadharCard?.[0]?.key;
+    const aadharBackKey = req.files?.aadharCard?.[1]?.key;
 
-    const image = req.files?.image?.[0]?.path;
-    const Police_Verification_Copy = req.files.Police_Verification_Copy?.[0].path  
-    const aadharFront = req.files.aadharCard?.[0]?.path;
-    const aadharBack = req.files.aadharCard?.[1]?.path;
+     const dlFrontKey = req.files?.drivingLicence?.[0]?.key;
+    const dlBackKey = req.files?.drivingLicence?.[1]?.key;
 
-    const dlFront = req.files.drivingLicence?.[0]?.path;
-    const dlBack = req.files.drivingLicence?.[1]?.path;
-    
     const updateData = {
       driverName,
       status,
@@ -535,17 +591,18 @@ exports.editDriver = async (req, res) => {
       ...(Police_Verification_Copy && {
      Police_Verification_Copy
       }),
-       ...(aadharFront && aadharBack && {
-        aadharCard: {
-          front: aadharFront,
-          back: aadharBack,
+       ...(aadharFrontKey && aadharBackKey && {
+            aadharCard: {
+         front: aadharFrontKey ? `/${aadharFrontKey}` : "",
+      back: aadharBackKey ? `/${aadharBackKey}` : "",
         },
+     
       }),
-      ...(dlFront && dlBack && {
-        drivingLicence: {
-          front: dlFront,
-          back: dlBack,
-        },
+      ...(dlFrontKey && dlBackKey && {
+      drivingLicence: {
+      front: dlFrontKey ? `/${dlFrontKey}` : "",
+      back: dlBackKey ? `/${dlBackKey}` : "",
+       }
       }),
       ...(address && { address }),
     };
@@ -572,7 +629,8 @@ exports.getNotification = async (req,res) => {
 exports.notification = async (req, res) => {
   try {
     const { title, description, city} = req.body;
-    const image = req.files?.image?.[0]?.path
+      const rawImagePath = req.files?.image?.[0]?.key || "";
+    const image = rawImagePath ? `/${rawImagePath}` : "";
     console.log(image)
     const newNotification = await Notification.create({
       title,

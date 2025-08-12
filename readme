@@ -1,7 +1,107 @@
+<VirtualHost 103.133.215.150:443>
+    ServerName api.fivlia.in
+    ServerAlias www.api.fivlia.in
+    ProxyPass / http://127.0.0.1:8080/
+    ServerAlias mail.api.fivlia.in
+    ServerAlias webmail.api.fivlia.in
+    ServerAlias admin.api.fivlia.in
+    DocumentRoot /home/api/public_html
+    ErrorLog /var/log/virtualmin/api.fivlia.in_error_log
+    CustomLog /var/log/virtualmin/api.fivlia.in_access_log combined
+    ScriptAlias /cgi-bin/ /home/api/cgi-bin/
+    ScriptAlias /awstats /home/api/cgi-bin/awstats.pl
+    DirectoryIndex index.php index.htm index.html
+    <Directory /home/api/public_html>
+        Options -Indexes +IncludesNOEXEC +SymLinksIfOwnerMatch
+        Require all granted
+        AllowOverride All Options=ExecCGI,Includes,IncludesNOEXEC,Indexes,MultiViews,SymLinksIfOwnerMatch
+    </Directory>
+    <Directory /home/api/cgi-bin>
+        Require all granted
+        AllowOverride All Options=ExecCGI,Includes,IncludesNOEXEC,Indexes,MultiViews,SymLinksIfOwnerMatch
+    </Directory>
+    ProxyPass /.well-known !
+    RewriteEngine on
+    RewriteCond %{HTTP_HOST} =webmail.api.fivlia.in
+    RewriteCond %{HTTP_HOST} =webmail.api.fivlia.in
+    RewriteRule ^/(?!.well-known)(.*)$ https://api.fivlia.in:20000/ [R]
+    RewriteCond %{HTTP_HOST} =admin.api.fivlia.in
+    RewriteRule ^/(?!.well-known)(.*)$ https://api.fivlia.in:10000/ [R]
+    RemoveHandler .php
+    RemoveHandler .php8.0
+    RemoveHandler .php8.1
+    RemoveHandler .php8.2
+    RemoveHandler .php8.3
+    RemoveHandler .php8.4
+    <FilesMatch \.php$>
+        SetHandler proxy:unix:/run/php-fpm/17509926454113449.sock|fcgi://127.0.0.1
+    </FilesMatch>
+    SSLEngine on
+    SSLCertificateFile /etc/ssl/virtualmin/17509926454113449/ssl.cert
+    SSLCertificateKeyFile /etc/ssl/virtualmin/17509926454113449/ssl.key
+    SSLProtocol all -SSLv2 -SSLv3 -TLSv1 -TLSv1.1
+    RedirectMatch ^/awstats$ /awstats/
+    <Files awstats.pl>
+        AuthName "api.fivlia.in statistics"
+        AuthType Basic
+        AuthUserFile /home/api/.awstats-htpasswd
+        require valid-user
+    </Files>
+    SSLCACertificateFile /etc/ssl/virtualmin/17509926454113449/ssl.ca
+</VirtualHost>
 
-latitude
-29.534630330081562
-longitude
-75.71047962956985
 
-1100
+npx cloudinary-cli sync --cloud-name=devrowfzo --api-key=962457757898636 --api-secret=Floo4TNiQOEjEnQeOg_7Wxfur5U ./Backup Cloudinary
+
+curl https://res.cloudinary.com/<devrowfzo>/<goru-Gallery>/<image-name> --output <local-name>
+
+
+
+https://res.cloudinary.com/devrowfzo/image/upload/v1753266900
+https://fivliaproject.s3.eu-north-1.amazonaws.com
+
+
+
+
+
+[
+  {
+    $match: {
+      image: {
+        $regex: "^https://res.cloudinary.com/devrowfzo/image/upload/"
+      }
+    }
+  },
+  {
+    $set: {
+      image: {
+        $concat: [
+          "https://fivliaproject.s3.eu-north-1.amazonaws.com/",
+          {
+            $let: {
+              vars: {
+                idx: {
+                  $indexOfBytes: ["$image", "/v"]
+                }
+              },
+              in: {
+                $substrBytes: [
+                  "$image",
+                  { $add: ["$$idx", 12] }, // skip "/v##########/"
+                  { $subtract: [{ $strLenBytes: "$image" }, { $add: ["$$idx", 12] }] }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    $merge: {
+      into: "intro", // change if your collection is different
+      whenMatched: "merge",
+      whenNotMatched: "discard"
+    }
+  }
+]

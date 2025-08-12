@@ -149,7 +149,9 @@ console.log('zone',zoneObjs);
     //
     // 6️⃣ Image upload
     //
-    const image = req.files?.image?.[0]?.path || '';
+       const rawImagePath = req.files?.image?.[0]?.key || "";
+    const image = rawImagePath ? `/${rawImagePath}` : "";
+
 
     //
     // 7️⃣ Find matching products
@@ -270,7 +272,9 @@ exports.storeEdit = async (req, res) => {
     }
 
     // ✅ Image
-    const image = req.files?.image?.[0]?.path;
+       const rawImagePath = req.files?.image?.[0]?.key || "";
+    const image = rawImagePath ? `/${rawImagePath}` : "";
+
     if (image) updateObj.image = image;
 
     // ✅ Perform update

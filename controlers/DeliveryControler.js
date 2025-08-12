@@ -1,7 +1,9 @@
-const { calculateDeliveryTime, reverseGeocode,getStoresWithinRadius } = require('../config/google');
+const { calculateDeliveryTime, reverseGeocode, getStoresWithinRadius } = require('../config/google');
 const Store = require('../modals/store');
+const {SettingAdmin} = require('../modals/setting')
 const User = require('../modals/User');
 const { ZoneData } = require('../modals/cityZone');
+const { getDistance } = require('../config/Ola'); // Add Ola import
 
 function addFiveMinutes(durationText) {
   const match = durationText.match(/(\d+)\s*min/); // Extract number
@@ -13,9 +15,7 @@ function addFiveMinutes(durationText) {
   return durationText; // fallback in case format is unexpected
 }
 
-
-
-exports.getDeliveryEstimate = async (req, res) => {
+const getDeliveryEstimate = async (req, res) => {
   try {
     const { id } = req.user;
     if (!id) return res.status(200).json({ status: false, message: "Missing user ID" });
@@ -28,91 +28,97 @@ exports.getDeliveryEstimate = async (req, res) => {
       return res.status(200).json({ status: false, message: "User location not set" });
     }
 
-    // let { city, zone } = user.location;
+    const { zoneAvailable, matchedStores } = await getStoresWithinRadius(currentLat, currentLong);
 
-    // 🧠 Always run reverseGeocode to compare city/zone
-    // const geoInfo = await reverseGeocode(currentLat, currentLong);
+    if (!zoneAvailable) {
+      return res.json({ status: false, message: "Service zone not available" });
+    }
 
-    // if (!geoInfo?.city || !geoInfo?.zone) {
-    //   return res.status(200).json({ status: false, message: "Could not determine user's zone" });
-    // }
+    // Get admin settings for Map_Api
+    const settings = await SettingAdmin.findOne().lean();
+    const mapApiArray = settings?.Map_Api || [];
+    const mapApi = mapApiArray[0] || {};
 
-    // const newCity = geoInfo.city;
-    // const newZone = geoInfo.zone;
+    const googleApi = mapApi?.google || {};
+    const appleApi = mapApi?.apple || {};
+    const olaApi = mapApi?.ola || {};
 
-    // console.log(newCity,newZone);
-    
-    // const cityChanged = !city || city.toLowerCase() !== newCity.toLowerCase();
-    // const zoneChanged = !zone || zone.toLowerCase() !== newZone.toLowerCase();
+    const results = await Promise.all(
+      matchedStores.map(async (store) => {
+        if (!store.Latitude || !store.Longitude) return null;
 
-    // ⚠️ If city/zone changed, update in DB
-    // if (cityChanged || zoneChanged) {
-    //   user.location.city = newCity;
-    //   user.location.zone = newZone;
-    //   await user.save();
-    //   city = newCity;
-    //   zone = newZone;
-    // }
+        let result = null;
 
-    // 🚀 Now use city and zone
-    // const userZoneDoc = await ZoneData.findOne({ city });
-    // if (!userZoneDoc)
-    //   return res.json({ status: false, message: "Sorry, we are not available in your city yet." });
+        // ✅ Use ONLY the API that admin has enabled
+        if (googleApi.status && googleApi.api_key) {
+          // Use Google API only
+          try {
+            result = await calculateDeliveryTime(
+              parseFloat(store.Latitude),
+              parseFloat(store.Longitude),
+              currentLat,
+              currentLong,
+              googleApi.api_key
+            );
+            if (result) result.source = 'google';
+          } catch (err) {
+            console.log('Google API failed:', err.message);
+            return null; // No fallback, just return null
+          }
+        } else if (olaApi.status && olaApi.api_key) {
+          try {
+            
+            const olaResult = await getDistance(
+              { lat: parseFloat(store.Latitude), lng: parseFloat(store.Longitude) },
+              { lat: currentLat, lng: currentLong },
+              olaApi.api_key
+            );
 
-    // const matchedZone = userZoneDoc.zones.find(z =>
-    //   z.address.toLowerCase().includes(zone.toLowerCase())
-    // );
-    // console.log(matchedZone);
-    
+            if (olaResult.status === 'OK') {
+              result = {
+                source: 'ola',
+                distanceText: olaResult.distance.text,
+                durationText: olaResult.duration.text,
+                trafficDurationText: olaResult.duration.text,
+                distanceValue: olaResult.distance.value,
+                durationValue: olaResult.duration.value,
+                trafficDurationValue: olaResult.duration.value
+              };
+            }
+          } catch (err) {
+            console.error('Ola API failed:', err.message);
+            return null; // No fallback, just return null
+          }
+        } else if (appleApi.status && appleApi.api_key) {
+          // Use Apple API only (when you implement it)
+          console.log('Apple API not implemented yet');
+          return null;
+        }
 
-    // if (!matchedZone)
-    //   return res.json({ status: false, message: "Sorry, we are not available in your zone yet." });
-// console.log(city)
-    // const stores = await Store.find({ "city.name": city });
-    // console.log(stores);
+        if (!result) return null;
 
-    // if (!stores.length)
-    //   return res.json({ status: false, message: "Sorry, no stores available in your zone." });
-
-  const { zoneAvailable, matchedStores } = await getStoresWithinRadius(currentLat, currentLong);
-
-if (!zoneAvailable) {
-  return res.json({ status: false, message: "Service zone not available" });
-}
-
-const results = await Promise.all(
-  matchedStores.map(async (store) => {
-    if (!store.Latitude || !store.Longitude) return null;
-
-    const result = await calculateDeliveryTime(
-      parseFloat(store.Latitude),
-      parseFloat(store.Longitude),
-      currentLat,
-      currentLong
+        return {
+          storeId: store._id,
+          storeName: store.storeName,
+          city: store.city?.name || null,
+          distance: result.distanceText,
+          duration: addFiveMinutes(result.trafficDurationText),
+          raw: result,
+        };
+      })
     );
 
-    if (!result) return null;
+    const filtered = results.filter(Boolean);
+    if (filtered.length === 0) {
+      return res.json({ status: false, filtered });
+    }
 
-    return {
-      storeId: store._id,
-      storeName: store.storeName,
-      city: store.city?.name || null,
-      distance: result.distanceText,
-      duration: addFiveMinutes(result.trafficDurationText),
-      raw: result,
-    };
-  })
-);
-
-const filtered = results.filter(Boolean);
-if (filtered.length === 0) {
-  return res.json({ status: false, filtered });
-}
-
-res.json({ status: true, filtered });
+    res.json({ status: true, filtered });
 
   } catch (err) {
     console.error("💥 Delivery Error:", err);
     res.status(500).json({ status: false, message: "Server error", error: err.message });
   }
 };
+
+module.exports = { addFiveMinutes,getDeliveryEstimate }; 

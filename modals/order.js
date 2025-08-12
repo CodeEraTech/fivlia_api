@@ -15,8 +15,9 @@ items: [
  storeId:{type:mongoose.Schema.Types.ObjectId,ref:'Store'},
  orderStatus:{type:String,default:'Pending'},
  platformFee:Number,
+ invoiceUrl: { type: String },
  transactionId:String,
- driver:{driverId:String,name:String}
+ driver:{driverId:String,name:String,mobileNumber:String}
 },{timestamps:true});
 
 // models/TempOrder.js

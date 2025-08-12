@@ -8,6 +8,7 @@ const {CityData, ZoneData } = require('../modals/cityZone');
 const Stock = require("../modals/StoreStock");
 const {SettingAdmin} = require('../modals/setting')
 const { getDistance } = require('../config/Ola'); // Add Ola import
+const page = require('../modals/pages')
 
 exports.forwebbestselling = async (req, res) => {
   try {
@@ -638,3 +639,48 @@ exports.getDeliveryEstimateForWebsite = async (req, res) => {
     res.status(500).json({ status: false, message: "Server error", error: err.message });
   }
 };
+
+exports.addPage = async (req,res) => {
+  try {
+    const {pageTitle,pageSlug,pageContent}=req.body
+    const addPage = await page.create({pageTitle,pageSlug,pageContent})
+    return res.status(200).json({message: "Page Created",addPage})
+  } catch (error) {
+    console.error("Server Error:", error);
+    return res.status(500).json({ message: "Server error", error: error.message }); 
+  }
+}
+
+exports.editPage = async (req,res) => {
+  try {
+    const {id} = req.params
+    const {pageTitle,pageSlug,pageContent}=req.body
+    const editPage = await page.findByIdAndUpdate(id,{pageTitle,pageSlug,pageContent},{ new: true })
+    return res.status(200).json({message: "Page edited",editPage})
+  } catch (error) {
+    console.error("Server Error:", error);
+    return res.status(500).json({ message: "Server error", error: error.message }); 
+  }
+}
+
+exports.getPage = async (req,res) => {
+  try {
+    const {id} = req.query
+    const getPage = await page.find(id)
+    return res.status(200).json({message: "Pages",getPage})
+  } catch (error) {
+    console.error("Server Error:", error);
+    return res.status(500).json({ message: "Server error", error: error.message }); 
+  }
+}
+
+exports.deletePage = async (req,res) => {
+  try {
+    const {id} = req.params
+    const deletePage = await page.findByIdAndDelete(id)
+    return res.status(200).json({message: "Page delete",deletePage})
+  } catch (error) {
+    console.error("Server Error:", error);
+    return res.status(500).json({ message: "Server error", error: error.message }); 
+  }
+}

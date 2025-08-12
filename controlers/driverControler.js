@@ -141,7 +141,7 @@ exports.driverOrderStatus = async (req, res) => {
         { orderStatus },
         { new: true }
       );
-await
+
       await OtpModel.deleteOne({ _id: otpRecord._id });
       await Assign.deleteOne({ orderId: orderId ,orderStatus:'Accepted'});
       generateAndSendInvoice(orderId);

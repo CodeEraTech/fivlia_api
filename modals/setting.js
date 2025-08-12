@@ -19,11 +19,12 @@ Description:String,
 Delivery_Charges:Number,
 DeliveryStatus:String,
 Auth:[{firebase:{status:Boolean},whatsApp:{appKey:String,authKey:String,status:Boolean}}],
-PaymentGateways:{RazorPayKey:{test:String,live:String,status:Boolean},PhonePe:{test:String,live:String,status:Boolean}},
+PaymentGateways:{RazorPayKey:{test:String,live:String,secretKey:String,status:Boolean},PhonePe:{test:String,live:String,secretKey:String,status:Boolean}},
 PaymentGatewayStatus:Boolean,
 Map_Api:[{google:{api_key:String,status:Boolean},apple:{api_key:String,status:Boolean}, ola:{api_key:String,status:Boolean}}],
 minPrice:Number,
-maxPrice:Number
+maxPrice:Number,
+imageLink:String
 });
 
 module.exports ={

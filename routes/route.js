@@ -3,7 +3,7 @@ const upload = require('../midllerware/multer');
 const router = express.Router()
 const verifyToken = require('../midllerware/authToken');
 //abc
-const {forwebbestselling,forwebgetProduct,forwebgetFeatureProduct,forwebsearchProduct,forwebgetRelatedProducts,forwebgetBanner,getDeliveryEstimateForWebsite} = require('../controlers/websiteapicontroler')
+const {forwebbestselling,forwebgetProduct,forwebgetFeatureProduct,forwebsearchProduct,forwebgetRelatedProducts,forwebgetBanner,getDeliveryEstimateForWebsite,addPage,editPage,getPage,deletePage} = require('../controlers/websiteapicontroler')
 
 const {driverLogin,acceptOrder,driverOrderStatus,acceptedOrder,activeStatus,driverWallet,transactionList,cancelOrders,getDriverDetail,completedOrders,editProfile,deleteDriver} = require('../controlers/driverControler')
 
@@ -63,6 +63,7 @@ router.post('/location',verifyToken, updateLocation)
 router.post('/notification',upload, notification)
 router.post('/driverLogin',driverLogin)
 router.post('/activeStatus',activeStatus)
+router.post('/addPage',addPage)
 
 
 router.get('/getSmsType',getSmsType)
@@ -96,7 +97,7 @@ router.get('/website/featureProduct', forwebgetFeatureProduct)
 router.get('/website/searchProduct', forwebsearchProduct)
 router.get('/website/relatedProducts', forwebgetRelatedProducts)
 router.get('/website/forwebgetBanner', forwebgetBanner)
-
+router.get('/getPage', getPage)
 
 router.get('/completedOrders/:mobileNumber', completedOrders)
 router.get('/getDriverDetail/:id', getDriverDetail)
@@ -158,7 +159,8 @@ router.delete('/deleteAttribute/:id',deleteAttribute)
 router.delete('/deleteAccount',verifyToken,deleteAccount)
 router.delete('/deleteDriver/:id',deleteDriver)
 router.put('/acceptOrder', acceptOrder)
-
+router.delete('/deletePage/:id',deletePage)
+router.put('/editPage/:id',editPage)
 
 router.get('/zones', (req, res) => {
   res.json(cityZone);

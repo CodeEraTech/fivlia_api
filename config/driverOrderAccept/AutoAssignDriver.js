@@ -19,16 +19,22 @@ const autoAssignDriver = async (orderId) => {
     const busyAssignments = await Assign.find({ orderStatus: 'Accepted' }).select('driverId');
     const busyDriverIds = busyAssignments.map(a => String(a.driverId));
 
+    const rejectedAssignmentsForOrder = await Assign.find({
+    orderStatus: 'Rejected',
+    orderId: order.orderId
+    }).select('driverId');
+
+    const rejectedDriverIdsForOrder = rejectedAssignmentsForOrder.map(a => String(a.driverId));
+
     const availableDrivers = [];
 
     for (let d of drivers) {
       if (busyDriverIds.includes(String(d._id))) continue;
-
+      if (rejectedDriverIdsForOrder.includes(String(d._id))) continue;
       const driverDocRef = db.collection('updates').doc(String(d._id));
       const driverSnapshot = await driverDocRef.get();
       if (!driverSnapshot.exists) {
-  console.log(`⚠️ No Firestore update data found for driver ID: ${d._id}`);
-  continue; // skip this driver
+  continue;
 }
       const driverData = driverSnapshot.data();
 console.log('driverData',driverData)

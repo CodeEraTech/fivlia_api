@@ -12,11 +12,11 @@ const assignWithSocketLoop = async (order, drivers) => {
     if (orderAssigned) return;
 
     if (index >= drivers.length) {
-      console.log(`No driver accepted order ${order.orderId}. Retrying in 1 minute...`);
+      console.log(`No driver accepted order ${order.orderId}. Retrying in 10 Seconds...`);
       setTimeout(() => {
       const autoAssignDriver = require('./AutoAssignDriver');
       autoAssignDriver(order._id);
-      }, 1000);
+      }, 10000);
       return;
     }
 

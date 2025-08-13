@@ -1,18 +1,18 @@
 const Products = require('../modals/Product');
 const Filters = require('../modals/filter')
-const { getStoresWithinRadius,getBannersWithinRadius,calculateDeliveryTime, reverseGeocode } = require('../config/google');
-const {addFiveMinutes} = require('../controlers/DeliveryControler')
+const { getStoresWithinRadius, getBannersWithinRadius, calculateDeliveryTime, reverseGeocode } = require('../config/google');
+const { addFiveMinutes } = require('../controlers/DeliveryControler')
 const User = require('../modals/User')
 const Category = require('../modals/category');
-const {CityData, ZoneData } = require('../modals/cityZone');
+const { CityData, ZoneData } = require('../modals/cityZone');
 const Stock = require("../modals/StoreStock");
-const {SettingAdmin} = require('../modals/setting')
+const { SettingAdmin } = require('../modals/setting')
 const { getDistance } = require('../config/Ola'); // Add Ola import
 const page = require('../modals/pages')
 
 exports.forwebbestselling = async (req, res) => {
   try {
- 
+
     const { lat, lng } = req.query;
 
     const userLat = lat;
@@ -36,7 +36,7 @@ exports.forwebbestselling = async (req, res) => {
         }
       }
     }
-console.log('stores',stores)
+    console.log('stores', stores)
     const allowedStores = Array.isArray(stores?.matchedStores) ? stores.matchedStores : [];
 
     if (!allowedStores.length) {
@@ -68,16 +68,16 @@ console.log('stores',stores)
     const allowedStoreIds = allowedStores.map(s => s._id.toString());
 
     const stockDocs = await Stock.find({ storeId: { $in: allowedStoreIds } }).lean();
-  const stockMap = {};
-const stockDetailMap = {}; // 👈 to store full item (price, mrp etc.)
+    const stockMap = {};
+    const stockDetailMap = {}; // 👈 to store full item (price, mrp etc.)
 
-for (const stockDoc of stockDocs) {
-  for (const item of stockDoc.stock || []) {
-    const key = `${item.productId}_${item.variantId}`;
-    stockMap[key] = item.quantity;
-    stockDetailMap[key] = item; // 👈 Store full stock item
-  }
-}
+    for (const stockDoc of stockDocs) {
+      for (const item of stockDoc.stock || []) {
+        const key = `${item.productId}_${item.variantId}`;
+        stockMap[key] = item.quantity;
+        stockDetailMap[key] = item; // 👈 Store full stock item
+      }
+    }
 
     const best = await Products.find({
       $or: [
@@ -88,27 +88,27 @@ for (const stockDoc of stockDocs) {
     }).sort({ purchases: -1 }).limit(10).lean();
 
     // ✅ Map inventory and cart into products
-  for (const product of best) {
-  product.inventory = [];
-  product.inCart = { status: false, qty: 0, variantIds: [] };
+    for (const product of best) {
+      product.inventory = [];
+      product.inCart = { status: false, qty: 0, variantIds: [] };
 
-  if (Array.isArray(product.variants)) {
-    for (const variant of product.variants) {
-   const key = `${product._id}_${variant._id}`;
-const quantity = stockMap[key] || 0;
+      if (Array.isArray(product.variants)) {
+        for (const variant of product.variants) {
+          const key = `${product._id}_${variant._id}`;
+          const quantity = stockMap[key] || 0;
 
-const stockEntry = stockDetailMap[key];
-if (stockEntry?.price != null) {
-  variant.sell_price = stockEntry.price;
-}
-if (stockEntry?.mrp != null) {
-  variant.mrp = stockEntry.mrp;
-}
+          const stockEntry = stockDetailMap[key];
+          if (stockEntry?.price != null) {
+            variant.sell_price = stockEntry.price;
+          }
+          if (stockEntry?.mrp != null) {
+            variant.mrp = stockEntry.mrp;
+          }
 
-product.inventory.push({ variantId: variant._id, quantity });
+          product.inventory.push({ variantId: variant._id, quantity });
+        }
+      }
     }
-  }
-}
 
     return res.status(200).json({
       message: "Success",
@@ -540,7 +540,7 @@ exports.getDeliveryEstimateForWebsite = async (req, res) => {
   try {
     const { lat, lng } = req.query;
 
-    const currentLat =  lat;
+    const currentLat = lat;
     const currentLong = lng;
 
     if (!currentLat || !currentLong) {
@@ -586,7 +586,7 @@ exports.getDeliveryEstimateForWebsite = async (req, res) => {
           }
         } else if (olaApi.status && olaApi.api_key) {
           try {
-            
+
             const olaResult = await getDistance(
               { lat: parseFloat(store.Latitude), lng: parseFloat(store.Longitude) },
               { lat: currentLat, lng: currentLong },
@@ -640,47 +640,66 @@ exports.getDeliveryEstimateForWebsite = async (req, res) => {
   }
 };
 
-exports.addPage = async (req,res) => {
+exports.addPage = async (req, res) => {
   try {
-    const {pageTitle,pageSlug,pageContent}=req.body
-    const addPage = await page.create({pageTitle,pageSlug,pageContent})
-    return res.status(200).json({message: "Page Created",addPage})
+    const { pageTitle, pageSlug, pageContent } = req.body
+    const addPage = await page.create({ pageTitle, pageSlug, pageContent })
+    return res.status(200).json({ message: "Page Created", addPage })
   } catch (error) {
     console.error("Server Error:", error);
-    return res.status(500).json({ message: "Server error", error: error.message }); 
+    return res.status(500).json({ message: "Server error", error: error.message });
   }
 }
 
-exports.editPage = async (req,res) => {
+exports.editPage = async (req, res) => {
   try {
-    const {id} = req.params
-    const {pageTitle,pageSlug,pageContent}=req.body
-    const editPage = await page.findByIdAndUpdate(id,{pageTitle,pageSlug,pageContent},{ new: true })
-    return res.status(200).json({message: "Page edited",editPage})
+    const { id } = req.params
+    const { pageTitle, pageSlug, pageContent } = req.body
+    const editPage = await page.findByIdAndUpdate(id, { pageTitle, pageSlug, pageContent }, { new: true })
+    return res.status(200).json({ message: "Page edited", editPage })
   } catch (error) {
     console.error("Server Error:", error);
-    return res.status(500).json({ message: "Server error", error: error.message }); 
+    return res.status(500).json({ message: "Server error", error: error.message });
   }
 }
 
-exports.getPage = async (req,res) => {
+exports.getPage = async (req, res) => {
   try {
-    const {id} = req.query
+    const { id } = req.query
     const getPage = await page.find(id)
-    return res.status(200).json({message: "Pages",getPage})
+    return res.status(200).json({ message: "Pages", getPage })
   } catch (error) {
     console.error("Server Error:", error);
-    return res.status(500).json({ message: "Server error", error: error.message }); 
+    return res.status(500).json({ message: "Server error", error: error.message });
   }
 }
 
-exports.deletePage = async (req,res) => {
+exports.deletePage = async (req, res) => {
   try {
-    const {id} = req.params
+    const { id } = req.params
     const deletePage = await page.findByIdAndDelete(id)
-    return res.status(200).json({message: "Page delete",deletePage})
+    return res.status(200).json({ message: "Page delete", deletePage })
   } catch (error) {
     console.error("Server Error:", error);
-    return res.status(500).json({ message: "Server error", error: error.message }); 
+    return res.status(500).json({ message: "Server error", error: error.message });
   }
 }
+
+exports.updatePageStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const updatedPage = await page.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true }
+    );
+    if (!updatedPage) {
+      return res.status(404).json({ message: "Page not found" });
+    }
+    return res.status(200).json({ message: "Status updated", updatedPage });
+  } catch (error) {
+    console.error("Error updating status:", error);
+    return res.status(500).json({ message: "Server error", error: error.message });
+  }
+};

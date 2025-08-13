@@ -11,7 +11,7 @@ const Stock = require('../modals/StoreStock')
 const Filters = require('../modals/filter')
 const slugify = require('slugify');
 const { CityData,ZoneData } = require('../modals/cityZone');
-const { error } = require('zod/v4/locales/ar.js');
+
 exports.update = async (req, res) => {
   try {
     const { name, description, subcat } = req.body;

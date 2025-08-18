@@ -351,9 +351,6 @@ exports.verifyOtp = async (req, res) => {
     if (!otpRecord) {
       return res.status(400).json({ message: 'Invalid OTP' });
     }
-    if (otpRecord.expiresAt < Date.now()) {
-      return res.status(400).json({ message: 'OTP expired' });
-    }
     const exist = await User.findOne({mobileNumber})
     if(!exist){
     const newUser = await User.create({mobileNumber});

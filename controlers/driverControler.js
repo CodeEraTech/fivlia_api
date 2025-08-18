@@ -335,7 +335,58 @@ const deleteDriver = await driver.findByIdAndDelete(id)
 return res.status(200).json({message:"Driver Deleted"})
   }
   catch{
-    console.error(error);
+   console.error(error);
    return res.status(500).json({ message: 'Server error', error: error.message});  
   }
 }
+
+exports.withdrawalRequest = async (req, res) => {
+  try {
+    const { driverId, amount } = req.body;
+
+    const driverData = await driver.findById(driverId);
+    if (!driverData) return res.status(404).json({ message: "Driver not found" });
+
+    // Calculate total pending withdrawals
+    const pendingWithdrawals = await Transaction.aggregate([
+      { $match: { driverId: driverData._id, status: "Pending", type: "debit" } },
+      { $group: { _id: null, totalPending: { $sum: "$amount" } } }
+    ]);
+
+    const totalPending = pendingWithdrawals[0]?.totalPending || 0;
+
+    // Check if requested amount + pending exceeds wallet
+    if (amount + totalPending > driverData.wallet) {
+      return res.status(400).json({ message: "Insufficient wallet balance considering pending withdrawals" });
+    }
+
+    // Check if a pending withdrawal already exists
+    let withdrawal = await Transaction.findOne({ driverId: driverData._id, status: "Pending", type: "debit" });
+
+    if (withdrawal) {
+      // Update existing pending request
+      withdrawal.amount += amount;
+      withdrawal.description = `Withdrawal request of ₹${withdrawal.amount} by driver`;
+      await withdrawal.save();
+    } else {
+      // Create new withdrawal request
+      withdrawal = await Transaction.create({
+        driverId: driverData._id,
+        amount,
+        type: "debit",
+        description: `Withdrawal request of ₹${amount} by driver`,
+        status: "Pending"
+      });
+    }
+
+    return res.status(200).json({
+      message: "Withdrawal request submitted successfully",
+      wallet: driverData.wallet,
+      pendingWithdrawal: withdrawal
+    });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error", error: error.message });
+  }
+};

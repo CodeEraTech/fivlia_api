@@ -5,7 +5,8 @@ const transactionSchema = new mongoose.Schema({
   amount: { type: Number},
   orderId:{type:mongoose.Schema.ObjectId,ref:'orders'},
   type:String,
-  description:String
+  description:String,
+  status:String
 },{timestamps:true});
 
 module.exports=mongoose.model('Driver_Transaction',transactionSchema)

@@ -665,14 +665,21 @@ exports.editPage = async (req, res) => {
 
 exports.getPage = async (req, res) => {
   try {
-    const { id } = req.query
-    const getPage = await page.find(id)
-    return res.status(200).json({ message: "Pages", getPage })
+    const { id } = req.query;
+
+    if (id) {
+      getPage = await page.findById(id);
+    } else {
+      getPage = await page.find();
+    }
+
+   return res.status(200).json({ message: "Pages", getPage })
   } catch (error) {
     console.error("Server Error:", error);
     return res.status(500).json({ message: "Server error", error: error.message });
   }
-}
+};
+
 
 exports.deletePage = async (req, res) => {
   try {

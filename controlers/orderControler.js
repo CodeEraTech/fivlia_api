@@ -649,3 +649,37 @@ exports.notification = async (req, res) => {
     return res.status(500).json({ message: "❌ Failed to create notification", error: error.message });
   }
 };
+
+exports.editNotification = async (req,res) => {
+try{
+  const {id} = req.params
+  const {title, description, city} = req.body
+    const rawImagePath = req.files?.image?.[0]?.key || "";
+    const updateData = { title, description, city };
+
+    if (rawImagePath) {
+      updateData.image = `/${rawImagePath}`;
+    }
+    const newNotification = await Notification.findByIdAndUpdate(id,updateData, { new: true });
+
+    return res.status(200).json({
+      message: "✅ Notification updated successfully",
+      notification: newNotification,
+    });
+
+}catch(error){
+  console.error("❌ Notification error:", error.message);
+  return res.status(500).json({ message: "❌ Failed to create notification", error: error.message });
+}
+}
+
+exports.deleteNotification = async (req,res)=>{
+  try{
+  const {id} = req.params
+  const deleteNotification = await Notification.findByIdAndDelete(id);
+  return res.status(200).json({message: "✅ Notification deleted"});
+  }catch(error){
+  console.error("❌ Notification error:", error.message);
+  return res.status(500).json({ message: "❌ Failed to create notification", error: error.message }); 
+  }
+}

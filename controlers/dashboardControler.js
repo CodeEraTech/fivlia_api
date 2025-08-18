@@ -6,6 +6,8 @@ const Category = require("../modals/category");
 const Product = require("../modals/Product");
 const User = require("../modals/User");
 const Driver = require("../modals/driver");
+const admin_transaction = require('../modals/adminTranaction')
+const Transaction = require('../modals/driverModals/transaction')
 
 exports.getDashboardStats = async (req, res) => {
   try {
@@ -200,3 +202,24 @@ exports.walletAdmin = async (req, res) => {
     });
   }
 };
+
+exports.adminTranaction = async (req,res)=>{
+  try{
+const Tranaction =await admin_transaction.find().sort({ createdAt: -1 })
+return res.status(200).json({message:"Tranaction history",Tranaction})
+  }
+  catch(error){
+    console.error("Dashboard error:", error);
+    res.status(500).json({message: "Something went wrong", error: error.message});
+  }
+}
+
+exports.getWithdrawalRequest = async (req,res) => {
+  try {
+    const requests = await Transaction.find({type:'debit'})
+    return res.status(200).json({ message: 'Withdrawal requests', requests});  
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Server error', error: error.message});  
+  }
+}

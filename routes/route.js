@@ -5,9 +5,9 @@ const verifyToken = require('../midllerware/authToken');
 //abc
 const { forwebbestselling, forwebgetProduct, forwebgetFeatureProduct, forwebsearchProduct, forwebgetRelatedProducts, forwebgetBanner, getDeliveryEstimateForWebsite, addPage, editPage, getPage, deletePage, updatePageStatus } = require('../controlers/websiteapicontroler')
 
-const { driverLogin, acceptOrder, driverOrderStatus, acceptedOrder, activeStatus, driverWallet, transactionList, cancelOrders, getDriverDetail, completedOrders, editProfile, deleteDriver } = require('../controlers/driverControler')
+const { driverLogin, acceptOrder, driverOrderStatus, acceptedOrder, activeStatus, driverWallet, transactionList, cancelOrders, getDriverDetail, completedOrders, editProfile, deleteDriver,withdrawalRequest } = require('../controlers/driverControler')
 
-const { getDashboardStats, getStoreDashboardStats, walletAdmin } = require('../controlers/dashboardControler')
+const { getDashboardStats, getStoreDashboardStats, walletAdmin,adminTranaction,getWithdrawalRequest } = require('../controlers/dashboardControler')
 const { getDeliveryEstimate } = require('../controlers/DeliveryControler')
 
 const { createStore, storeLogin, verifyEmail, getStore, addCategoryInStore, removeCategoryInStore, storeEdit } = require('../controlers/storeControler');
@@ -17,7 +17,7 @@ const { users, addUser, updateProfile, Login, signin, deleteAccount, register, v
 
 const { intro, getIntro } = require('../controlers/controlers')
 
-const { placeOrder, getOrders, orderStatus, test, driver, getDriver, editDriver, verifyPayment, getOrderDetails, deliveryStatus, updatedeliveryStatus, getdeliveryStatus, notification, getNotification } = require('../controlers/orderControler')
+const { placeOrder, getOrders, orderStatus, test, driver, getDriver, editDriver, verifyPayment, getOrderDetails, deliveryStatus, updatedeliveryStatus, getdeliveryStatus, notification,editNotification,deleteNotification, getNotification } = require('../controlers/orderControler')
 
 const { addCart, getCart, getDicount, discount, quantity, deleteCart } = require('../controlers/cartControler')
 
@@ -46,13 +46,14 @@ router.post('/verifyPayment', verifyPayment);
 router.post('/filter', filter)
 router.post('/createStore', upload, createStore)
 router.post('/Product/bulk', upload, bulkProductUpload),
-  router.put('/adminSetting', adminSetting)
+ router.put('/adminSetting', adminSetting)
 router.post('/addFilter', addFilter)
 router.post('/address', verifyToken, addAddress);
 router.post('/updateStock/:productId', updateStock);
 router.post('/driver', upload, driver);
 router.post('/deliveryStatus', upload, deliveryStatus);
 router.post('/rating', verifyToken, rating);
+router.post('/withdrawalRequest', withdrawalRequest);
 
 router.post('/addMainCategory', upload, addMainCategory)
 
@@ -60,7 +61,7 @@ router.post('/storeLogin', storeLogin)
 router.post('/discount', discount)
 router.post('/addCity', addCity)
 router.post('/location', verifyToken, updateLocation)
-router.post('/notification', upload, notification)
+router.post('/notification',upload,notification)
 router.post('/driverLogin', driverLogin)
 router.post('/activeStatus', activeStatus)
 router.post('/addPage', addPage)
@@ -68,6 +69,7 @@ router.post('/addPage', addPage)
 
 router.get('/getSmsType', getSmsType)
 router.get('/getDashboardStats', getDashboardStats)
+router.get('/getWithdrawalRequest', getWithdrawalRequest)
 router.get('/acceptedOrder/:mobileNumber', acceptedOrder)
 router.get('/getStoreDashboardStats/:storeId', getStoreDashboardStats)
 router.get('/verify-email', verifyEmail)
@@ -89,6 +91,7 @@ router.get('/getAttributesId/:id', getAttributesId)
 router.get('/getProducts', verifyToken, getProduct)
 router.get('/adminProducts', adminProducts)
 router.get('/walletAdmin', walletAdmin)
+router.get('/adminTranaction', adminTranaction)
 router.get('/getFeatureProduct', verifyToken, getFeatureProduct)
 
 router.get('/website/bestSelling', forwebbestselling)
@@ -162,6 +165,8 @@ router.put('/acceptOrder', acceptOrder)
 router.delete('/deletePage/:id', deletePage)
 router.put('/editPage/:id', editPage)
 router.put('/updatePageStatus/:id',updatePageStatus)
+router.put('/editNotification/:id',upload,editNotification)
+router.delete('/deleteNotification/:id', deleteNotification)
 
 router.get('/zones', (req, res) => {
   res.json(cityZone);

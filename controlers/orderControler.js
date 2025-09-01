@@ -14,6 +14,7 @@ const Notification = require("../modals/Notification");
 const sendNotification = require('../firebase/pushnotification');
 const Store = require('../modals/store');
 const deliveryStatus = require('../modals/deliveryStatus')
+const {getNextOrderId} = require('../config/counter')
 
 const MAX_DISTANCE_METERS = 5000;
 
@@ -22,17 +23,7 @@ exports.placeOrder = async (req, res) => {
     const { cartIds, addressId, storeId,paymentMode} = req.body;
 
 
-    const lastOrder = await Order.findOne().sort({ createdAt: -1 }); // or {_id: -1}
-   
-    let nextOrderId = 'OID001'; // Default if no previous order
-
-if (lastOrder?.orderId?.startsWith('OID')) {
-  const match = lastOrder.orderId.match(/OID(\d+)/);
-  if (match) {
-    const number = parseInt(match[1]) + 1;
-    nextOrderId = `OID${number.toString().padStart(3, '0')}`; // Pads with 0s up to 3 digits
-  }
-}
+   const nextOrderId = await getNextOrderId();
 
     const chargesData = await SettingAdmin.findOne();
     const cartItems = await Cart.find({ _id: { $in: cartIds } });
@@ -95,23 +86,23 @@ for (const item of cartItems) {
       });
 
       for (const item of cartItems) {
-       await stock.updateOne(
+      const dataStock = await stock.updateOne(
          {
            storeId: storeId,
            "stock.productId": item.productId,
-           "stock.varientId": item.varientId
+           "stock.variantId": item.varientId
          },
          {
            $inc: { "stock.$.quantity": -item.quantity }
          }
        );
+       console.log('dataStock',dataStock)
       await Products.updateOne(
           { _id: item.productId },
           { $inc: { purchases: item.quantity } }
         );
+           await Cart.deleteMany({ _id: { $in: cartIds } });
       }
-        await Cart.deleteMany({ _id: { $in: cartIds } });
-      return res.status(200).json({ message: "Order placed successfully",  order: newOrder,});
  const storeBefore = await Store.findById(storeId).lean();
 const storeData = await Store.findByIdAndUpdate(
   storeId,
@@ -146,7 +137,7 @@ await store_transaction.create({
      storeId:storeId,
      description:'Item Price Added'
 })
-
+return res.status(200).json({ message: "Order placed successfully",  order: newOrder,});
     } else {
       const tempOrder = await TempOrder.create({
         userId,
@@ -209,7 +200,7 @@ exports.verifyPayment = async (req, res) => {
           {
             storeId: tempOrder.storeId,
             "stock.productId": item.productId,
-            "stock.varientId": item.varientId,
+            "stock.variantId": item.varientId,
           },
           {
             $inc: { "stock.$.quantity": -item.quantity },

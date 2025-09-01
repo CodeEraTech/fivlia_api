@@ -12,10 +12,10 @@ const request = require('request'); // for msggo.in
 // Generate PDF Thermal Invoice and upload to AWS
 exports.generateThermalInvoice = async (orderId) => {
   try {
-    const order = await Order.findOne({ orderId }).populate('userId').populate('items.productId');
+    const order = await Order.findOne({ orderId }).populate('addressId').populate('items.productId');
     if (!order) throw new Error('Order not found');
 
-    const user = order.userId;
+    const user = order.addressId;
     const store = await require('../modals/store').findById(order.storeId);
     
     // Calculate totals
@@ -90,8 +90,8 @@ async function generatePDFInvoice(order, user, store, subtotal, gstTotal) {
       // Store Info
       doc.fontSize(8).font('Helvetica');
       if (store) {
-        doc.text(`Store: ${store.storeName || 'FIVLIA'}`);
-        doc.text(`Address: ${store.address || 'Your Store Address'}`);
+        doc.text(`Sold By: ${store.storeName || 'FIVLIA'}`);
+        doc.text(`Address: ${store.address || 'NA'}`);
       } else {
         doc.text('Store: FIVLIA');
         doc.text('Address: Your Store Address');
@@ -109,8 +109,8 @@ async function generatePDFInvoice(order, user, store, subtotal, gstTotal) {
       // Customer Info
       doc.fontSize(9).font('Helvetica-Bold').text('CUSTOMER DETAILS:');
       doc.fontSize(8).font('Helvetica');
-      doc.text(`Name: ${user.name || 'N/A'}`);
-      doc.text(`Mobile: ${user.mobileNumber || 'N/A'}`);
+      doc.text(`Name: ${user.fullName || 'N/A'}`);
+      doc.text(`Mobile: ${user.mobileNumber || user.alternateNumber || 'N/A'}`);
       doc.text(`Email: ${user.email || 'N/A'}`);
       doc.moveDown(0.5);
 
@@ -141,7 +141,7 @@ async function generatePDFInvoice(order, user, store, subtotal, gstTotal) {
         doc.text(itemLine);
         
         if (item.gst) {
-          doc.fontSize(6).text(`  GST: ${item.gst}%`);
+          doc.fontSize(6).text(`  GST: ${item.gst}`);
         }
         doc.moveDown(0.2);
       });
@@ -273,12 +273,12 @@ exports.generateAndSendThermalInvoice = async (orderId) => {
 
 exports.generatePDFBuffer = async (orderId) => {
   const order = await Order.findOne({ orderId })
-    .populate('userId')
+    .populate('addressId')
     .populate('items.productId');
 
   if (!order) throw new Error('Order not found');
 
-  const user = order.userId;
+  const user = order.addressId;
   const store = await require('../modals/store').findById(order.storeId);
 
   const subtotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);

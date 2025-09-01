@@ -1,6 +1,8 @@
 const Products = require('../../modals/sellerModals/sellerProduct')
 const seller = require('../../modals/store')
+const mongoose = require('mongoose');
 const axios = require('axios');
+const Product = require('../../modals/Product');
 
 exports.addSellerProduct=async(req,res) => {
     try{
@@ -101,3 +103,42 @@ exports.getDetailsGst = async (req, res) => {
     });
   }
 };
+
+exports.getCategoryProduct = async (req, res) => {
+  try {
+    let { categories, subCategories, subsubCategories } = req.query;
+
+    // Split IDs from query params
+    categories = categories ? categories.split('%') : [];
+    subCategories = subCategories ? subCategories.split('%') : [];
+    subsubCategories = subsubCategories ? subsubCategories.split('%') : [];
+
+    // Helper to convert to ObjectIds
+    const toObjectIdArray = (ids) =>
+      ids
+        .filter((id) => mongoose.Types.ObjectId.isValid(id))
+        .map((id) => new mongoose.Types.ObjectId(id));
+
+    const categoryIds = toObjectIdArray(categories);
+    const subCategoryIds = toObjectIdArray(subCategories);
+    const subsubCategoryIds = toObjectIdArray(subsubCategories);
+
+    // Build query
+    const query = {
+      $or: [
+        { "category._id": { $in: categoryIds } },
+        { "subCategory._id": { $in: subCategoryIds } },
+        { "subSubCategory._id": { $in: subsubCategoryIds } }
+      ]
+    };
+
+    const products = await Product.find(query).lean();
+
+    res.status(200).json({ message: 'Products fetched successfully', products });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "An error occurred", error: error.message });
+  }
+};
+
+

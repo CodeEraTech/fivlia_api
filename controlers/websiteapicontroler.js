@@ -4,6 +4,7 @@ const { getStoresWithinRadius, getBannersWithinRadius, calculateDeliveryTime, re
 const { addFiveMinutes } = require('../controlers/DeliveryControler')
 const User = require('../modals/User')
 const Category = require('../modals/category');
+const contactUs = require('../modals/contactUs');
 const { CityData, ZoneData } = require('../modals/cityZone');
 const Stock = require("../modals/StoreStock");
 const { SettingAdmin } = require('../modals/setting')
@@ -128,7 +129,8 @@ exports.forwebbestselling = async (req, res) => {
 // Website: Get Product (no token, uses lat/lng from query)
 exports.forwebgetProduct = async (req, res) => {
   try {
-    const { id, lat, lng } = req.query;
+    const { id, lat, lng,page=1,limit } = req.query;
+    const skip = (page-1)*limit
     const userLat = lat;
     const userLng = lng;
 
@@ -195,10 +197,12 @@ exports.forwebgetProduct = async (req, res) => {
         ]
       };
     }
-    const [stockDocs, products] = await Promise.all([
-      Stock.find({ storeId: { $in: allowedStoreIds } }).lean(),
-      Products.find(productQuery).lean()
-    ]);
+    const [stockDocs, products, totalProducts] = await Promise.all([
+         Stock.find({ storeId: { $in: allowedStoreIds } }).lean(),
+         Products.find(productQuery).skip(skip).limit(Number(limit)).lean(),
+         Products.countDocuments(productQuery)
+       ]);
+    
     const stockMap = {};
     const stockDetailMap = {};
     stockDocs.forEach(doc => {
@@ -233,7 +237,10 @@ exports.forwebgetProduct = async (req, res) => {
       message: "Products fetched successfully.",
       filter,
       products,
-      count: products.length
+      count: totalProducts,
+      page: Number(page),
+      limit: Number(limit) || "",
+      totalPages: Math.ceil(totalProducts / limit) || ""
     });
   } catch (error) {
     console.error("❌ forwebgetProduct error:", error);
@@ -402,78 +409,110 @@ exports.forwebsearchProduct = async (req, res) => {
 exports.forwebgetRelatedProducts = async (req, res) => {
   try {
     const { productId, lat, lng } = req.query;
+
     if (!productId) {
       return res.status(400).json({ message: "Product ID is required" });
     }
-    // Fetch base data
-    const [product, allProducts] = await Promise.all([
+
+    // --- Fetch base product & stores within radius in parallel
+    const [product, stores] = await Promise.all([
       Products.findById(productId).lean(),
-      Products.find({ _id: { $ne: productId } }).lean()
+      getStoresWithinRadius(lat, lng),
     ]);
+
     if (!product) {
       return res.status(404).json({ message: "Product not found" });
     }
-    // 🔍 Score related products by relevance
-    const scoredProducts = allProducts.map(p => {
-      let score = 0;
-      // ✅ Category Match (compare by _id inside array of objects)
-      const productCatIds = (product.category || []).map(c => String(c._id));
-      const pCatIds = (p.category || []).map(c => String(c._id));
-      if (pCatIds.some(catId => productCatIds.includes(catId))) {
-        score += 1;
-      }
-      // ✅ Brand Match
-      if (
-        product.brand_Name?._id &&
-        p.brand_Name?._id &&
-        String(product.brand_Name._id) === String(p.brand_Name._id)
-      ) {
-        score += 1;
-      }
-      // ✅ Type Match (assuming it's array of strings)
-      const matchedTypes = (p.type || []).filter(t => (product.type || []).includes(t));
-      if (matchedTypes.length > 0) {
-        score += 2;
-      }
-      return { ...p, relevanceScore: score };
-    });
-    // 📊 Sort and limit to top 10
-    const relatedProducts = scoredProducts
-      .filter(p => p.relevanceScore > 0)
-      .sort((a, b) => b.relevanceScore - a.relevanceScore)
-      .slice(0, 10);
-    // Add inventory info (from nearby stores)
-    const [stores, stockDocs] = await Promise.all([
-      getStoresWithinRadius(lat, lng),
-      Stock.find().lean()
-    ]);
+
+    // --- Build allowed store IDs
     const allowedStores = Array.isArray(stores?.matchedStores) ? stores.matchedStores : [];
-    const allowedStoreIds = allowedStores.map(s => s._id.toString());
+    const allowedStoreIds = allowedStores.map((s) => s._id.toString());
+
+    // --- Get stock only for those stores
+    const stockDocs = await Stock.find({ storeId: { $in: allowedStoreIds } }).lean();
     const stockMap = {};
     for (const doc of stockDocs) {
-      if (!allowedStoreIds.includes(doc.storeId.toString())) continue;
       for (const item of doc.stock || []) {
         const key = `${item.productId}_${item.variantId}`;
-        stockMap[key] = item.quantity;
+        stockMap[key] = {
+          quantity: item.quantity || 0,
+          price: item.price ?? null,
+          mrp: item.mrp ?? null,
+        };
       }
     }
-    for (const product of relatedProducts) {
-      product.inventory = [];
-      for (const variant of product.variants || []) {
-        const key = `${product._id}_${variant._id}`;
-        const quantity = stockMap[key] || 0;
-        product.inventory.push({ variantId: variant._id, quantity });
+
+    // --- Build category filter
+    const productCatIds = (product.category || []).map((c) => String(c._id));
+
+    // --- Get related products by category match
+    const candidates = await Products.find({
+      _id: { $ne: productId },
+      "category._id": { $in: productCatIds },
+    })
+      .hint("category._id_1") // Use index for fast lookup
+      .limit(20) // fetch more, filter later
+      .lean();
+
+    // --- Score & filter candidates
+    const relatedProducts = candidates
+      .map((p) => {
+        let score = 0;
+
+        // Category match
+        const pCatIds = (p.category || []).map((c) => String(c._id));
+        if (pCatIds.some((id) => productCatIds.includes(id))) score += 1;
+
+        // Brand match
+        if (
+          product.brand_Name?._id &&
+          p.brand_Name?._id &&
+          String(product.brand_Name._id) === String(p.brand_Name._id)
+        ) {
+          score += 1;
+        }
+
+        // Type match
+        const matchedTypes = (p.type || []).filter((t) => (product.type || []).includes(t));
+        if (matchedTypes.length > 0) score += 2;
+
+        return { ...p, relevanceScore: score };
+      })
+      .filter((p) => p.relevanceScore > 0)
+      .sort((a, b) => b.relevanceScore - a.relevanceScore)
+      .slice(0, 10);
+
+    // --- Attach inventory info
+    for (const relProduct of relatedProducts) {
+      relProduct.inventory = [];
+
+      if (Array.isArray(relProduct.variants)) {
+        for (const variant of relProduct.variants) {
+          const key = `${relProduct._id}_${variant._id}`;
+          const stockEntry = stockMap[key];
+
+          // Update variant pricing if stock info available
+          if (stockEntry?.price != null) variant.sell_price = stockEntry.price;
+          if (stockEntry?.mrp != null) variant.mrp = stockEntry.mrp;
+
+          relProduct.inventory.push({
+            variantId: variant._id,
+            quantity: stockEntry?.quantity || 0,
+          });
+        }
       }
     }
+
     return res.status(200).json({
       message: "Related Product",
-      relatedProducts
+      relatedProducts,
     });
   } catch (err) {
-    console.error("❌ Error fetching related products:", err);
+    console.error("❌ Error fetching related products (web):", err);
     return res.status(500).json({ message: "Server error", error: err.message });
   }
 };
+
 
 // Website: Get Banner (no token, uses lat/lng from query)
 exports.forwebgetBanner = async (req, res) => {
@@ -710,3 +749,14 @@ exports.updatePageStatus = async (req, res) => {
     return res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+exports.contactUs = async (req, res) => {
+  try{
+   const {firstName,lastName,email,phone,message}=req.body
+   const info = await contactUs.create({firstName,lastName,email,phone,message})
+   return res.status(200).json({message:"Request Submitted",info})
+  }catch(error){
+    console.error("Error updating status:", error);
+    return res.status(500).json({ message: "Server error", error: error.message });
+  }
+}

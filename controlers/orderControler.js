@@ -9,6 +9,7 @@ const {SettingAdmin} = require('../modals/setting')
 const Address = require('../modals/Address')
 const stock = require('../modals/StoreStock')
 const admin_transaction = require('../modals/adminTranaction')
+const store_transaction = require('../modals/storeTransaction')
 const Notification = require("../modals/Notification");
 const sendNotification = require('../firebase/pushnotification');
 const Store = require('../modals/store');
@@ -21,9 +22,9 @@ exports.placeOrder = async (req, res) => {
     const { cartIds, addressId, storeId,paymentMode} = req.body;
 
 
- const lastOrder = await Order.findOne().sort({ createdAt: -1 }); // or {_id: -1}
-
-let nextOrderId = 'OID001'; // Default if no previous order
+    const lastOrder = await Order.findOne().sort({ createdAt: -1 }); // or {_id: -1}
+   
+    let nextOrderId = 'OID001'; // Default if no previous order
 
 if (lastOrder?.orderId?.startsWith('OID')) {
   const match = lastOrder.orderId.match(/OID(\d+)/);
@@ -32,7 +33,6 @@ if (lastOrder?.orderId?.startsWith('OID')) {
     nextOrderId = `OID${number.toString().padStart(3, '0')}`; // Pads with 0s up to 3 digits
   }
 }
-
 
     const chargesData = await SettingAdmin.findOne();
     const cartItems = await Cart.find({ _id: { $in: cartIds } });
@@ -49,7 +49,7 @@ const platformFeeAmount = itemsTotal * platformFeeRate;
 
     const totalPrice = itemsTotal + chargesData.Delivery_Charges + platformFeeAmount;
 const paymentOption = cartItems[0].paymentOption;
-console.log('paymentOption',paymentOption)
+
 if (paymentMode === true && paymentOption !== true) {
   return res.status(401).json({ message: "Cash On Delivery is not available in your zone" });
 }
@@ -60,7 +60,7 @@ if (paymentMode === true && paymentOption !== true) {
 const orderItems = [];
 
 for (const item of cartItems) {
-  const product = await Products.findById(item.productId).lean();
+  const product = await Products.findById(item.productId)
   if (!product) {
     console.error(`Product not found: ${item.productId}`);
     return res.status(400).json({
@@ -95,18 +95,25 @@ for (const item of cartItems) {
       });
 
       for (const item of cartItems) {
-  await stock.updateOne(
-    {
-      storeId: storeId,
-      "stock.productId": item.productId,
-      "stock.varientId": item.varientId
-    },
-    {
-      $inc: { "stock.$.quantity": -item.quantity }
-    }
-  );
- }
-await Store.findByIdAndUpdate(
+       await stock.updateOne(
+         {
+           storeId: storeId,
+           "stock.productId": item.productId,
+           "stock.varientId": item.varientId
+         },
+         {
+           $inc: { "stock.$.quantity": -item.quantity }
+         }
+       );
+      await Products.updateOne(
+          { _id: item.productId },
+          { $inc: { purchases: item.quantity } }
+        );
+      }
+        await Cart.deleteMany({ _id: { $in: cartIds } });
+      return res.status(200).json({ message: "Order placed successfully",  order: newOrder,});
+ const storeBefore = await Store.findById(storeId).lean();
+const storeData = await Store.findByIdAndUpdate(
   storeId,
   { $inc: { wallet: totalPrice } },
   { new: true }
@@ -118,10 +125,9 @@ const updatedWallet = await admin_transaction.findByIdAndUpdate(
   { $inc: { wallet: totalPrice } },
   { new: true }, 
 );
+// console.log('wallet',updatedWallet)
 
-console.log('wallet',updatedWallet)
-
-console.log('lastAmount',lastAmount)
+// console.log('lastAmount',lastAmount)
 
 await admin_transaction.create({
      currentAmount:updatedWallet.wallet,
@@ -129,11 +135,17 @@ await admin_transaction.create({
      type:'Credit',
      amount: totalPrice,
      orderId:nextOrderId,
-     description:'Item Price Added',
+     description:'Item Price Added'
 })
-
-      await Cart.deleteMany({ _id: { $in: cartIds } });
-      return res.status(200).json({ message: "Order placed successfully",  order: newOrder,});
+await store_transaction.create({
+     currentAmount:storeData.wallet,
+     lastAmount:storeBefore.wallet,
+     type:'Credit',
+     amount: totalPrice,
+     orderId:nextOrderId,
+     storeId:storeId,
+     description:'Item Price Added'
+})
 
     } else {
       const tempOrder = await TempOrder.create({
@@ -203,34 +215,52 @@ exports.verifyPayment = async (req, res) => {
             $inc: { "stock.$.quantity": -item.quantity },
           }
         );
+        await Products.updateOne(
+          { _id: item.productId },
+          { $inc: { purchases: item.quantity } }
+        );
       }
+      
        await Cart.deleteMany({ _id: { $in: tempOrder.cartIds } });
 
 const updatedWallet = await admin_transaction.findByIdAndUpdate(
   '6899c9b7eeb3a6cd3a142237',
-  { $inc: { wallet: totalPrice } }, 
+  { $inc: { wallet: tempOrder.totalPrice } }, 
   { new: true }
 );
-const lastAmount = updatedWallet.wallet - totalPrice;
+const lastAmount = updatedWallet.wallet - tempOrder.totalPrice;
 
 await admin_transaction.create({
      currentAmount:updatedWallet.wallet,
      lastAmount:lastAmount,
      type:'Credit',
-     amount: totalPrice,
-     orderId:nextOrderId,
+     amount: tempOrder.totalPrice,
+     orderId:tempOrder.orderId,
      description:'Item Price Added',
 })
 
     }
 
-    // 5. Delete the temp order
-    await TempOrder.findByIdAndDelete(tempOrderId);
-    await Store.findByIdAndUpdate(
+  const storeBefore = await Store.findById(tempOrder.storeId).lean();
+  const storeData = await Store.findByIdAndUpdate(
   tempOrder.storeId,
   { $inc: { wallet: tempOrder.totalPrice } },
   { new: true }
 );
+
+await store_transaction.create({
+     currentAmount:storeData.wallet,
+     lastAmount:storeBefore.wallet,
+     type:'Credit',
+     amount: tempOrder.totalPrice,
+     orderId:tempOrder.orderId,
+     storeId:tempOrder.storeId,
+     description:'Item Price Added'
+})
+
+    // 5. Delete the temp order
+    await TempOrder.findByIdAndDelete(tempOrderId);
+
     return res.status(200).json({
       status: paymentStatus ? true : false,
       message: paymentStatus
@@ -247,9 +277,11 @@ await admin_transaction.create({
 
 exports.getOrders = async (req, res) => {
   try {
-    const { storeId } = req.query;
+    const {limit,page=1, storeId } = req.query;
+    const skip = (page - 1) * limit;
     const query = storeId ? { storeId } : {};
 
+    const totalOrders = await Order.countDocuments()
     const orders = await Order.find(query)
       .populate({
         path: 'addressId',
@@ -258,7 +290,7 @@ exports.getOrders = async (req, res) => {
       .populate({
         path: 'storeId',
         select: 'storeName',
-      })
+      }).skip(skip).limit(Number(limit))
       .sort({ createdAt: -1 })
       .lean();
 
@@ -291,12 +323,23 @@ exports.getOrders = async (req, res) => {
         const itemsWithVariant = await Promise.all(
           order.items.map(async (item) => {
             const product = await Products.findById(item.productId).lean();
+
+             if (!product) {
+      console.warn(`⚠️ Product not found for ID: ${item.productId}`);
+      return {
+        ...item,
+        product: null,
+        variantName: null,
+        variantPrice: null,
+      };
+    }
+
             const variant = product?.variants?.find(
               (v) => v._id.toString() === item.varientId?.toString()
             );
-
             return {
               ...item,
+              sku:product.sku || null,
               variantName: variant?.variantValue || null,
               variantPrice: variant?.sell_price || null,
             };
@@ -317,10 +360,14 @@ exports.getOrders = async (req, res) => {
         };
       })
     );
-
+const count = totalOrders
     return res.status(200).json({
       message: 'Orders retrieved successfully',
       orders: ordersWithCity,
+      page,
+      totalPages: Math.ceil(totalOrders / limit),
+      count,
+      limit
     });
   } catch (error) {
     console.error('Get orders error:', error.message);

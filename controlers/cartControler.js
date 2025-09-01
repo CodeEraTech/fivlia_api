@@ -74,7 +74,7 @@ exports.getCart = async (req, res) => {
       User.findById(id),
       Address.findOne({ userId: id, default: true }),
     ]);
-console.log('address',address)
+
     if (!user) {
       return res.status(404).json({ status: false, message: "User not found." });
     }

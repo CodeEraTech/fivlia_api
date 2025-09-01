@@ -16,7 +16,10 @@ const storeScheema = new mongoose.Schema({
     Authorized_Store:{type:Boolean,default:true},
     Category:[{type:mongoose.Schema.ObjectId,ref:'Category'}],
     image:String,
+    gstNumber:String,
     emailVerified: { type: Boolean, default: false },
+    phoneNumberVerified: { type: Boolean, default: false },
+    approveStatus: {type: String,enum: ['pending_verification', 'pending_admin_approval', 'approved', 'rejected'],default: 'pending_verification'},
     verificationToken: String,
     },{timestamps:true})
 

@@ -59,6 +59,7 @@ const productSchema = new mongoose.Schema({
 selected: [{_id: { type: mongoose.Schema.Types.ObjectId },name: { type: String }}],
 
 }],
+  isVeg:{type:Number,default:0},
  //ye chakni hai category se
   purchases:{type:Number,default:0},
   status:{type:Boolean,default:true}

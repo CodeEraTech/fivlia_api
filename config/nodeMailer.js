@@ -1,25 +1,26 @@
 const nodemailer = require("nodemailer");
 
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "mail.fivlia.in", // Or use the server IP if given: 172.93.223.239
+  port: 465,              // Use 465 for SSL (recommended)
+  secure: true,           // true for port 465, false for 587
   auth: {
-    user: "goutamdeveloper123@gmail.com",           // Replace with your test email
-    pass: "mhon wbvu wmzu kngz",       
+    user: "no-reply@fivlia.in",   // Your no-reply email
+    pass: "gx4dBAaGRJ", 
   },
+  tls: {
+    rejectUnauthorized: false, // ⚠️ Only for testing
+  },
+
 });
 
-const sendVerificationEmail = async (to, token) => {
-  const verificationLink = `https://api.fivlia.in/verify-email?token=${token}`;
+const sendVerificationEmail = async (to, subject, html) => {
 
   await transporter.sendMail({
-    from: "Fivlia <your_email@gmail.com>",
+    from: "Fivlia <no-reply@fivlia.in>",
     to,
-    subject: "Verify your email for Fivlia Store",
-    html: `
-      <h3>Welcome to Fivlia!</h3>
-      <p>Please click the link below to verify your email:</p>
-      <a href="${verificationLink}">${verificationLink}</a>
-    `,
+    subject,
+    html,
   });
 };
 

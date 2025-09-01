@@ -1,10 +1,13 @@
 const User = require('../modals/User');
+const seller = require('../modals/sellerModals/seller')
 const request = require('request');
 const jwt = require('jsonwebtoken');
 const admin = require('../firebase/firebase');
 const {SettingAdmin} = require('../modals/setting')
 const mongoose = require("mongoose");
 const OtpModel = require("../modals/otp")
+const sendVerificationEmail = require('../config/nodeMailer'); 
+const {storeRegistrationTemplate} = require('../utils/emailTemplates')
 const Login = mongoose.model("Login", new mongoose.Schema({}, { strict: false }), "Login");
 require('dotenv').config()
 // exports.sign = async (req,res) => {
@@ -347,21 +350,22 @@ exports.verifyOtp = async (req, res) => {
   try {
     const { mobileNumber, otp } = req.body;
     // Find OTP in DB
-    const otpRecord = await OtpModel.findOne({ mobileNumber, otp });
+    const otpRecord = await OtpModel.findOne( {mobileNumber} );
     if (!otpRecord) {
       return res.status(400).json({ message: 'Invalid OTP' });
     }
+    let token;
     const exist = await User.findOne({mobileNumber})
     if(!exist){
     const newUser = await User.create({mobileNumber});
       await OtpModel.deleteOne({ _id: otpRecord._id });
-      const token = jwt.sign({ _id: newUser._id }, process.env.jwtSecretKey);
+      token = jwt.sign({ _id: newUser._id }, process.env.jwtSecretKey);
       return res.status(200).json({ message: 'Login successful', token });
     }
 
     else{
     await OtpModel.deleteOne({ _id: otpRecord._id });
-    const token = jwt.sign({ _id: exist._id }, process.env.jwtSecretKey);
+    token = jwt.sign({ _id: exist._id }, process.env.jwtSecretKey);
     return res.status(200).json({ message: 'Login successful', token });
     }
   } catch (error) {

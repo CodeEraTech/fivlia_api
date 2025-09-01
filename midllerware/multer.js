@@ -35,6 +35,7 @@ module.exports = upload.fields([
   { name: 'image', maxCount: 1 },
   { name: 'pdf', maxCount: 1 },
   { name: 'file', maxCount: 1 },
+  { name: 'gstCertificate', maxCount:1},
   { name: 'MultipleImage', maxCount: 10 },
   { name: 'Police_Verification_Copy', maxCount: 1 },
   { name: 'aadharCard', maxCount: 2 },

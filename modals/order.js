@@ -7,15 +7,16 @@ const orderSchema = new mongoose.Schema({
  userId:{type:mongoose.Schema.ObjectId,ref:'Login'},
  cashOnDelivery:{type:Boolean},
 items: [
-  {productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Products' },
+  {productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
   varientId: { type: mongoose.Schema.Types.ObjectId },
   name: String,quantity: Number,price: Number,image: String,gst:String  }],
  totalPrice: Number,
  deliveryCharges:Number,
- storeId:{type:mongoose.Schema.Types.ObjectId,ref:'Store'},
+ storeId:{type:mongoose.Schema.ObjectId,ref:'Store'},
  orderStatus:{type:String,default:'Pending'},
  platformFee:Number,
  invoiceUrl: { type: String },
+ thermalInvoice: { type: String }, // For thermal printer invoice content
  transactionId:String,
  driver:{driverId:String,name:String,mobileNumber:String}
 },{timestamps:true});
@@ -24,7 +25,7 @@ items: [
 
 const TempOrderSchema = new mongoose.Schema({
   items: [
-  {productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Products' },
+  {productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
   varientId: { type: mongoose.Schema.Types.ObjectId },
   name: String,quantity: Number,price: Number,image: String,gst:String  }],
   orderId:{type:String,default:'OID001'},
@@ -32,7 +33,7 @@ const TempOrderSchema = new mongoose.Schema({
   addressId: { type: mongoose.Schema.Types.ObjectId, ref: 'Address' },
   paymentStatus:String,
   cashOnDelivery:Boolean,
-  storeId:{type:mongoose.Schema.Types.ObjectId,ref:'Store'},
+  storeId:{type:mongoose.Schema.ObjectId,ref:'Store'},
   totalPrice: Number,
   deliveryCharges:Number,
   platformFee:Number,

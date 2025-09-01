@@ -1,16 +1,57 @@
 const Store = require('../modals/store');
+const seller = require('../modals/sellerModals/seller')
 const Stock = require('../modals/StoreStock')
 const admin = require("../firebase/firebase");
+const jwt = require('jsonwebtoken');
 const Products = require('../modals/Product');
+const OtpModel = require("../modals/otp")
+const sendVerificationEmail = require('../config/nodeMailer');
+const {otpTemplate} = require('../utils/emailTemplates')
 const CategoryModel = require('../modals/category');
 const {ZoneData} = require('../modals/cityZone'); // your Locations model
 const crypto = require("crypto");
+const store_transaction = require('../modals/storeTransaction')
 // const sendVerificationEmail = require("../config/nodeMailer");
 
 exports.storeLogin = async (req, res) => {
-  try {
-    const { email, password } = req.body;
+   try {
+    const { email,mobileNumber, password, type } = req.body;
 
+    if(type==='seller'){
+       const store = await seller.findOne({ $or: [{ "email.Email": email },{ "mobileNumber.mobileNo": mobileNumber }]});
+console.log(store)
+    if (!store) {
+      return res.status(404).json({ message: "Store not found" });
+    }
+ const otp = crypto.randomInt(100000, 999999).toString();
+ await OtpModel.create({email, mobileNumber, otp, expiresAt: Date.now() + 30 * 60 * 1000 });
+    if(email){
+        await sendVerificationEmail(email,"Welcome to Fivlia verify otp for login",otpTemplate(otp));
+        return res.status(200).json({ message: 'OTP sent via to Email', otp });
+    }
+
+    if(mobileNumber){
+        var options = {
+             method: 'POST',
+              url: 'https://msggo.in/wapp/public/api/create-message',
+              headers: {},
+            formData: {
+              'appkey': authSettings.whatsApp.appKey,
+              'authkey': authSettings.whatsApp.authKey,
+              'to': mobileNumber,
+              'message': `Welcome to Fivlia - Delivery in Minutes!\nYour OTP is ${otp}. Do not share it with anyone.\n\nThis OTP is valid for 30 minutes.`,
+            }
+          };
+      
+    request(options, async function (error, response) {
+    if (error) {
+      console.error(error);
+      return res.status(500).json({ message: 'Failed to send OTP via WhatsApp' });
+    }
+    });
+    }
+        return res.status(200).json({ message: 'OTP sent via WhatsApp', otp });
+  }
     const store = await Store.findOne({ email });
     if (!store) {
       return res.status(404).json({ message: "Store not found" });
@@ -19,23 +60,6 @@ exports.storeLogin = async (req, res) => {
     if (store.password !== password) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
-
-    // 🔐 Check if email is verified
-    // if (!store.emailVerified) {
-    //   // 1. Generate a token
-    //   const token = crypto.randomBytes(32).toString("hex");
-
-    //   // 2. Save to DB
-    //   store.verificationToken = token;
-    //   await store.save();
-
-    //   // 3. Send email
-    //   await sendVerificationEmail(email, token);
-
-    //   return res.status(403).json({
-    //     message: "Please verify your email. A new verification link has been sent.",
-    //   });
-    // }
 
     return res.status(200).json({
       message: "Login successful",
@@ -292,8 +316,6 @@ exports.storeEdit = async (req, res) => {
   }
 };
 
-
-
 exports.getStore = async (req, res) => {
   try {
     const { id } = req.query;
@@ -417,4 +439,39 @@ exports.removeCategoryInStore=async (req,res) => {
       console.error(error);
       res.status(500).json({ message: "Error", error });
     }
+}
+
+exports.getStoreTransaction = async(req,res)=>{
+  try{
+    const storeId = req.params
+  const storeData = await store_transaction.find(storeId)
+  return res.status(200).json({message:"Store transactions",storeData})
+  }catch(error){
+    console.error(error);
+    return res.status(500).json({message:"Server Error"})
+  }
+}
+
+exports.getStoreCategory = async(req,res)=>{
+  try{
+    const {storeId,page=1,limit=20,type}=req.query
+    const skip =  (page - 1) * limit;
+
+    if(type==='seller'){
+      const Seller = await seller.findById(storeId)
+console.log('Seller',Seller)
+    const category = await CategoryModel.find({_id:{$in: Seller.productCategory}}).skip(skip).limit(Number(limit)).lean()
+    const count = Seller.productCategory.length
+return res.status(200).json({message:"Store Category",category,page,limit,count})
+    }
+
+    const store = await Store.findById(storeId)
+
+    const category = await CategoryModel.find({_id:{$in: store.Category}}).skip(skip).limit(Number(limit)).lean()
+    const count = store.Category.length
+return res.status(200).json({message:"Store Category",category,page,limit,count})
+  }catch(error){
+    console.error(error);
+    return res.status(500).json({message:"Server error"})
+  }
 }

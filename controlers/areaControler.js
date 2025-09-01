@@ -123,11 +123,8 @@ exports.getAllZone=async (req,res) => {
 exports.getZone=async (req,res) => {
   try {
     const cityStatus = await CityData.find({status:true})
-   
     const activeCityNames = cityStatus.map(city => city.city);
-
-    
-      const zones =await ZoneData.find({status:true,city:{$in:activeCityNames}})
+    const zones =await ZoneData.find({status:true,city:{$in:activeCityNames}})
     res.json(zones);
   } catch (error) {
     console.error(error);

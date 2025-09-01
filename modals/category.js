@@ -7,6 +7,7 @@ const subSubCategorySchema = new mongoose.Schema({
   image: String,
   attribute:[{type:String}],
   status:{type:Boolean,default:true},
+  commison:Number
 });
 
 const subCategorySchema = new mongoose.Schema({
@@ -16,7 +17,8 @@ const subCategorySchema = new mongoose.Schema({
   description:String,
   subsubcat:[subSubCategorySchema],
   attribute:[{type:String}],
-  status:{type:Boolean,default:true}
+  status:{type:Boolean,default:true},
+  commison:Number
 });
 
 const categorySchema = new mongoose.Schema({

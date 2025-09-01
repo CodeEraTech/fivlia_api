@@ -7,7 +7,7 @@ const request = require('request');
 const {getAgenda} = require("../config/agenda");
 const Address = require('../modals/Address')
 const OtpModel = require("../modals/otp")
-const { generateAndSendInvoice } = require('../config/invoice');
+const { generateAndSendThermalInvoice } = require('../config/invoice');
 const Transaction = require('../modals/driverModals/transaction')
 require('dotenv').config()
 const jwt = require('jsonwebtoken');
@@ -144,7 +144,13 @@ exports.driverOrderStatus = async (req, res) => {
 
       await OtpModel.deleteOne({ _id: otpRecord._id });
       await Assign.deleteOne({ orderId: orderId ,orderStatus:'Accepted'});
-      generateAndSendInvoice(orderId);
+      
+      // Generate and send thermal invoice when order is delivered
+      try {
+        await generateAndSendThermalInvoice(orderId);
+      } catch (error) {
+        console.error('Error generating thermal invoice:', error);
+      }
 
       return res.status(200).json({
         message: 'Order Delivered Successfully',

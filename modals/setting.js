@@ -24,6 +24,7 @@ PaymentGatewayStatus:Boolean,
 Map_Api:[{google:{api_key:String,status:Boolean},apple:{api_key:String,status:Boolean}, ola:{api_key:String,status:Boolean}}],
 minPrice:Number,
 maxPrice:Number,
+minWithdrawal:Number,
 imageLink:String
 });
 

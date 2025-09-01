@@ -1,6 +1,8 @@
 // modals/otp.js
 const mongoose = require('mongoose');
 const otpSchema = new mongoose.Schema({
+  email:String,
+  otpEmail:String,
   mobileNumber: String,
   orderId:String,
   otp: String,

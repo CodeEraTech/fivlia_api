@@ -43,7 +43,7 @@ console.log("updateData:", updatedCategory);
 
 exports.banner = async (req,res) => {
   try {
-   let {title,type,city,zones,mainCategory,subCategory,subSubCategory,status,type2}=req.body
+   let {title,type,city,zones,mainCategory,subCategory,subSubCategory,brand:brandId,status,type2}=req.body
       const rawImagePath = req.files?.image?.[0]?.key || "";
     const image = rawImagePath ? `/${rawImagePath}` : "";
 
@@ -59,54 +59,56 @@ exports.banner = async (req,res) => {
 
     const validTypes = ['normal', 'offer'];
     const bannerType = validTypes.includes(type) ? type : 'normal';
-
-if(subCategory && !mainCategory){
-    return res.status(401).json({ message: 'Please select parent category' });
-}
-if(subSubCategory && !subCategory){
-    return res.status(401).json({ message: 'Please select parent category' });
-}
-
-    if (!bannerType) {
+ if (!bannerType) {
       return res.status(402).json({ message: 'Invalid banner type. Must be "normal" or "offer".' });
     }
-
-   const foundCategory = await Category.findOne({ _id: mainCategory })
-      if (!foundCategory) return res.status(404).json({ message: `Category ${mainCategory} not found` });
-  
-   let foundSubCategory = null;
-      let foundSubSubCategory = null;
-  
-      if (subCategory && subCategory.trim() !== "") {
-        foundSubCategory = foundCategory.subcat.find(sub => sub._id.toString().toLowerCase() === subCategory.toLowerCase());
-
-        
-        if (!foundSubCategory){
-         return res.status(404).json({ message: `SubCategory ${subCategory} not found` });
-        }
-
-        if (subSubCategory && subSubCategory.trim() !== "") {
-        foundSubSubCategory = foundSubCategory.subsubcat.find(subsub => subsub._id.toString() === subSubCategory);
-
-          if (!foundSubSubCategory) return res.status(404).json({ message: `SubSubCategory ${subSubCategory} not found` });
-        }
-      } else {
-        if (subSubCategory && subSubCategory.trim() !== "") {
-          return res.status(400).json({ message: "Cannot provide subSubCategory without subCategory" });
-        }
-      }
+    
       const cityDoc = await ZoneData.findOne({_id:city});
       console.log(cityDoc);
     
- let slug = `/category/${foundCategory._id}`;
-    if (foundSubCategory) slug += `/${foundSubCategory._id}`;
-    if (foundSubSubCategory) slug += `/${foundSubSubCategory._id}`;
+      let foundCategory = null;
+    let foundSubCategory = null;
+    let foundSubSubCategory = null;
+    let foundBrand = null;
+
+    if (type2 === "Brand") {
+      foundBrand = await brand.findOne({ _id: brandId });
+      if (!foundBrand) return res.status(404).json({ message: 'Brand not found' });
+    } else {
+      if (!mainCategory) return res.status(400).json({ message: 'Main category is required' });
+
+      foundCategory = await Category.findOne({ _id: mainCategory });
+      if (!foundCategory) return res.status(404).json({ message: `Category ${mainCategory} not found` });
+
+      if (subCategory) {
+        foundSubCategory = foundCategory.subcat.find(sub => sub._id.toString() === subCategory);
+        if (!foundSubCategory) return res.status(404).json({ message: `SubCategory ${subCategory} not found` });
+
+        if (subSubCategory) {
+          foundSubSubCategory = foundSubCategory.subsubcat.find(subsub => subsub._id.toString() === subSubCategory);
+          if (!foundSubSubCategory) return res.status(404).json({ message: `SubSubCategory ${subSubCategory} not found` });
+        }
+      } else if (subSubCategory) {
+        return res.status(400).json({ message: "Cannot provide subSubCategory without subCategory" });
+      }
+    }
+
+ let slug = "";
+if (foundCategory) {
+  slug = `/category/${foundCategory._id}`;
+  if (foundSubCategory) slug += `/${foundSubCategory._id}`;
+  if (foundSubSubCategory) slug += `/${foundSubSubCategory._id}`;
+}
+
 
    const newBanner = await Banner.create({image,type2,
     city: { _id: cityDoc._id, name: cityDoc.city } ,title,type:bannerType,
-    mainCategory:{_id:foundCategory._id,name:foundCategory.name,slug: slugify(foundCategory.name, { lower: true })},
+    mainCategory: foundCategory
+    ? { _id: foundCategory._id, name: foundCategory.name, slug: slugify(foundCategory.name, { lower: true }) }: null,
     subCategory:foundSubCategory? { _id: foundSubCategory._id, name: foundSubCategory.name, slug: slugify(foundSubCategory.name, { lower: true }) }: null,
     subSubCategory: foundSubSubCategory? { _id: foundSubSubCategory._id, name: foundSubSubCategory.name,slug: slugify(foundSubSubCategory.name, { lower: true }) }: null,
+    brand: foundBrand
+    ? { _id: foundBrand._id, name: foundBrand.brandName, slug: slugify(foundBrand.brandName, { lower: true }) }: null,
     status,zones
   })
    return res.status(200).json({message:'Banner Added Successfully',newBanner})
@@ -115,6 +117,7 @@ if(subSubCategory && !subCategory){
     return res.status(500).json({message:'An Error Occured',error:error.message})
   }
 }
+
 exports.getBanner = async (req, res) => {
   try {
     const { type } = req.query;
@@ -190,7 +193,7 @@ exports.updateBannerStatus = async (req, res) => {
     const { id } = req.params;
     const {
       status, title, city, zones, type2, address,
-      latitude, longitude, mainCategory, subCategory, subSubCategory, range
+      latitude, longitude, mainCategory, subCategory, subSubCategory, range,brand:brandId
     } = req.body;
 
     const rawImagePath = req.files?.image?.[0]?.key;
@@ -206,6 +209,15 @@ exports.updateBannerStatus = async (req, res) => {
       updateData.city = { _id: cityDoc._id, name: cityDoc.city };
     }
 
+ if (brandId) {
+      const foundBrand = await brand.findById(brandId).lean();
+      if (!foundBrand) return res.status(404).json({ message: `Brand ${brandId} not found` });
+      updateData.brand = {
+        _id: foundBrand._id,
+        name: foundBrand.brandName,
+        slug: slugify(foundBrand.brandName, { lower: true })
+      };
+    }    
     // 🔹 Fetch and build category objects (like in addBanner)
     if (mainCategory) {
       const foundCategory = await Category.findById(mainCategory).lean();
@@ -269,7 +281,6 @@ exports.getAllBanner=async (req,res) => {
   const allBanner = await Banner.find()
   res.json(allBanner)
 }
-
 
 exports.addCategory = async (req, res) => {
   try {
@@ -446,6 +457,7 @@ exports.getCategories = async (req, res) => {
   try {
     const { id } = req.query;
 
+     const allCategories = await Category.find().lean();
     if (id) {
       // 1. Try to find as top-level category
       const singleCategory = await Category.findById(id).lean();
@@ -461,11 +473,13 @@ exports.getCategories = async (req, res) => {
             name: sub.name,
             description: sub.description,
             image: sub.image,
+            commison:sub.commison || 0,
             subSubCategories: (sub.subsubcat || []).map(subsub => ({
               id: subsub._id,
               name: subsub.name,
               description: subsub.description,
-              image: subsub.image
+              image: subsub.image,
+              commison:subsub.commison || 0,
             }))
           }))
         };
@@ -474,8 +488,7 @@ exports.getCategories = async (req, res) => {
       }
 
       // 2. If not found as top-level, search sub and sub-sub categories
-      const allCategories = await Category.find().lean();
-
+     
       for (const category of allCategories) {
         for (const sub of category.subcat || []) {
           if (sub._id.toString() === id) {
@@ -485,11 +498,13 @@ exports.getCategories = async (req, res) => {
               name: sub.name,
               description: sub.description,
               image: sub.image,
+              commison:sub.commison || 0,
               subSubCategories: (sub.subsubcat || []).map(subsub => ({
                 id: subsub._id,
                 name: subsub.name,
                 description: subsub.description,
-                image: subsub.image
+                image: subsub.image,
+                commison:subsub.commison || 0,
               }))
             };
             return res.status(200).json({ subCategory: formatted });
@@ -502,7 +517,8 @@ exports.getCategories = async (req, res) => {
                 id: subsub._id,
                 name: subsub.name,
                 description: subsub.description,
-                image: subsub.image
+                image: subsub.image,
+                commison:subsub.commison || 0,
               };
               return res.status(200).json({ subSubCategory: formatted });
             }
@@ -514,7 +530,6 @@ exports.getCategories = async (req, res) => {
     }
 
     // If no id is provided, return full list
-    const allCategories = await Category.find().lean();
 
     const formatted = allCategories.map(cat => ({
       id: cat._id,
@@ -526,11 +541,13 @@ exports.getCategories = async (req, res) => {
         name: sub.name,
         description: sub.description,
         image: sub.image,
+        commison:sub.commison || 0,
         subSubCategories: (sub.subsubcat || []).map(subsub => ({
           id: subsub._id,
           name: subsub.name,
           description: subsub.description,
-          image: subsub.image
+          image: subsub.image,
+          commison:subsub.commison || 0,
         }))
       }))
     }));
@@ -565,17 +582,23 @@ exports.brand = async (req,res) => {
 
 exports.getBrand = async (req, res) => {
   try {
-    const { id } = req.query;
-
+    const { id,page=1,limit } = req.query;
+const skip = (page-1)*limit
     // 🔍 If specific brand ID
     if (id) {
       const b = await brand.findById(id).lean();
       if (!b) return res.status(404).json({ message: "Brand not found" });
 
       // 🔥 Fetch only products of that brand
-      const products = await mongoose.connection.db
-        .collection("products")
+        const productsCollection = mongoose.connection.db.collection("products");
+      const totalProducts = await productsCollection.countDocuments({
+        "brand_Name._id": new mongoose.Types.ObjectId(id),
+      });
+
+      const products = await productsCollection
         .find({ "brand_Name._id": new mongoose.Types.ObjectId(id) })
+        .skip(skip)
+        .limit(Number(limit))
         .toArray();
 
       // Collect all variant/product combinations
@@ -628,6 +651,10 @@ exports.getBrand = async (req, res) => {
       return res.json({
         ...b,
         products: productsWithStock,
+        total: totalProducts,
+        page: Number(page),
+        limit: Number(limit) || "",
+        totalPages: Math.ceil(totalProducts / limit)|| "",
       });
     }
 
@@ -764,8 +791,10 @@ exports.editFilter = async (req, res) => {
     const filter = await Filters.findByIdAndUpdate(
       id,
       {
-        $set: { Filter_name },        
-        $push: { Filter: { $each: Filter } }
+        $set: {
+          Filter_name,
+          Filter, 
+        },
       },
       { new: true }
     );
@@ -943,11 +972,20 @@ exports.addMainCategory = async (req, res) => {
 
 exports.getMainCategory = async (req, res) => {
   try {
-    const data = await Category.find();
+    const { page = 1, limit = 20 } = req.query;  // default values
+    const skip = (page - 1) * limit;
 
+    // Get total categories for pagination
+    const totalCategories = await Category.countDocuments();
+
+    // Fetch only current page categories
+    const data = await Category.find()
+      .skip(skip)
+      .limit(limit);
+
+    // Enrich with totalProducts
     const enriched = await Promise.all(
       data.map(async (category) => {
-        // Get total products for this category (and nested)
         const categoryIds = [category._id.toString()];
 
         category.subcat?.forEach((sub) => {
@@ -965,9 +1003,8 @@ exports.getMainCategory = async (req, res) => {
           ],
         });
 
-        // Return category with totalProducts field
         return {
-          ...category._doc, // include all original fields
+          ...category._doc,
           totalProducts: productCount,
         };
       })
@@ -975,6 +1012,10 @@ exports.getMainCategory = async (req, res) => {
 
     res.status(200).send({
       message: "Success",
+      limit,
+      currentPage: page,
+      totalPages: Math.ceil(totalCategories / limit),
+      totalCategories,
       result: enriched,
     });
   } catch (err) {
@@ -1006,7 +1047,6 @@ exports.GetSubCategories = async (req, res) => {
   }
 };
 
-
 exports.GetSubSubCategories = async (req, res) => {
   try {
     const subcatId = req.params.subcatId;
@@ -1036,3 +1076,80 @@ exports.GetSubSubCategories = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
+exports.setCommison = async (req, res) => {
+  try {
+    const { id, commison, level } = req.body;
+    
+    // Validate commission value
+    if (commison === undefined || commison === null) {
+      return res.status(400).json({ error: "Commission value is required" });
+    }
+    
+    const commissionValue = Number(commison);
+    if (isNaN(commissionValue) || commissionValue < 0) {
+      return res.status(400).json({ error: "Commission must be a valid positive number" });
+    }
+
+    // Validate level - only sub and subsub are allowed
+    if (!level || !['sub', 'subsub'].includes(level)) {
+      return res.status(400).json({ error: "Level must be 'sub' or 'subsub'" });
+    }
+
+    let updatedCategory;
+
+    if (level === 'sub') {
+      // Update subcategory commission
+      updatedCategory = await Category.findOneAndUpdate(
+        { "subcat._id": id },
+        { $set: { "subcat.$.commison": commissionValue } },
+        { new: true }
+      );
+    } else if (level === 'subsub') {
+      // For sub-subcategory, we need to find the parent category first
+      const category = await Category.findOne({
+        "subcat.subsubcat._id": id
+      });
+
+      if (!category) {
+        return res.status(404).json({ error: "Sub-subcategory not found" });
+      }
+
+      // Find and update the specific sub-subcategory
+      let found = false;
+      for (let i = 0; i < category.subcat.length; i++) {
+        const subcat = category.subcat[i];
+        if (subcat.subsubcat && subcat.subsubcat.length > 0) {
+          for (let j = 0; j < subcat.subsubcat.length; j++) {
+            if (subcat.subsubcat[j]._id.toString() === id) {
+              // Update the commission
+              category.subcat[i].subsubcat[j].commison = commissionValue;
+              found = true;
+              break;
+            }
+          }
+          if (found) break;
+        }
+      }
+
+      if (!found) {
+        return res.status(404).json({ error: "Sub-subcategory not found in any subcategory" });
+      }
+
+      // Save the updated category
+      updatedCategory = await category.save();
+    }
+
+    if (!updatedCategory) {
+      return res.status(404).json({ error: "Category not found" });
+    }
+
+    return res.status(200).json({ 
+      message: "Commission set successfully", 
+      data: updatedCategory 
+    });
+  } catch (error) {
+    console.error("Server Error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}

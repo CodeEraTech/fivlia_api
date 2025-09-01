@@ -2,15 +2,24 @@ const express = require('express');
 const upload = require('../midllerware/multer');
 const router = express.Router()
 const verifyToken = require('../midllerware/authToken');
-//abc
-const { forwebbestselling, forwebgetProduct, forwebgetFeatureProduct, forwebsearchProduct, forwebgetRelatedProducts, forwebgetBanner, getDeliveryEstimateForWebsite, addPage, editPage, getPage, deletePage, updatePageStatus } = require('../controlers/websiteapicontroler')
+
+//invoice
+const {generateThermalInvoiceController} = require('../config/invoice')
+//website
+const { forwebbestselling, forwebgetProduct, forwebgetFeatureProduct, forwebsearchProduct, forwebgetRelatedProducts, forwebgetBanner, getDeliveryEstimateForWebsite, addPage, editPage, getPage, deletePage, updatePageStatus,contactUs } = require('../controlers/websiteapicontroler')
 
 const { driverLogin, acceptOrder, driverOrderStatus, acceptedOrder, activeStatus, driverWallet, transactionList, cancelOrders, getDriverDetail, completedOrders, editProfile, deleteDriver,withdrawalRequest } = require('../controlers/driverControler')
 
 const { getDashboardStats, getStoreDashboardStats, walletAdmin,adminTranaction,getWithdrawalRequest } = require('../controlers/dashboardControler')
 const { getDeliveryEstimate } = require('../controlers/DeliveryControler')
 
-const { createStore, storeLogin, verifyEmail, getStore, addCategoryInStore, removeCategoryInStore, storeEdit } = require('../controlers/storeControler');
+//seller product
+const { addSellerProduct,editSellerProduct,updateSellerStock,deleteSellerProduct,addCategoryInSeller,getDetailsGst } = require('../controlers/sellerControlers/sellerProductsControler')
+
+//seller auth
+const { addSeller,getSeller,getSellerRequest,sendOtp,acceptDeclineRequest,verifyOtpSeller } = require('../controlers/sellerControlers/sellerAuth')
+
+const { createStore, storeLogin, verifyEmail, getStore, addCategoryInStore, removeCategoryInStore, storeEdit, getStoreTransaction,getStoreCategory } = require('../controlers/storeControler');
 
 const { settings, getSettings, adminSetting, getSmsType } = require('../controlers/settingControler');
 const { users, addUser, updateProfile, Login, signin, deleteAccount, register, verifyMobile, verifyOtp } = require('../controlers/authControler');
@@ -21,12 +30,13 @@ const { placeOrder, getOrders, orderStatus, test, driver, getDriver, editDriver,
 
 const { addCart, getCart, getDicount, discount, quantity, deleteCart } = require('../controlers/cartControler')
 
-const { update, banner, getBanner, getAllBanner, updateBannerStatus, addCategory, getCategories, brand, getBrand, editCat, updateAt, editBrand, addFilter, editFilter, getFilter, deleteFilter, deleteFilterVal, addFiltersToCategory, addMainCategory, getMainCategory, editMainCategory, GetSubSubCategories, GetSubCategories } = require('../controlers/categorycontroler');
+const { update, banner, getBanner, getAllBanner, updateBannerStatus, addCategory, getCategories, brand, getBrand, editCat, updateAt, editBrand, addFilter, editFilter, getFilter, deleteFilter, deleteFilterVal, addFiltersToCategory, addMainCategory, getMainCategory, editMainCategory, GetSubSubCategories, GetSubCategories, setCommison } = require('../controlers/categorycontroler');
 
 const { addProduct, addAtribute, getAttributes, getProduct, getFeatureProduct, searchProduct, bestSelling, editAttributes, unit, getUnit, getVarients, filter, bulkProductUpload, updateProduct, deleteProduct, getAttributesId, getRelatedProducts, updateStock, adminProducts, deleteAttribute, rating } = require('../controlers/ProductControler')
 
 const cityZone = require('../modals/cityZone');
 const { addCity, updateCityStatus, getAviableCity, getCity, updateZoneStatus, getAllZone, getZone, updateLocation, addAddress, getAddress, EditAddress, deleteAddress, setDefault } = require('../controlers/areaControler');
+
 
 router.post('/Login', Login)
 router.post('/verifyOtp', verifyOtp)
@@ -66,6 +76,21 @@ router.post('/driverLogin', driverLogin)
 router.post('/activeStatus', activeStatus)
 router.post('/addPage', addPage)
 
+//seller
+router.post('/addSeller',upload, addSeller)
+router.post('/sendOtp', sendOtp)
+
+//sellerProducts
+router.post('/addSellerProduct/:id',upload,addSellerProduct)
+router.post('/seller/verifyOtp',verifyOtpSeller)
+router.put('/editSellerProduct/:id',upload,editSellerProduct)
+router.put('/updateSellerStock/:id',updateSellerStock)
+router.put('/acceptDeclineRequest',acceptDeclineRequest)
+router.put('/addCategoryInSeller/:id', addCategoryInSeller)
+router.delete('/deleteSellerProduct/:id', deleteSellerProduct)
+
+router.get('/getSeller', getSeller)
+router.get('/getSellerRequest', getSellerRequest)
 
 router.get('/getSmsType', getSmsType)
 router.get('/getDashboardStats', getDashboardStats)
@@ -93,14 +118,19 @@ router.get('/adminProducts', adminProducts)
 router.get('/walletAdmin', walletAdmin)
 router.get('/adminTranaction', adminTranaction)
 router.get('/getFeatureProduct', verifyToken, getFeatureProduct)
+router.get('/getStoreTransaction/:storeId', getStoreTransaction)
+router.get('/getStoreCategory', getStoreCategory)
 
+//website
 router.get('/website/bestSelling', forwebbestselling)
 router.get('/website/getProduct', forwebgetProduct)
 router.get('/website/featureProduct', forwebgetFeatureProduct)
 router.get('/website/searchProduct', forwebsearchProduct)
 router.get('/website/relatedProducts', forwebgetRelatedProducts)
-router.get('/website/forwebgetBanner', forwebgetBanner)
+router.get('/website/forwebgetBanner', forwebgetBanner) 
 router.get('/getPage', getPage)
+router.get('/getDetailsGst', getDetailsGst)
+router.post('/save-contact-us', contactUs)
 
 router.get('/completedOrders/:mobileNumber', completedOrders)
 router.get('/getDriverDetail/:id', getDriverDetail)
@@ -167,6 +197,10 @@ router.put('/editPage/:id', editPage)
 router.put('/updatePageStatus/:id',updatePageStatus)
 router.put('/editNotification/:id',upload,editNotification)
 router.delete('/deleteNotification/:id', deleteNotification)
+router.put('/setCommison', setCommison)
+
+router.get('/thermal-invoice/:orderId', generateThermalInvoiceController)
+
 
 router.get('/zones', (req, res) => {
   res.json(cityZone);

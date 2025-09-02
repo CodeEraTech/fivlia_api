@@ -112,7 +112,7 @@ exports.sendOtp = async (req,res) => {
 
 exports.getSellerRequest = async (req,res) => {
     try{
-    const requests = await seller.find({status:"pending_admin_approval"})
+    const requests = await seller.find({approveStatus:"pending_admin_approval"})
     return res.status(200).json({message:"Seller Approval Requests",requests})
     }catch(error){
     console.error(error);

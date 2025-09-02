@@ -15,22 +15,22 @@ const store_transaction = require('../modals/storeTransaction')
 
 exports.storeLogin = async (req, res) => {
    try {
-    const { email,mobileNumber, password, type } = req.body;
+    const { email,PhoneNumber, password, type } = req.body;
 
     if(type==='seller'){
-       const store = await seller.findOne({ $or: [{ "email.Email": email },{ "mobileNumber.mobileNo": mobileNumber }]});
+       const store = await Store.findOne({ $or: [{ email },{ PhoneNumber }]});
 console.log(store)
     if (!store) {
       return res.status(404).json({ message: "Store not found" });
     }
  const otp = crypto.randomInt(100000, 999999).toString();
- await OtpModel.create({email, mobileNumber, otp, expiresAt: Date.now() + 30 * 60 * 1000 });
+ await OtpModel.create({email, mobileNumber:PhoneNumber, otp, expiresAt: Date.now() + 30 * 60 * 1000 });
     if(email){
         await sendVerificationEmail(email,"Welcome to Fivlia verify otp for login",otpTemplate(otp));
         return res.status(200).json({ message: 'OTP sent via to Email', otp });
     }
 
-    if(mobileNumber){
+    if(PhoneNumber){
         var options = {
              method: 'POST',
               url: 'https://msggo.in/wapp/public/api/create-message',
@@ -38,7 +38,7 @@ console.log(store)
             formData: {
               'appkey': authSettings.whatsApp.appKey,
               'authkey': authSettings.whatsApp.authKey,
-              'to': mobileNumber,
+              'to': PhoneNumber,
               'message': `Welcome to Fivlia - Delivery in Minutes!\nYour OTP is ${otp}. Do not share it with anyone.\n\nThis OTP is valid for 30 minutes.`,
             }
           };

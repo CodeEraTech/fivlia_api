@@ -59,6 +59,7 @@ exports.generateThermalInvoice = async (orderId) => {
 
 // Generate PDF invoice
 async function generatePDFInvoice(order, user, store, subtotal, gstTotal) {
+  const setting = await SettingAdmin.find()
   return new Promise((resolve, reject) => {
     try {
       const doc = new PDFDocument({
@@ -91,12 +92,13 @@ async function generatePDFInvoice(order, user, store, subtotal, gstTotal) {
       doc.fontSize(8).font('Helvetica');
       if (store) {
         doc.text(`Sold By: ${store.storeName || 'FIVLIA'}`);
-        doc.text(`Address: ${store.address || 'NA'}`);
+        doc.text(`GST ID: ${setting[0]?.GST_Number || 'N/A'}`);
+        doc.text(`Address: ${store.city.name || 'N/A'}`);
       } else {
         doc.text('Store: FIVLIA');
-        doc.text('Address: Your Store Address');
+        doc.text('N/A');
       }
-      doc.text('Phone: +91-XXXXXXXXXX');
+      doc.text(`Phone: ${store.PhoneNumber || '+91-XXXXXXXXXX'}`);
       doc.text(`Date: ${new Date().toLocaleDateString('en-IN')}`);
       doc.text(`Time: ${new Date().toLocaleTimeString('en-IN')}`);
       doc.text(`Order ID: ${order.orderId}`);

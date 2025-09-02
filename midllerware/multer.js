@@ -39,6 +39,7 @@ module.exports = upload.fields([
   { name: 'MultipleImage', maxCount: 10 },
   { name: 'Police_Verification_Copy', maxCount: 1 },
   { name: 'aadharCard', maxCount: 2 },
+  { name: 'panCard', maxCount: 2 },
   { name: 'drivingLicence', maxCount: 2 },
   { name: 'var1', maxCount: 1 },
   { name: 'var2', maxCount: 1 },

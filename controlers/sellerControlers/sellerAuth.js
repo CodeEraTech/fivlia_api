@@ -25,28 +25,29 @@ exports.addSeller = async (req,res) => {
         const authSettings = setting?.Auth?.[0] || {};
         const otp = crypto.randomInt(100000, 999999).toString();
         const otpEmail = crypto.randomInt(100000, 999999).toString();
-        const gstCertificate = `/${req.files?.gstCertificate?.[0]?.key}`
 //     const rawImagePath = req.files?.image?.[0]?.key || "";
 //     const image = rawImagePath ? `/${rawImagePath}` : ""; 
-       const storeImages = req.files?.MultipleImage?.map(file => `/${file.key}`) || [];
-
+       const aadharCard = req.files?.aadharCard?.map(file => `/${file.key}`) || [];
+       const panCard = req.files?.panCard?.map(file => `/${file.key}`) || [];
        const zones = await ZoneData.find({"zones._id": { $in: zone }});
        const matchedZones = [];
 zones.forEach(doc => {
   doc.zones.forEach(z => {
     if (zone.includes(z._id.toString())) {
       matchedZones.push({
+        _id:z._id,
         name: z.zoneTitle,
+        title: z.zoneTitle,
         range: z.range,
-        lat: z.latitude,
-        lng: z.longitude
+        latitude: z.latitude,
+        longitude: z.longitude
       });
     }
   });
 });
 
 console.log(matchedZones)
-        const newSeller = await seller.create({storeName,firstName,lastName,Authorized_Store:false,PhoneNumber,email,storeImages,city,zone:matchedZones,gstNumber,approveStatus: 'pending_verification'})
+        const newSeller = await seller.create({storeName,ownerName: `${firstName} ${lastName}`,Authorized_Store:false,PhoneNumber,email,aadharCard,panCard,city,zone:matchedZones,gstNumber,approveStatus: 'pending_verification'})
         
       var options = {
        method: 'POST',

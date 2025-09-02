@@ -1,29 +1,50 @@
 const mongoose = require('mongoose');
 
 const storeScheema = new mongoose.Schema({
-    storeName:String,
-    city:{_id:{type:mongoose.Schema.ObjectId,ref:'Locations'},name:String},
-    ownerName:String,
-    PhoneNumber:String,
-    email:String,
-    password:String,
-    zone:[{_id:{type:mongoose.Schema.ObjectId,ref:'Locations'},name:String,title:String,latitude:Number,longitude:Number,range:Number}],
-    Latitude:String,
-    Longitude:String,
-    status:{type:Boolean,default:true},
-    Description:String,
-    wallet:Number,
-    Authorized_Store:{type:Boolean,default:true},
-    Category:[{type:mongoose.Schema.ObjectId,ref:'Category'}],
-    image:String,
-    aadharCard:[String],
-    panCard:[String],
-    gstNumber:String,
+    storeName: String,
+    city: { _id: { type: mongoose.Schema.ObjectId, ref: 'Locations' }, name: String },
+    ownerName: String,
+    PhoneNumber: String,
+    email: String,
+    password: String,
+    zone: [{ _id: { type: mongoose.Schema.ObjectId, ref: 'Locations' }, name: String, title: String, latitude: Number, longitude: Number, range: Number }],
+    Latitude: String,
+    Longitude: String,
+    status: { type: Boolean, default: true },
+    Description: String,
+    wallet: Number,
+    Authorized_Store: { type: Boolean, default: true },
+    Category: [{ type: mongoose.Schema.ObjectId, ref: 'Category' }],
+    image: String,
+    aadharCard: [String],
+    panCard: [String],
+    gstNumber: String,
     emailVerified: { type: Boolean, default: false },
     phoneNumberVerified: { type: Boolean, default: false },
-    approveStatus: {type: String,enum: ['pending_verification', 'pending_admin_approval', 'approved', 'rejected'],default: 'pending_verification'},
+    approveStatus: { type: String, enum: ['pending_verification', 'pending_admin_approval', 'approved', 'rejected'], default: 'pending_verification' },
     verificationToken: String,
-    },{timestamps:true})
+    sellerCategories: [
+        {
+            categoryId: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' },
+            subCategories: [
+                {
+                    subCategoryId: {
+                        type: mongoose.Schema.Types.ObjectId,
+                        ref: 'SubCategory',
+                    },
+                    subSubCategories: [
+                        {
+                            subSubCategoryId: {
+                                type: mongoose.Schema.Types.ObjectId,
+                                ref: 'SubSubCategory',
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+    ],
+}, { timestamps: true })
 
-module.exports=mongoose.model('Store',storeScheema)
+module.exports = mongoose.model('Store', storeScheema)
 

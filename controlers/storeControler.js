@@ -50,7 +50,7 @@ console.log(store)
     }
     });
     }
-        return res.status(200).json({ message: 'OTP sent via WhatsApp', otp });
+        return res.status(200).json({ message: 'OTP sent via WhatsApp' });
   }
     const store = await Store.findOne({ email });
     if (!store) {

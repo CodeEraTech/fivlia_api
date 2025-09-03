@@ -14,7 +14,7 @@ const { getDashboardStats, getStoreDashboardStats, walletAdmin, adminTranaction,
 const { getDeliveryEstimate } = require('../controlers/DeliveryControler')
 
 //seller product
-const { addSellerProduct, editSellerProduct, updateSellerStock, deleteSellerProduct, addCategoryInSeller, getDetailsGst, getCategoryProduct, getSellerCategoryMapping } = require('../controlers/sellerControlers/sellerProductsControler')
+const { addSellerProduct, editSellerProduct, updateSellerStock, deleteSellerProduct, addCategoryInSeller, getDetailsGst, getCategoryProduct, getSellerCategoryMapping, getSellerCategories, getSellerProducts } = require('../controlers/sellerControlers/sellerProductsControler')
 
 //seller auth
 const { addSeller, getSeller, getSellerRequest, sendOtp, acceptDeclineRequest, verifyOtpSeller } = require('../controlers/sellerControlers/sellerAuth')
@@ -89,6 +89,8 @@ router.put('/acceptDeclineRequest', acceptDeclineRequest)
 router.put('/addCategoryInSeller/:id', addCategoryInSeller)
 router.delete('/deleteSellerProduct/:id', deleteSellerProduct)
 router.get('/getSellerCategoryMapping/:id', getSellerCategoryMapping)
+router.get('/getSellerCategories/:id', getSellerCategories)
+router.get('/getSellerProducts', getSellerProducts)
 
 router.get('/getSeller', getSeller)
 router.get('/getSellerRequest', getSellerRequest)

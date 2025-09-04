@@ -4,29 +4,29 @@ const router = express.Router()
 const verifyToken = require('../midllerware/authToken');
 
 //invoice
-const {generateThermalInvoiceController} = require('../config/invoice')
+const { generateThermalInvoiceController } = require('../config/invoice')
 //website
-const { forwebbestselling, forwebgetProduct, forwebgetFeatureProduct, forwebsearchProduct, forwebgetRelatedProducts, forwebgetBanner, getDeliveryEstimateForWebsite, addPage, editPage, getPage, deletePage, updatePageStatus,contactUs } = require('../controlers/websiteapicontroler')
+const { forwebbestselling, forwebgetProduct, forwebgetFeatureProduct, forwebsearchProduct, forwebgetRelatedProducts, forwebgetBanner, getDeliveryEstimateForWebsite, addPage, editPage, getPage, deletePage, updatePageStatus, contactUs } = require('../controlers/websiteapicontroler')
 
-const { driverLogin, acceptOrder, driverOrderStatus, acceptedOrder, activeStatus, driverWallet, transactionList, cancelOrders, getDriverDetail, completedOrders, editProfile, deleteDriver,withdrawalRequest } = require('../controlers/driverControler')
+const { driverLogin, acceptOrder, driverOrderStatus, acceptedOrder, activeStatus, driverWallet, transactionList, cancelOrders, getDriverDetail, completedOrders, editProfile, deleteDriver, withdrawalRequest } = require('../controlers/driverControler')
 
-const { getDashboardStats, getStoreDashboardStats, walletAdmin,adminTranaction,getWithdrawalRequest } = require('../controlers/dashboardControler')
+const { getDashboardStats, getStoreDashboardStats, walletAdmin, adminTranaction, getWithdrawalRequest } = require('../controlers/dashboardControler')
 const { getDeliveryEstimate } = require('../controlers/DeliveryControler')
 
 //seller product
-const { addSellerProduct,editSellerProduct,updateSellerStock,deleteSellerProduct,addCategoryInSeller,getDetailsGst,getCategoryProduct } = require('../controlers/sellerControlers/sellerProductsControler')
+const { addSellerProduct, editSellerProduct, updateSellerStock, deleteSellerProduct, addCategoryInSeller, getDetailsGst, getCategoryProduct, getSellerCategoryMapping, getSellerCategories, getSellerProducts } = require('../controlers/sellerControlers/sellerProductsControler')
 
 //seller auth
-const { addSeller,getSeller,getSellerRequest,sendOtp,acceptDeclineRequest,verifyOtpSeller } = require('../controlers/sellerControlers/sellerAuth')
+const { addSeller, getSeller, getSellerRequest, sendOtp, acceptDeclineRequest, verifyOtpSeller } = require('../controlers/sellerControlers/sellerAuth')
 
-const { createStore, storeLogin, verifyEmail, getStore, addCategoryInStore, removeCategoryInStore, storeEdit, getStoreTransaction,getStoreCategory } = require('../controlers/storeControler');
+const { createStore, storeLogin, verifyEmail, getStore, addCategoryInStore, removeCategoryInStore, storeEdit, getStoreTransaction, getStoreCategory } = require('../controlers/storeControler');
 
 const { settings, getSettings, adminSetting, getSmsType } = require('../controlers/settingControler');
 const { users, addUser, updateProfile, Login, signin, deleteAccount, register, verifyMobile, verifyOtp } = require('../controlers/authControler');
 
 const { intro, getIntro } = require('../controlers/controlers')
 
-const { placeOrder, getOrders, orderStatus, test, driver, getDriver, editDriver, verifyPayment, getOrderDetails, deliveryStatus, updatedeliveryStatus, getdeliveryStatus, notification,editNotification,deleteNotification, getNotification } = require('../controlers/orderControler')
+const { placeOrder, getOrders, orderStatus, test, driver, getDriver, editDriver, verifyPayment, getOrderDetails, deliveryStatus, updatedeliveryStatus, getdeliveryStatus, notification, editNotification, deleteNotification, getNotification } = require('../controlers/orderControler')
 
 const { addCart, getCart, getDicount, discount, quantity, deleteCart } = require('../controlers/cartControler')
 
@@ -56,7 +56,7 @@ router.post('/verifyPayment', verifyPayment);
 router.post('/filter', filter)
 router.post('/createStore', upload, createStore)
 router.post('/Product/bulk', upload, bulkProductUpload),
- router.put('/adminSetting', adminSetting)
+  router.put('/adminSetting', adminSetting)
 router.post('/addFilter', addFilter)
 router.post('/address', verifyToken, addAddress);
 router.post('/updateStock/:productId', updateStock);
@@ -71,23 +71,26 @@ router.post('/storeLogin', storeLogin)
 router.post('/discount', discount)
 router.post('/addCity', addCity)
 router.post('/location', verifyToken, updateLocation)
-router.post('/notification',upload,notification)
+router.post('/notification', upload, notification)
 router.post('/driverLogin', driverLogin)
 router.post('/activeStatus', activeStatus)
 router.post('/addPage', addPage)
 
 //seller
-router.post('/addSeller',upload, addSeller)
+router.post('/addSeller', upload, addSeller)
 router.post('/sendOtp', sendOtp)
 
 //sellerProducts
-router.post('/addSellerProduct/:id',upload,addSellerProduct)
-router.post('/seller/verifyOtp',verifyOtpSeller)
-router.put('/editSellerProduct/:id',upload,editSellerProduct)
-router.put('/updateSellerStock/:id',updateSellerStock)
-router.put('/acceptDeclineRequest',acceptDeclineRequest)
+router.post('/addSellerProduct/:id', upload, addSellerProduct)
+router.post('/seller/verifyOtp', verifyOtpSeller)
+router.put('/editSellerProduct/:id', upload, editSellerProduct)
+router.put('/updateSellerStock/:id', updateSellerStock)
+router.put('/acceptDeclineRequest', acceptDeclineRequest)
 router.put('/addCategoryInSeller/:id', addCategoryInSeller)
 router.delete('/deleteSellerProduct/:id', deleteSellerProduct)
+router.get('/getSellerCategoryMapping/:id', getSellerCategoryMapping)
+router.get('/getSellerCategories/:id', getSellerCategories)
+router.get('/getSellerProducts', getSellerProducts)
 
 router.get('/getSeller', getSeller)
 router.get('/getSellerRequest', getSellerRequest)
@@ -128,7 +131,7 @@ router.get('/website/getProduct', forwebgetProduct)
 router.get('/website/featureProduct', forwebgetFeatureProduct)
 router.get('/website/searchProduct', forwebsearchProduct)
 router.get('/website/relatedProducts', forwebgetRelatedProducts)
-router.get('/website/forwebgetBanner', forwebgetBanner) 
+router.get('/website/forwebgetBanner', forwebgetBanner)
 router.get('/getPage', getPage)
 router.get('/getDetailsGst', getDetailsGst)
 router.post('/save-contact-us', contactUs)
@@ -195,8 +198,8 @@ router.delete('/deleteDriver/:id', deleteDriver)
 router.put('/acceptOrder', acceptOrder)
 router.delete('/deletePage/:id', deletePage)
 router.put('/editPage/:id', editPage)
-router.put('/updatePageStatus/:id',updatePageStatus)
-router.put('/editNotification/:id',upload,editNotification)
+router.put('/updatePageStatus/:id', updatePageStatus)
+router.put('/editNotification/:id', upload, editNotification)
 router.delete('/deleteNotification/:id', deleteNotification)
 router.put('/setCommison', setCommison)
 

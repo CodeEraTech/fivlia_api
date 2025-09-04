@@ -25,8 +25,8 @@ exports.addSeller = async (req,res) => {
     if (sellerData) {
     // Check if email matches and is verified
  if (
-  (sellerData.email === email && sellerData.emailVerified === "true") ||
-  (sellerData.PhoneNumber === PhoneNumber && sellerData.phoneNumberVerified === "true")
+  (sellerData.email === email && sellerData.emailVerified === true) ||
+  (sellerData.PhoneNumber === PhoneNumber && sellerData.phoneNumberVerified === true)
 ) {
   return res.status(409).json({ message: "Email or Mobile number already exists" });
 }

@@ -3,6 +3,7 @@ const seller = require('../modals/sellerModals/seller')
 const Stock = require('../modals/StoreStock')
 const admin = require("../firebase/firebase");
 const jwt = require('jsonwebtoken');
+const request = require('request');
 const Products = require('../modals/Product');
 const OtpModel = require("../modals/otp")
 const sendVerificationEmail = require('../config/nodeMailer');
@@ -11,6 +12,8 @@ const CategoryModel = require('../modals/category');
 const {ZoneData} = require('../modals/cityZone'); // your Locations model
 const crypto = require("crypto");
 const store_transaction = require('../modals/storeTransaction')
+const {SettingAdmin} = require('../modals/setting')
+const {whatsappOtp} = require('../config/whatsappsender')
 // const sendVerificationEmail = require("../config/nodeMailer");
 
 exports.storeLogin = async (req, res) => {
@@ -19,6 +22,8 @@ exports.storeLogin = async (req, res) => {
 
     if(type==='seller'){
        const store = await Store.findOne({ $or: [{ email },{ PhoneNumber }]});
+       const setting = await SettingAdmin.findOne()
+       const authSettings = setting?.Auth?.[0] || {};
 console.log(store)
     if (!store) {
       return res.status(404).json({ message: "Store not found" });
@@ -321,7 +326,7 @@ exports.getStore = async (req, res) => {
     const { id } = req.query;
 
     if (!id) {
-      const allStores = await Store.find().lean();
+      const allStores = await Store.find({Authorized_Store:true}).lean();
       return res.status(200).json({ stores: allStores });
     }
 

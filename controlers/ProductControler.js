@@ -582,7 +582,12 @@ for (const stockDoc of stockDocs) {
   for (const item of stockDoc.stock || []) {
     const key = `${item.productId}_${item.variantId}`;
     stockMap[key] = item.quantity;
-    stockDetailMap[key] = item; // 👈 Store full stock item
+    stockDetailMap[key] = {
+      quantity: item.quantity,
+      price: item.price,
+      mrp: item.mrp,
+      storeId: stockDoc.storeId   // ✅ include storeId here
+    }; // 👈 Store full stock item
   }
 }
 
@@ -611,10 +616,10 @@ for (const stockDoc of stockDocs) {
   if (Array.isArray(product.variants)) {
     for (const variant of product.variants) {
    const key = `${product._id}_${variant._id}`;
-const quantity = stockMap[key] || 0;
+   const stockEntry = stockDetailMap[key];
+const quantity = stockEntry?.quantity || 0;
 const cartQty = cartMap[key] || 0;
 
-const stockEntry = stockDetailMap[key];
 if (stockEntry?.price != null) {
   variant.sell_price = stockEntry.price;
 }

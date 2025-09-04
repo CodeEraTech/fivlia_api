@@ -83,7 +83,7 @@ function isWithinZone(userLat, userLng, zone) {
 
 
 async function getStoresWithinRadius(userLat, userLng) {
-  const allStores = await Store.find({ status: true });
+  const allStores = await Store.find({ status: true }).lean();
 
   const cityZoneDocs = await ZoneData.find({});
   const activeZones = cityZoneDocs.flatMap(doc =>
@@ -103,7 +103,14 @@ async function getStoresWithinRadius(userLat, userLng) {
 
   const matchedStores = allStores.filter(store =>
     store.zone.some(z => matchedZoneIds.includes(z._id.toString()))
-  );
+  ) .map(store => ({
+      ...store,
+      soldBy: {
+        storeId: store._id,
+        storeName: store.Authorized_Store ? "Fivlia" : store.storeName,
+        official:store.Authorized_Store ? 1 : 0
+      }
+    }));
   
   return { zoneAvailable: true, matchedStores };
 }

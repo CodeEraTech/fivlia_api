@@ -190,10 +190,8 @@ exports.verifyPayment = async (req, res) => {
       orderStatus: paymentStatus ? "Pending" : "Cancelled"
     };
 
-    // 3. Create the final order
     const finalOrder = await Order.create(orderData);
 
-    // 4. Update stock ONLY if payment was successful
     if (paymentStatus === true) {
       for (const item of tempOrder.items) {
         await stock.updateOne(

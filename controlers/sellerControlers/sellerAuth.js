@@ -10,21 +10,41 @@ const Products = require('../../modals/Product');
 const CategoryModel = require('../../modals/category');
 const Stock = require('../../modals/StoreStock')
 const sellerProduct = require('../../modals/sellerModals/sellerProduct');
+const {whatsappOtp} = require('../../config/whatsappsender')
 
 exports.addSeller = async (req,res) => {
     try {
-        const {storeName,firstName,lastName,PhoneNumber,email,city,zone,gstNumber} = req.body
+        const {storeName,firstName,lastName,PhoneNumber,email,city,zone,gstNumber,Latitude,Longitude} = req.body
 
         const sellerData = await seller.findOne({  $or: [{ email },{ PhoneNumber }] })
-        if(sellerData){
-          const Exist = sellerData.email === email ? "Email" : "Mobile number"; 
-        return res.status(409).json({ message: `${Exist} already exist`});
-        }
-
         const setting = await SettingAdmin.findOne()
         const authSettings = setting?.Auth?.[0] || {};
         const otp = crypto.randomInt(100000, 999999).toString();
         const otpEmail = crypto.randomInt(100000, 999999).toString();
+
+    if (sellerData) {
+    // Check if email matches and is verified
+ if (
+  (sellerData.email === email && sellerData.emailVerified === true) ||
+  (sellerData.PhoneNumber === PhoneNumber && sellerData.phoneNumberVerified === true)
+) {
+  return res.status(409).json({ message: "Email or Mobile number already exists" });
+}
+    // If email or phone exists but not verified, send OTP
+    try {
+      await whatsappOtp({
+        otp,
+        PhoneNumber,
+        authSettings
+      });
+     await OtpModel.create({email,otpEmail, mobileNumber:PhoneNumber, otp, expiresAt: Date.now() + 30 * 60 * 1000 });
+     await sendVerificationEmail(email,"Welcome to Fivlia – Your store is under verification",otpTemplate(otpEmail));
+      return res.status(200).json({ message: "OTP sent to email and phone for verification" });
+    } catch (err) {
+      return res.status(500).json({ message: "Failed to send OTP", error: err.message });
+    }
+  }
+
 //     const rawImagePath = req.files?.image?.[0]?.key || "";
 //     const image = rawImagePath ? `/${rawImagePath}` : ""; 
        const aadharCard = req.files?.aadharCard?.map(file => `/${file.key}`) || [];
@@ -47,7 +67,7 @@ zones.forEach(doc => {
 });
 
 console.log(matchedZones)
-        const newSeller = await seller.create({storeName,ownerName: `${firstName} ${lastName}`,Authorized_Store:false,PhoneNumber,email,aadharCard,panCard,city,zone:matchedZones,gstNumber,approveStatus: 'pending_verification'})
+        const newSeller = await seller.create({storeName,ownerName: `${firstName} ${lastName}`,Authorized_Store:false,PhoneNumber,email,aadharCard,panCard,city,zone:matchedZones,gstNumber,approveStatus: 'pending_verification',Latitude,Longitude})
         
       var options = {
        method: 'POST',

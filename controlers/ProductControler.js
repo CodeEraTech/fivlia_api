@@ -350,8 +350,6 @@ exports.getProduct = async (req, res) => {
 
     const allowedStores = Array.isArray(stores?.matchedStores) ? stores.matchedStores : [];
 
-console.log(stores)
-console.log('allowedStores',allowedStores)    
 if (!allowedStores.length) {
       return res.status(200).json({
         message: "No matching products found for your location.",
@@ -423,7 +421,10 @@ stockDocs.forEach(doc => {
   (doc.stock || []).forEach(entry => {
     const key = `${entry.productId}_${entry.variantId}`;
     stockMap[key] = entry.quantity;
-    stockDetailMap[key] = entry;
+    stockDetailMap[key] = {
+      ...entry,
+      storeId: doc.storeId   // ✅ attach parent storeId here
+    };
   });
 });
 
@@ -437,7 +438,8 @@ stockDocs.forEach(doc => {
 products.forEach(product => {
   product.inventory = [];
   product.inCart = { status: false, qty: 0, variantIds: [] };
-
+  product.soldBy = {};
+  let hasStock = false; 
   product.variants?.forEach(variant => {
     const key = `${product._id}_${variant._id}`;
     const quantity = stockMap[key] || 0;
@@ -453,17 +455,32 @@ const stockEntry = stockDetailMap[key];
     if (stockEntry?.mrp != null) {
       variant.mrp = stockEntry.mrp;
     }
-
     // 🧾 Add quantity to inventory
     product.inventory.push({ variantId: variant._id, quantity });
 
+    if (quantity > 0) {
+      hasStock = true; // ✅ mark product as in stock
+    }
     // 🛒 Cart info
     if (cartQty > 0) {
       product.inCart.status = true;
       product.inCart.qty += cartQty;
       product.inCart.variantIds.push(variant._id);
     }
+ if (hasStock && stockEntry?.storeId) {
+      const store = allowedStores.find(
+        s => s._id.toString() === stockEntry.storeId.toString()
+      );
+      if (store) {
+        product.soldBy = store.soldBy;
+      }
+    }
   });
+
+  // ✅ If product had no stock at all → keep empty {}
+  if (!hasStock) {
+    product.soldBy = {};
+  }
 });
 
     let filter = [];
@@ -527,7 +544,6 @@ exports.bestSelling = async (req, res) => {
         }
       }
     }
-console.log('stores',stores)
     const allowedStores = Array.isArray(stores?.matchedStores) ? stores.matchedStores : [];
 
     if (!allowedStores.length) {
@@ -589,6 +605,9 @@ for (const stockDoc of stockDocs) {
   product.inventory = [];
   product.inCart = { status: false, qty: 0, variantIds: [] };
 
+  product.soldBy = {};
+  let hasStock = false; 
+
   if (Array.isArray(product.variants)) {
     for (const variant of product.variants) {
    const key = `${product._id}_${variant._id}`;
@@ -605,13 +624,29 @@ if (stockEntry?.mrp != null) {
 
 product.inventory.push({ variantId: variant._id, quantity });
 
+ if (quantity > 0) {
+      hasStock = true; // ✅ mark product as in stock
+    }
 
       if (cartQty > 0) {
         product.inCart.status = true;
         product.inCart.qty += cartQty;
         product.inCart.variantIds.push(variant._id); // 👈 store the variantId in cart
       }
+          if (quantity > 0 && stockEntry?.storeId) {
+        const store = allowedStores.find(
+          s => s._id.toString() === stockEntry.storeId.toString()
+        );
+        if (store) {
+          product.soldBy = store.soldBy;
+        }
+      }
     }
+  }
+
+  // ✅ If no stock at all → force empty {}
+  if (!hasStock) {
+    product.soldBy = {};
   }
 }
 
@@ -704,7 +739,12 @@ exports.searchProduct = async (req, res) => {
       for (const item of doc.stock || []) {
         const key = `${item.productId}_${item.variantId}`;
         stockMap[key] = item.quantity;
-        stockDetailMap[key] = item;
+        stockDetailMap[key] = {
+      quantity: item.quantity,
+      price: item.price,
+      mrp: item.mrp,
+      storeId: doc.storeId,   // ✅ attach storeId here
+    };
       }
     }
 
@@ -719,7 +759,8 @@ exports.searchProduct = async (req, res) => {
     for (const product of products) {
       product.inventory = [];
       product.inCart = { status: false, qty: 0, variantIds: [] };
-
+      product.soldBy = {};
+      let hasStock = false; 
       for (const variant of product.variants || []) {
         const key = `${product._id}_${variant._id}`;
         const quantity = stockMap[key] || 0;
@@ -736,13 +777,30 @@ exports.searchProduct = async (req, res) => {
 
         product.inventory.push({ variantId: variant._id, quantity });
 
+        if (quantity > 0) {
+        hasStock = true; // ✅ mark product as in stock
+        }
+
         if (cartQty > 0) {
           product.inCart.status = true;
           product.inCart.qty += cartQty;
           product.inCart.variantIds.push(variant._id);
         }
+ if (hasStock && stockEntry?.storeId) {
+      const store = allowedStores.find(
+        s => s._id.toString() === stockEntry.storeId.toString()
+      );
+      if (store) {
+        product.soldBy = store.soldBy;
       }
     }
+  };
+
+  // ✅ If product had no stock at all → keep empty {}
+  if (!hasStock) {
+    product.soldBy = {};
+  }
+};
 
     return res.status(200).json({
       message: "Search results fetched successfully.",
@@ -826,7 +884,10 @@ console.log(allowedStores)
     for (const doc of stockDocs) {
       for (const item of doc.stock || []) {
         const key = `${item.productId}_${item.variantId}`;
-        stockMap[key] = item.quantity;
+        stockMap[key] = {quantity: item.quantity,
+      price: item.price,
+      mrp: item.mrp,
+      storeId: doc.storeId};
       }
     }
 
@@ -855,19 +916,15 @@ console.log(allowedStores)
   product.inventory = [];
   product.inCart = { status: false, qty: 0, variantIds: [] };
 
+  product.soldBy = {};
+  let hasStock = false; 
+
   if (Array.isArray(product.variants)) {
     for (const variant of product.variants) {
       const key = `${product._id}_${variant._id}`;
-      const quantity = stockMap[key] || 0;
+      const stockEntry = stockMap[key];
+      const quantity = stockEntry?.quantity || 0;
       const cartQty = cartMap[key] || 0;
-
-      // ✅ Find stock entry for this product+variant
-      const stockEntry = stockDocs
-        .flatMap(doc => doc.stock || [])
-        .find(
-          s => String(s.productId) === String(product._id) &&
-               String(s.variantId) === String(variant._id)
-        );
 
       // ✅ Override variant's price and mrp if available
       if (stockEntry?.price != null) {
@@ -881,16 +938,31 @@ console.log(allowedStores)
       // 📦 Add to inventory
       product.inventory.push({ variantId: variant._id, quantity });
 
+      if (quantity > 0) {
+      hasStock = true; // ✅ mark product as in stock
+      }
       // 🛒 Add to inCart
       if (cartQty > 0) {
         product.inCart.status = true;
         product.inCart.qty += cartQty;
         product.inCart.variantIds.push(variant._id);
       }
+     if (hasStock && stockEntry?.storeId) {
+      const store = allowedStores.find(
+        s => s._id.toString() === stockEntry.storeId.toString()
+      );
+      if (store) {
+        product.soldBy = store.soldBy;
+      }
     }
-  }
-}
+  };
 
+  // ✅ If product had no stock at all → keep empty {}
+  if (!hasStock) {
+    product.soldBy = {};
+  }
+};
+}
 
     return res.status(200).json({
       message: 'It is feature product.',
@@ -1489,7 +1561,8 @@ exports.getRelatedProducts = async (req, res) => {
         stockMap[key] = {
           quantity: item.quantity || 0,
           price: item.price ?? null,
-          mrp: item.mrp ?? null
+          mrp: item.mrp ?? null,
+          storeId: doc.storeId
         };
       }
     }
@@ -1529,7 +1602,8 @@ exports.getRelatedProducts = async (req, res) => {
     for (const relProduct of relatedProducts) {
       relProduct.inventory = [];
       relProduct.inCart = { status: false, qty: 0, variantIds: [] };
-
+      relProduct.soldBy = {};
+      let hasStock = false; 
       if (Array.isArray(relProduct.variants)) {
         for (const variant of relProduct.variants) {
           const key = `${relProduct._id}_${variant._id}`;
@@ -1544,12 +1618,30 @@ exports.getRelatedProducts = async (req, res) => {
             quantity: stockEntry?.quantity || 0
           });
 
+    if ((stockEntry?.quantity || 0) > 0) {
+            hasStock = true;
+          }
+
+
           if (cartQty > 0) {
             relProduct.inCart.status = true;
             relProduct.inCart.qty += cartQty;
             relProduct.inCart.variantIds.push(variant._id);
           }
+    if (stockEntry?.quantity > 0 && stockEntry?.storeId) {
+            const store = allowedStores.find(
+              s => s._id.toString() === stockEntry.storeId.toString()
+            );
+            if (store) {
+              relProduct.soldBy = store.soldBy;
+            }
+          }
         }
+      }
+
+      // ✅ If product had no stock → soldBy stays empty
+      if (!hasStock) {
+        relProduct.soldBy = {};
       }
     }
 

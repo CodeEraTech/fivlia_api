@@ -52,18 +52,40 @@ exports.deleteSellerProduct = async (req, res) => {
 
 exports.updateSellerStock = async (req, res) => {
   try {
-    const { id } = req.params
-    const { stock } = req.body
-    const updateStock = await Products.findByIdAndUpdate(id, { stock })
-    return res.status(200).json({ message: "Stock Updated", updateStock })
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ ResponseMsg: "An Error Occured" });
+    const { id } = req.params;
+    const { productId, stock, sell_price, mrp } = req.body;
+
+    if (!id || !productId) {
+      return res.status(400).json({ message: "Invalid request" });
+    }
+
+    // Convert to numbers (since frontend sends them as strings)
+    const updateData = {};
+    if (stock !== undefined) updateData.stock = Number(stock);
+    if (sell_price !== undefined) updateData.sell_price = Number(sell_price);
+    if (mrp !== undefined) updateData.mrp = Number(mrp);
+
+    // find and update product for this seller
+    const updated = await Products.findOneAndUpdate(
+      { product_id: productId, sellerId: id },
+      { $set: updateData },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    return res.status(200).json({
+      message: "Product updated successfully",
+    });
+  } catch (err) {
+    // console.error("Error updating product:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 }
 
 exports.addCategoryInSeller = async (req, res) => {
-
   try {
     const { id } = req.params;
     const { sellerCategories, sellerProducts } = req.body;
@@ -77,47 +99,52 @@ exports.addCategoryInSeller = async (req, res) => {
       return res.status(400).json({ message: "At least one product must be selected." });
     }
 
-    // Extra validation (optional): ensure categoryId and productId are ObjectIds
-    const invalidCategories = sellerCategories.filter(c => !c.categoryId);
-    if (invalidCategories.length > 0) {
-      return res.status(400).json({ message: "Invalid category structure." });
-    }
-
-    const invalidProducts = sellerProducts.filter(p => !p);
-    if (invalidProducts.length > 0) {
-      return res.status(400).json({ message: "Invalid product IDs." });
-    }
-
-    // Save in store
-    //console.log("Updating store with ID:", id);
+    // Update seller categories in Store
     const updatedStore = await Store.findByIdAndUpdate(
       id,
       { $set: { sellerCategories } },
       { new: true }
     );
 
-    // Replace seller products (clear old, insert new)
-    await Products.deleteMany({ id });
-
-    // Prepare new documents
-    const productDocs = sellerProducts.map((productId) => ({
-      sellerId: id,
-      product_id: productId,
-      sell_price: 0,
-      mrp: 0,
-    }));
-
-    // Insert new seller products
-    await Products.insertMany(productDocs);
-
     if (!updatedStore) {
       return res.status(404).json({ message: "Store not found" });
+    }
+
+    // Get existing seller products
+    const existingProducts = await Products.find({ sellerId: id }, { product_id: 1 }).lean();
+    const existingProductIds = existingProducts.map(p => p.product_id.toString());
+
+    // Convert request productIds to string for comparison
+    const requestedProductIds = sellerProducts.map(p => p.toString());
+
+    //Delete products that are no longer in request
+    const productsToDelete = existingProductIds.filter(pid => !requestedProductIds.includes(pid));
+    if (productsToDelete.length > 0) {
+      await Products.deleteMany({
+        sellerId: id,
+        product_id: { $in: productsToDelete }
+      });
+    }
+
+    //Find which are new and need inserting
+    const productsToInsert = requestedProductIds.filter(pid => !existingProductIds.includes(pid));
+
+    if (productsToInsert.length > 0) {
+      const productDocs = productsToInsert.map(productId => ({
+        sellerId: id,
+        product_id: productId,
+        sell_price: 0,
+        mrp: 0,
+        stock: 0,
+      }));
+      await Products.insertMany(productDocs);
     }
     return res.status(200).json({
       message: "Seller categories and products updated successfully",
     });
+
   } catch (err) {
-    console.error("Error updating seller categories/products:", err);
+    // console.error("Error updating seller categories/products:", err);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 };
@@ -271,15 +298,13 @@ exports.getSellerProducts = async (req, res) => {
 
     const filter = { sellerId };
 
-    // Optional: filter by category if provided
-    if (category) {
-      filter.category = new mongoose.Types.ObjectId(category);
+    let productMatch = {};
+    if (search) {
+      productMatch.productName = { $regex: search, $options: "i" };
     }
 
-    // Optional: search by product name (case-insensitive)
-    let searchFilter = {};
-    if (search) {
-      searchFilter = { productName: { $regex: search, $options: "i" } };
+    if (category) {
+      productMatch["category._id"] = new mongoose.Types.ObjectId(category);
     }
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -294,8 +319,11 @@ exports.getSellerProducts = async (req, res) => {
       .populate({
         path: "product_id",
         model: "Product",
-        match: searchFilter,
-        select: "productName productThumbnailUrl",
+        match: productMatch,
+        select: "productName productThumbnailUrl category subCategory",
+        populate: [
+          { path: "category", model: "Category" }
+        ]
       })
       .lean();
 
@@ -304,15 +332,25 @@ exports.getSellerProducts = async (req, res) => {
       .filter(sp => sp.product_id)
       .map(sp => {
         const prod = sp.product_id;
+        let commission = 0;
+        console.log(prod);
+        if (prod.category && Array.isArray(prod.category.subcat) && prod.subCategory) {
+          const subCatMatch = prod.category.subcat.find(
+            sub => sub._id.toString() === prod.subCategory[0]._id.toString()
+          );
+          commission = subCatMatch ? subCatMatch.commission : 0;
+        }
         return {
           sellerProductId: sp._id,
           productId: prod._id,
           productName: prod.productName,
           productThumbnailUrl: prod.productThumbnailUrl,
+          category: prod.category[0]['name'] || "Uncategorized",
           mrp: sp.mrp,
           sell_price: sp.sell_price,
           stock: sp.stock,
           status: sp.status ?? false,
+          commission: commission,
         };
       });
 
@@ -329,3 +367,52 @@ exports.getSellerProducts = async (req, res) => {
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
+exports.updateSellerProducStatus = async (req, res) => {
+  const { id } = req.params;
+  const { productId, status } = req.body;
+  try {
+
+
+    if (!id || !productId || typeof status !== "boolean") {
+      return res.status(400).json({ message: "Invalid request" });
+    }
+
+    // find and update product for this seller
+    const updated = await Products.findOneAndUpdate(
+      { product_id: productId, sellerId: id },
+      { $set: { status: status } },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    return res.status(200).json({
+      message: "Product status updated successfully",
+    });
+  } catch (err) {
+    // console.error("Error updating product status:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+}
+
+exports.getSellerCategoryList = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const store = await Store.findOne({ _id: id }).lean();
+    if (!store) {
+      return res.status(404).json({ message: "Store not found" });
+    }
+    const categoryIds = store.sellerCategories.map((c) => c.categoryId);
+    const categories = await Category.find({ _id: { $in: categoryIds } }).lean();
+    return res.status(200).json({
+      message: "Categories fetched successfully",
+      categories,
+    });
+  } catch (err) {
+    //console.error("Error fetching seller categories:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+}

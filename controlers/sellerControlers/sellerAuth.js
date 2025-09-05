@@ -14,7 +14,7 @@ const {whatsappOtp} = require('../../config/whatsappsender')
 
 exports.addSeller = async (req,res) => {
     try {
-        const {storeName,firstName,lastName,PhoneNumber,email,city,zone,gstNumber,fsiNumber,Latitude,Longitude,sellFood} = req.body
+        const {storeName,firstName,lastName,PhoneNumber,email,city,zone,gstNumber,fsiNumber,Latitude,Longitude,sellFood,fullAddress} = req.body
 
         const sellerData = await seller.findOne({  $or: [{ email },{ PhoneNumber }] })
         const setting = await SettingAdmin.findOne()
@@ -67,7 +67,7 @@ zones.forEach(doc => {
 });
 
 console.log(matchedZones)
-        const newSeller = await seller.create({storeName,ownerName: `${firstName} ${lastName}`,Authorized_Store:false,PhoneNumber,email,aadharCard,panCard,fsiNumber,city,zone:matchedZones,gstNumber,approveStatus: 'pending_verification',Latitude,Longitude,sellFood})
+        const newSeller = await seller.create({storeName,ownerName: `${firstName} ${lastName}`,Authorized_Store:false,PhoneNumber,email,aadharCard,panCard,fsiNumber,city,zone:matchedZones,gstNumber,approveStatus: 'pending_verification',Latitude,Longitude,sellFood,fullAddress})
         
       var options = {
        method: 'POST',

@@ -289,7 +289,13 @@ exports.getSellerCategories = async (req, res) => {
 };
 
 exports.getSellerProducts = async (req, res) => {
-  const { sellerId, page = 1, limit = 10, search = "", category = "" } = req.query;
+  const {
+    sellerId,
+    page = 1,
+    limit = 10,
+    search = "",
+    category = ""
+  } = req.query;
 
   try {
     if (!sellerId) {
@@ -320,39 +326,64 @@ exports.getSellerProducts = async (req, res) => {
         path: "product_id",
         model: "Product",
         match: productMatch,
-        select: "productName productThumbnailUrl category subCategory",
+        select: "productName mrp sell_price productThumbnailUrl category subCategory subSubCategory",
         populate: [
-          { path: "category", model: "Category" }
+          {
+            path: "category",
+            model: "Category"
+          }
         ]
       })
       .lean();
 
-    // Filter out sellerProducts where populate returned null (search mismatch)
-    const products = sellerProducts
-      .filter(sp => sp.product_id)
-      .map(sp => {
-        const prod = sp.product_id;
-        let commission = 0;
-        console.log(prod);
-        if (prod.category && Array.isArray(prod.category.subcat) && prod.subCategory) {
-          const subCatMatch = prod.category.subcat.find(
-            sub => sub._id.toString() === prod.subCategory[0]._id.toString()
-          );
-          commission = subCatMatch ? subCatMatch.commission : 0;
-        }
-        return {
-          sellerProductId: sp._id,
-          productId: prod._id,
-          productName: prod.productName,
-          productThumbnailUrl: prod.productThumbnailUrl,
-          category: prod.category[0]['name'] || "Uncategorized",
-          mrp: sp.mrp,
-          sell_price: sp.sell_price,
-          stock: sp.stock,
-          status: sp.status ?? false,
-          commission: commission,
-        };
-      });
+    const products = await Promise.all(
+      sellerProducts
+        .filter(sp => sp.product_id)
+        .map(async sp => {
+          const prod = sp.product_id;
+
+          const subCategoryId = prod.subCategory?.[0]?._id?.toString();
+          const subSubCategoryId = prod.subSubCategory?.[0]?._id?.toString();
+          const categoryId = prod.category?.[0]?._id;
+
+          let commission = 0;
+          let categoryName = "Uncategorized";
+
+          if (categoryId) {
+            // 🛠️ Manually fetch category with subcat
+            const fullCategory = await Category.findById(categoryId).lean();
+            categoryName = fullCategory?.name ?? "Uncategorized";
+
+            if (fullCategory?.subcat && (subSubCategoryId || subCategoryId)) {
+              const matchedSubcat = fullCategory.subcat.find(
+                sub => sub._id.toString() === subCategoryId
+              );
+
+              if (matchedSubcat && Array.isArray(matchedSubcat.subsubcat)) {
+                const matchedSubSubCat = matchedSubcat.subsubcat.find(
+                  subsub => subsub._id.toString() === subSubCategoryId
+                );
+                commission = matchedSubSubCat?.commison ?? matchedSubcat?.commison ?? 0;
+              } else {
+                commission = matchedSubcat?.commison ?? 0;
+              }
+            }
+          }
+
+          return {
+            sellerProductId: sp._id,
+            productId: prod._id,
+            productName: prod.productName,
+            productThumbnailUrl: prod.productThumbnailUrl,
+            category: categoryName,
+            mrp: sp.mrp == 0 ? prod.mrp : sp.mrp,
+            sell_price: sp.sell_price == 0 ? prod.sell_price : sp.sell_price,
+            stock: sp.stock,
+            status: sp.status ?? false,
+            commission
+          };
+        })
+    );
 
     res.json({
       success: true,
@@ -362,6 +393,7 @@ exports.getSellerProducts = async (req, res) => {
       limit: parseInt(limit),
       totalPages: Math.ceil(total / limit),
     });
+
   } catch (err) {
     console.error("Error in getSellerProducts:", err);
     res.status(500).json({ success: false, message: "Server error" });

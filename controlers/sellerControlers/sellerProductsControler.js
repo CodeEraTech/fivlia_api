@@ -144,7 +144,7 @@ exports.addCategoryInSeller = async (req, res) => {
     });
 
   } catch (err) {
-    // console.error("Error updating seller categories/products:", err);
+    console.error("Error updating seller categories/products:", err);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 };

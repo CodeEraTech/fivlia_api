@@ -456,110 +456,87 @@ exports.editMainCategory = async (req, res) => {
 exports.getCategories = async (req, res) => {
   try {
     const { id } = req.query;
+    const allCategories = await Category.find().lean();
 
-     const allCategories = await Category.find().lean();
-    if (id) {
-      // 1. Try to find as top-level category
-      const singleCategory = await Category.findById(id).lean();
+    // helper: get product count by field
+    const getCount = async (query) => {
+      return await Products.countDocuments(query);
+    };
 
-      if (singleCategory) {
-        const formatted = {
-          id: singleCategory._id,
-          name: singleCategory.name,
-          description: singleCategory.description,
-          image: singleCategory.image,
-          subCategories: (singleCategory.subcat || []).map(sub => ({
-            id: sub._id,
-            name: sub.name,
-            description: sub.description,
-            image: sub.image,
-            commison:sub.commison || 0,
-            subSubCategories: (sub.subsubcat || []).map(subsub => ({
-              id: subsub._id,
-              name: subsub.name,
-              description: subsub.description,
-              image: subsub.image,
-              commison:subsub.commison || 0,
-            }))
-          }))
-        };
+    // format a sub-subcategory with product count
+    const formatSubSub = async (subsub) => {
+      const count = await getCount({ "subSubCategory._id": subsub._id });
+      return {
+        id: subsub._id,
+        name: subsub.name,
+        description: subsub.description,
+        image: subsub.image,
+        commison: subsub.commison || 0,
+        productCount: count,
+      };
+    };
 
-        return res.status(200).json({ category: formatted });
-      }
+    // format a subcategory with product count + nested sub-subs
+    const formatSub = async (sub) => {
+      const subSubFormatted = await Promise.all(
+        (sub.subsubcat || []).map(formatSubSub)
+      );
 
-      // 2. If not found as top-level, search sub and sub-sub categories
-     
-      for (const category of allCategories) {
-        for (const sub of category.subcat || []) {
-          if (sub._id.toString() === id) {
-            // Found as subcategory
-            const formatted = {
-              id: sub._id,
-              name: sub.name,
-              description: sub.description,
-              image: sub.image,
-              commison:sub.commison || 0,
-              subSubCategories: (sub.subsubcat || []).map(subsub => ({
-                id: subsub._id,
-                name: subsub.name,
-                description: subsub.description,
-                image: subsub.image,
-                commison:subsub.commison || 0,
-              }))
-            };
-            return res.status(200).json({ subCategory: formatted });
-          }
+      // count products in this subcat (including sub-subs if they reference subCategoryId)
+      const count = await getCount({ "subCategory._id": sub._id });
 
-          for (const subsub of sub.subsubcat || []) {
-            if (subsub._id.toString() === id) {
-              // Found as sub-subcategory
-              const formatted = {
-                id: subsub._id,
-                name: subsub.name,
-                description: subsub.description,
-                image: subsub.image,
-                commison:subsub.commison || 0,
-              };
-              return res.status(200).json({ subSubCategory: formatted });
-            }
-          }
-        }
-      }
-
-      return res.status(404).json({ message: "Category not found at any level" });
-    }
-
-    // If no id is provided, return full list
-
-    const formatted = allCategories.map(cat => ({
-      id: cat._id,
-      name: cat.name,
-      description: cat.description,
-      image: cat.image,
-      subCategories: (cat.subcat || []).map(sub => ({
+      return {
         id: sub._id,
         name: sub.name,
         description: sub.description,
         image: sub.image,
-        commison:sub.commison || 0,
-        subSubCategories: (sub.subsubcat || []).map(subsub => ({
-          id: subsub._id,
-          name: subsub.name,
-          description: subsub.description,
-          image: subsub.image,
-          commison:subsub.commison || 0,
-        }))
-      }))
-    }));
+        commison: sub.commison || 0,
+        productCount: count,
+        subSubCategories: subSubFormatted,
+      };
+    };
+
+    // format top-level category with product count + subcats
+    const formatCategory = async (cat) => {
+      const subFormatted = await Promise.all(
+        (cat.subcat || []).map(formatSub)
+      );
+
+      // count products in this category
+      const count = await getCount({ "category._id": cat._id });
+
+      return {
+        id: cat._id,
+        name: cat.name,
+        description: cat.description,
+        image: cat.image,
+        productCount: count,
+        subCategories: subFormatted,
+      };
+    };
+
+    if (id) {
+      // find single category by id
+      const singleCategory = await Category.findById(id).lean();
+      if (!singleCategory) {
+        return res.status(404).json({ message: "Category not found" });
+      }
+      const formatted = await formatCategory(singleCategory);
+      return res.status(200).json({ category: formatted });
+    }
+
+    // otherwise return all
+    const formatted = await Promise.all(allCategories.map(formatCategory));
 
     return res.status(200).json({ categories: formatted });
 
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ message: "Server error", error: err.message });
+    return res
+      .status(500)
+      .json({ message: "Server error", error: err.message });
   }
 };
-
 
 exports.brand = async (req,res) => {
   try {

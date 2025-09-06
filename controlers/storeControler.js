@@ -28,6 +28,12 @@ console.log(store)
     if (!store) {
       return res.status(404).json({ message: "Store not found" });
     }
+      if (store.approveStatus !== "approved") {
+        return res.status(403).json({
+          message: "Your store is not approved yet. Please wait for admin approval.",
+        });
+      }
+
  const otp = crypto.randomInt(100000, 999999).toString();
  await OtpModel.create({email, mobileNumber:PhoneNumber, otp, expiresAt: Date.now() + 30 * 60 * 1000 });
     if(email){

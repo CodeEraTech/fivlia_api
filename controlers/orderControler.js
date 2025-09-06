@@ -11,6 +11,7 @@ const stock = require('../modals/StoreStock')
 const admin_transaction = require('../modals/adminTranaction')
 const store_transaction = require('../modals/storeTransaction')
 const Notification = require("../modals/Notification");
+const Assign = require('../modals/driverModals/assignments');
 const sendNotification = require('../firebase/pushnotification');
 const Store = require('../modals/store');
 const deliveryStatus = require('../modals/deliveryStatus')
@@ -437,6 +438,7 @@ exports.orderStatus = async (req, res) => {
     const { id } = req.params;
     const { status, driverId } = req.body;
 
+
     const updateData = { orderStatus: status };
 
     if (driverId) {
@@ -458,6 +460,15 @@ if (status === 'Accepted') {
     console.error('Driver assignment failed:', err.message);
   });
 }
+
+    if (status === "Delivered" && updatedOrder.driver?.driverId) {
+     const data =  await Assign.findOneAndDelete({
+        driverId: updatedOrder.driver.driverId,
+        orderId: updatedOrder.orderId, // or updatedOrder.orderId depending on what you save
+        orderStatus: "Accepted",
+      });
+    }
+
 
     // 2. Get user & status info
     const user = await User.findById(updatedOrder.userId).lean();

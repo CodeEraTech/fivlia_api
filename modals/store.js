@@ -31,12 +31,16 @@ const storeScheema = new mongoose.Schema({
                     subCategoryId: {
                         type: mongoose.Schema.Types.ObjectId,
                         ref: 'SubCategory',
+                        default: null,
+                        required: false,
                     },
                     subSubCategories: [
                         {
                             subSubCategoryId: {
                                 type: mongoose.Schema.Types.ObjectId,
                                 ref: 'SubSubCategory',
+                                default: null,
+                                required: false,
                             },
                         },
                     ],

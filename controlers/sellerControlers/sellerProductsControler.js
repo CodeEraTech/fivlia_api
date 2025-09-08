@@ -88,63 +88,133 @@ exports.updateSellerStock = async (req, res) => {
 exports.addCategoryInSeller = async (req, res) => {
   try {
     const { id } = req.params;
-    const { sellerCategories, sellerProducts } = req.body;
+    let { sellerCategories, sellerProducts } = req.body;
 
-    // ✅ Validation
+    // Validation
     if (!sellerCategories || sellerCategories.length === 0) {
-      return res.status(400).json({ message: "At least one main category must be selected." });
+      return res.status(400).json({
+        message: "At least one main category must be selected.",
+      });
     }
-
     if (!sellerProducts || sellerProducts.length === 0) {
-      return res.status(400).json({ message: "At least one product must be selected." });
+      return res
+        .status(400)
+        .json({ message: "At least one product must be selected." });
     }
 
-    // Update seller categories in Store
-    const updatedStore = await Store.findByIdAndUpdate(
-      id,
-      { $set: { sellerCategories } },
-      { new: true }
-    );
+    // 🛠️ Normalize IDs properly
+    sellerCategories = sellerCategories.map((cat) => ({
+      categoryId:
+        cat.categoryId &&
+        mongoose.isValidObjectId(cat.categoryId.$oid || cat.categoryId)
+          ? new mongoose.Types.ObjectId(cat.categoryId.$oid || cat.categoryId)
+          : null,
+      subCategories: Array.isArray(cat.subCategories)
+        ? cat.subCategories.map((sub) => ({
+            subCategoryId:
+              sub.subCategoryId &&
+              mongoose.isValidObjectId(sub.subCategoryId.$oid || sub.subCategoryId)
+                ? new mongoose.Types.ObjectId(
+                    sub.subCategoryId.$oid || sub.subCategoryId
+                  )
+                : null,
+            subSubCategories: Array.isArray(sub.subSubCategories)
+              ? sub.subSubCategories
+                  .map((ss) => ({
+                    subSubCategoryId:
+                      ss.subSubCategoryId &&
+                      mongoose.isValidObjectId(ss.subSubCategoryId.$oid || ss.subSubCategoryId)
+                        ? new mongoose.Types.ObjectId(
+                            ss.subSubCategoryId.$oid || ss.subSubCategoryId
+                          )
+                        : null,
+                  }))
+                  .filter((ss) => ss.subSubCategoryId !== null)
+              : [],
+          }))
+        : [],
+    }));
 
-    if (!updatedStore) {
+    const store = await Store.findById(id);
+    if (!store) {
       return res.status(404).json({ message: "Store not found" });
     }
 
-    // Get existing seller products
-    const existingProducts = await Products.find({ sellerId: id }, { product_id: 1 }).lean();
-    const existingProductIds = existingProducts.map(p => p.product_id.toString());
+    let updatedCategories = [...store.sellerCategories];
 
-    // Convert request productIds to string for comparison
-    const requestedProductIds = sellerProducts.map(p => p.toString());
+    // 🔄 Merge Categories / SubCategories / SubSubCategories
+    sellerCategories.forEach((newCat) => {
+      if (!newCat.categoryId) return;
 
-    //Delete products that are no longer in request
-    const productsToDelete = existingProductIds.filter(pid => !requestedProductIds.includes(pid));
-    if (productsToDelete.length > 0) {
-      await Products.deleteMany({
-        sellerId: id,
-        product_id: { $in: productsToDelete }
-      });
+      const existingCat = updatedCategories.find(
+        (c) => c.categoryId.toString() === newCat.categoryId.toString()
+      );
+
+      if (existingCat) {
+        // Merge subCategories
+        newCat.subCategories.forEach((newSub) => {
+          if (!newSub.subCategoryId) return;
+
+          const existingSub = existingCat.subCategories.find(
+            (s) =>
+              s.subCategoryId &&
+              s.subCategoryId.toString() === newSub.subCategoryId.toString()
+          );
+
+          if (existingSub) {
+            // Merge subSubCategories (skip duplicates)
+            newSub.subSubCategories.forEach((ss) => {
+              if (
+                !existingSub.subSubCategories.find(
+                  (ess) =>
+                    ess.subSubCategoryId.toString() ===
+                    ss.subSubCategoryId.toString()
+                )
+              ) {
+                existingSub.subSubCategories.push(ss);
+              }
+            });
+          } else {
+            existingCat.subCategories.push(newSub);
+          }
+        });
+      } else {
+        updatedCategories.push(newCat);
+      }
+    });
+
+    store.sellerCategories = updatedCategories;
+    await store.save();
+
+    // ✅ Handle Products (update if exists, else add new)
+    const existingProducts = await Products.find(
+      { sellerId: id },
+      { product_id: 1 }
+    ).lean();
+    const existingProductIds = existingProducts.map((p) =>
+      p.product_id.toString()
+    );
+
+    for (const productId of sellerProducts) {
+      const pid = productId.$oid || productId;
+      if (!mongoose.isValidObjectId(pid)) continue;
+
+      if (!existingProductIds.includes(pid.toString())) {
+        await Products.create({
+          sellerId: id,
+          product_id: new mongoose.Types.ObjectId(pid),
+          sell_price: 0,
+          mrp: 0,
+          stock: 0,
+        });
+      }
     }
 
-    //Find which are new and need inserting
-    const productsToInsert = requestedProductIds.filter(pid => !existingProductIds.includes(pid));
-
-    if (productsToInsert.length > 0) {
-      const productDocs = productsToInsert.map(productId => ({
-        sellerId: id,
-        product_id: productId,
-        sell_price: 0,
-        mrp: 0,
-        stock: 0,
-      }));
-      await Products.insertMany(productDocs);
-    }
     return res.status(200).json({
       message: "Seller categories and products updated successfully",
     });
-
   } catch (err) {
-    // console.error("Error updating seller categories/products:", err);
+    console.error("Error updating seller categories/products:", err);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 };
@@ -446,5 +516,84 @@ exports.getSellerCategoryList = async (req, res) => {
   } catch (err) {
     //console.error("Error fetching seller categories:", err);
     return res.status(500).json({ message: "Server error" });
+  }
+}
+
+exports.getExistingProductList = async (req, res) => {
+  try {
+    const { q } = req.query;
+
+    if (!q || q.length < 3) {
+      return res.status(400).json({ message: "Search term must be at least 3 characters" });
+    }
+
+    const regex = new RegExp(q, "i");
+
+    const matchedProducts = await Product.find({
+      $or: [
+        { productName: regex },
+        { description: regex },
+        { "brand_Name.name": regex },
+        { "category.name": regex },
+        { "subCategory.name": regex },
+        { "subSubCategory.name": regex }
+      ]
+    })
+      .select("productName productThumbnailUrl sku brand_Name category subCategory subSubCategory")
+      .lean();
+
+    const products = await Promise.all(
+      matchedProducts.map(async (prod) => {
+        const subCategoryId = prod.subCategory?.[0]?._id?.toString();
+        const subSubCategoryId = prod.subSubCategory?.[0]?._id?.toString();
+        const categoryId = prod.category?.[0]?._id;
+
+        let commission = 0;
+        let categoryName = "Uncategorized";
+        let subCategoryName = prod.subCategory?.[0]?.name || "";
+        let subSubCategoryName = prod.subSubCategory?.[0]?.name || "";
+        let brandName = prod.brand_Name?.name || "";
+
+        if (categoryId) {
+          const fullCategory = await Category.findById(categoryId).lean();
+          categoryName = fullCategory?.name ?? "Uncategorized";
+
+          if (fullCategory?.subcat && (subSubCategoryId || subCategoryId)) {
+            const matchedSubcat = fullCategory.subcat.find(
+              sub => sub._id.toString() === subCategoryId
+            );
+
+            if (matchedSubcat && Array.isArray(matchedSubcat.subsubcat)) {
+              const matchedSubSubCat = matchedSubcat.subsubcat.find(
+                subsub => subsub._id.toString() === subSubCategoryId
+              );
+              commission = matchedSubSubCat?.commison ?? matchedSubcat?.commison ?? 0;
+            } else {
+              commission = matchedSubcat?.commison ?? 0;
+            }
+          }
+        }
+
+        return {
+          productId: prod._id,
+          productName: prod.productName,
+          sku: prod.sku,
+          image: prod.productThumbnailUrl,
+          brand: brandName,
+          category: categoryName,
+          subCategory: subCategoryName,
+          subSubCategory: subSubCategoryName,
+          categoryId: prod.category?.[0]?._id ?? null,
+          subCategoryId: prod.subCategory?.[0]?._id ?? null,
+          subSubCategoryId: prod.subSubCategory?.[0]?._id ?? null,
+          commission
+        };
+      })
+    );
+
+    return res.status(200).json({ success: true, products });
+  } catch (error) {
+    console.error("Search product error:", error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
   }
 }

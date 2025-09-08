@@ -91,7 +91,12 @@ const assignWithSocketLoop = async (order, drivers) => {
             orderStatus: "Going to Pickup"
           }
         );
-        await Assign.create({ driverId, orderId, orderStatus: 'Accepted' });
+        await Assign.updateOne(
+  { driverId, orderId },           // query to check if assignment exists
+  { $set: { orderStatus: 'Accepted' } }, // what to set if it exists or create
+  { upsert: true }                 // create if it doesn’t exist
+);
+
 
         console.log(`Order ${orderId} accepted by driver ${driverId}. Stopping loop.`);
       }

@@ -6,10 +6,10 @@ const Store = require('../modals/store')
 const Filters = require('../modals/filter')
 const { getStoresWithinRadius } = require('../config/google');
 const User = require('../modals/User')
-const {Cart} = require('../modals/cart')
+const { Cart } = require('../modals/cart')
 const Category = require('../modals/category');
 const Unit = require('../modals/unit');
-const {CityData, ZoneData } = require('../modals/cityZone');
+const { CityData, ZoneData } = require('../modals/cityZone');
 const brand = require('../modals/brand')
 const Notification = require('../modals/Notification');
 const cloudinary = require('../config/aws');
@@ -18,15 +18,15 @@ const Stock = require("../modals/StoreStock");
 const Rating = require("../modals/rating")
 const path = require('path')
 
-exports.addAtribute=async (req,res) => {
-    try {
-    const {Attribute_name,varient}=req.body
-    const newAttribute = await Attribute.create({Attribute_name,varient})
-     return res.status(200).json({message:"Attribute Created",newAttribute})   
-    } catch (error) {
-      console.error(error);
-      return res.status(500).json({message:"An error occured"})   
-    }
+exports.addAtribute = async (req, res) => {
+  try {
+    const { Attribute_name, varient } = req.body
+    const newAttribute = await Attribute.create({ Attribute_name, varient })
+    return res.status(200).json({ message: "Attribute Created", newAttribute })
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "An error occured" })
+  }
 }
 exports.editAttributes = async (req, res) => {
   try {
@@ -59,35 +59,35 @@ exports.editAttributes = async (req, res) => {
   }
 };
 
-exports.getAttributes=async (req,res) => {
+exports.getAttributes = async (req, res) => {
   try {
-  const Attributes=await Attribute.find()
-  res.json(Attributes)
-} catch (error) {
-  console.error(error);
-  return res.status(500).json({message:"An error occured"})   
-  }
-}
-
-exports.getAttributesId=async (req,res) => {
-  try {
-    const {id}=req.params
-  const Attributes=await Category.findById(id,'attribute')
-  res.json(Attributes)
-} catch (error) {
-  console.error(error);
-  return res.status(500).json({message:"An error occured"})   
-  }
-}
-
-exports.deleteAttribute=async (req,res) => {
-  try {
-  const {id} = req.params
-  const dltAttribute = await Attribute.findByIdAndDelete(id)
-  return res.status(200).json({message:"Attribute Deleted"})
+    const Attributes = await Attribute.find()
+    res.json(Attributes)
   } catch (error) {
-      console.error(error);
-  return res.status(500).json({message:"An error occured"})   
+    console.error(error);
+    return res.status(500).json({ message: "An error occured" })
+  }
+}
+
+exports.getAttributesId = async (req, res) => {
+  try {
+    const { id } = req.params
+    const Attributes = await Category.findById(id, 'attribute')
+    res.json(Attributes)
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "An error occured" })
+  }
+}
+
+exports.deleteAttribute = async (req, res) => {
+  try {
+    const { id } = req.params
+    const dltAttribute = await Attribute.findByIdAndDelete(id)
+    return res.status(200).json({ message: "Attribute Deleted" })
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "An error occured" })
   }
 }
 
@@ -97,13 +97,13 @@ exports.addProduct = async (req, res) => {
       productName, description, category, subCategory, subSubCategory, rating,
       ribbon, brand_Name, sold_by, type, location, online_visible,
       inventory, tax, feature_product, fulfilled_by, variants, minQuantity,
-      maxQuantity, ratings, unit, mrp, sell_price, filter, returnProduct,isVeg
+      maxQuantity, ratings, unit, mrp, sell_price, filter, returnProduct, isVeg, sellerId
     } = req.body;
 
-  const MultipleImage = req.files?.MultipleImage?.map(file => `/${file.key}`) || [];
+    const MultipleImage = req.files?.MultipleImage?.map(file => `/${file.key}`) || [];
 
-const imageKey = req.files?.image?.[0]?.key || "";
-const image = imageKey ? `/${imageKey}` : "";
+    const imageKey = req.files?.image?.[0]?.key || "";
+    const image = imageKey ? `/${imageKey}` : "";
 
     let parsedVariants = [];
     if (variants) {
@@ -149,41 +149,6 @@ const image = imageKey ? `/${imageKey}` : "";
       }
     }
 
-    let parsedLocation = [];
-    try {
-      parsedLocation = typeof location === 'string' ? JSON.parse(location) : location;
-    } catch {}
-
-    const productLocation = [];
-    for (let loc of parsedLocation) {
-      try {
-        if (!loc.city || !Array.isArray(loc.city)) continue;
-        for (let cityObj of loc.city) {
-          const cityName = cityObj.name;
-          if (!cityName) continue;
-
-          const cityData = await ZoneData.findOne({ city: cityName });
-          if (!cityData) continue;
-
-          let matchedZones = [];
-          if (loc.zone && Array.isArray(loc.zone)) {
-            for (let zoneObj of loc.zone) {
-              const zoneName = zoneObj.name;
-              const zoneMatch = cityData.zones.find(zone => zone.address === zoneName);
-              if (zoneMatch) {
-                matchedZones.push({ _id: zoneMatch._id, name: zoneMatch.address });
-              }
-            }
-          }
-
-          productLocation.push({
-            city: [{ _id: cityData._id, name: cityData.city }],
-            zone: matchedZones
-          });
-        }
-      } catch {}
-    }
-
     const brandObj = brand_Name ? await brand.findOne({ brandName: brand_Name }) : null;
 
     let categories = [];
@@ -192,6 +157,56 @@ const image = imageKey ? `/${imageKey}` : "";
     } catch {
       categories = [category];
     }
+const productLocation = [];
+    if (sellerId) {
+      const seller = await Store.findById(sellerId).lean();
+      if (seller && seller.city) {
+        productLocation.length = 0; // clear previous
+
+        productLocation.push({
+          city: [{ _id: seller.city._id, name: seller.city.name }],
+          zone: (seller.zone || []).map(z => ({
+            _id: z._id,
+            name: z.name
+          }))
+        });
+      }
+    } else {
+      let parsedLocation = [];
+      try {
+        parsedLocation = typeof location === 'string' ? JSON.parse(location) : location;
+      } catch { }
+
+      for (let loc of parsedLocation) {
+        try {
+          if (!loc.city || !Array.isArray(loc.city)) continue;
+          for (let cityObj of loc.city) {
+            const cityName = cityObj.name;
+            if (!cityName) continue;
+
+            const cityData = await ZoneData.findOne({ city: cityName });
+            if (!cityData) continue;
+
+            let matchedZones = [];
+            if (loc.zone && Array.isArray(loc.zone)) {
+              for (let zoneObj of loc.zone) {
+                const zoneName = zoneObj.name;
+                const zoneMatch = cityData.zones.find(zone => zone.address === zoneName);
+                if (zoneMatch) {
+                  matchedZones.push({ _id: zoneMatch._id, name: zoneMatch.address });
+                }
+              }
+            }
+
+            productLocation.push({
+              city: [{ _id: cityData._id, name: cityData.city }],
+              zone: matchedZones
+            });
+          }
+        } catch { }
+      }
+    }
+
 
     const categoryIds = categories.filter(c => /^[0-9a-fA-F]{24}$/.test(c));
     const categoryNames = categories.filter(c => !/^[0-9a-fA-F]{24}$/.test(c));
@@ -214,20 +229,20 @@ const image = imageKey ? `/${imageKey}` : "";
     );
 
     let returnProductData = null;
-if (returnProduct) {
-  try {
-    const parsedReturn = typeof returnProduct === 'string' ? JSON.parse(returnProduct) : returnProduct;
-    returnProductData = { title: parsedReturn.title?.trim() || "" };
+    if (returnProduct) {
+      try {
+        const parsedReturn = typeof returnProduct === 'string' ? JSON.parse(returnProduct) : returnProduct;
+        returnProductData = { title: parsedReturn.title?.trim() || "" };
 
-    // ✅ Get image key from S3-uploaded file
-const uploadedFile = req.files?.file?.[0];
-if (uploadedFile && uploadedFile.key) {
-  returnProductData.image = `/${uploadedFile.key}`;  // prepend '/'
-}
-  } catch (err) {
-    console.error("ReturnProduct parse/upload error:", err);
-  }
-}
+        // ✅ Get image key from S3-uploaded file
+        const uploadedFile = req.files?.file?.[0];
+        if (uploadedFile && uploadedFile.key) {
+          returnProductData.image = `/${uploadedFile.key}`;  // prepend '/'
+        }
+      } catch (err) {
+        console.error("ReturnProduct parse/upload error:", err);
+      }
+    }
 
 
     const parsedVariantsArray = parsedVariants.map(v => ({
@@ -250,33 +265,33 @@ if (uploadedFile && uploadedFile.key) {
       quantity: 0
     }));
 
- const finalVariants = [];
-for (let variant of parsedVariantsArray) {
-  const discount = variant.mrp && variant.sell_price
-    ? Math.round(((variant.mrp - variant.sell_price) / variant.mrp) * 100)
-    : 0;
+    const finalVariants = [];
+    for (let variant of parsedVariantsArray) {
+      const discount = variant.mrp && variant.sell_price
+        ? Math.round(((variant.mrp - variant.sell_price) / variant.mrp) * 100)
+        : 0;
 
-  const imageKey = req.files?.[variant.imageKey]?.[0]?.key;
-  const image = imageKey ? `/${imageKey}` : "";
+      const imageKey = req.files?.[variant.imageKey]?.[0]?.key;
+      const image = imageKey ? `/${imageKey}` : "";
 
-  finalVariants.push({
-    ...variant,
-    discountValue: discount,
-    ...(image && { image })
-  });
-}
+      finalVariants.push({
+        ...variant,
+        discountValue: discount,
+        ...(image && { image })
+      });
+    }
 
-const lastProduct = await Products.findOne({ sku: { $regex: /^FIV\d+$/ } })
-  .sort({ createdAt: -1 })
-  .lean();
+    const lastProduct = await Products.findOne({ sku: { $regex: /^FIV\d+$/ } })
+      .sort({ createdAt: -1 })
+      .lean();
 
-let nextNumber = 1;
-if (lastProduct?.sku) {
-  const lastNumber = parseInt(lastProduct.sku.replace("FIV", ""), 10);
-  nextNumber = lastNumber + 1;
-}
+    let nextNumber = 1;
+    if (lastProduct?.sku) {
+      const lastNumber = parseInt(lastProduct.sku.replace("FIV", ""), 10);
+      nextNumber = lastNumber + 1;
+    }
 
-const sku = `FIV${String(nextNumber).padStart(3, "0")}`;
+    const sku = `FIV${String(nextNumber).padStart(3, "0")}`;
 
     await Products.create({
       ...(productName && { productName }),
@@ -288,6 +303,7 @@ const sku = `FIV${String(nextNumber).padStart(3, "0")}`;
       ...(foundSubCategory && { subCategory: { _id: foundSubCategory._id, name: foundSubCategory.name } }),
       ...(foundSubSubCategory && { subSubCategory: { _id: foundSubSubCategory._id, name: foundSubSubCategory.name } }),
       ...(sku && { sku }),
+      ...(sellerId && { sellerId }),
       ...(returnProduct && { returnProduct: returnProductData }),
       ...(ribbon && { ribbon }),
       ...(unit && typeof unit === 'string' && { unit: { name: unit } }),
@@ -320,7 +336,7 @@ const sku = `FIV${String(nextNumber).padStart(3, "0")}`;
 
 exports.getProduct = async (req, res) => {
   try {
-    const { id ,page = 1, limit = 100} = req.query;
+    const { id, page = 1, limit = 100 } = req.query;
     const skip = (page - 1) * limit;
 
     const userId = req.user._id;
@@ -335,7 +351,7 @@ exports.getProduct = async (req, res) => {
 
     const [activeCities, zoneDocs, stores] = await Promise.all([
       CityData.find({ status: true }, 'city').lean(),
-      ZoneData.find({status: true}, 'zones').lean(),
+      ZoneData.find({ status: true }, 'zones').lean(),
       getStoresWithinRadius(userLat, userLng)
     ]);
 
@@ -350,7 +366,7 @@ exports.getProduct = async (req, res) => {
 
     const allowedStores = Array.isArray(stores?.matchedStores) ? stores.matchedStores : [];
 
-if (!allowedStores.length) {
+    if (!allowedStores.length) {
       return res.status(200).json({
         message: "No matching products found for your location.",
         products: [],
@@ -362,7 +378,7 @@ if (!allowedStores.length) {
     const allowedStoreIds = allowedStores.map(s => s._id);
     const categoryIdSet = new Set();
 
-    const storeCategoryIds = allowedStores.flatMap(store => 
+    const storeCategoryIds = allowedStores.flatMap(store =>
       Array.isArray(store.Category) ? store.Category : [store.Category]
     ).filter(Boolean);
 
@@ -414,19 +430,19 @@ if (!allowedStores.length) {
       Products.countDocuments(productQuery)
     ]);
 
- const stockMap = {};
-const stockDetailMap = {};
+    const stockMap = {};
+    const stockDetailMap = {};
 
-stockDocs.forEach(doc => {
-  (doc.stock || []).forEach(entry => {
-    const key = `${entry.productId}_${entry.variantId}`;
-    stockMap[key] = entry.quantity;
-    stockDetailMap[key] = {
-      ...entry,
-      storeId: doc.storeId   // ✅ attach parent storeId here
-    };
-  });
-});
+    stockDocs.forEach(doc => {
+      (doc.stock || []).forEach(entry => {
+        const key = `${entry.productId}_${entry.variantId}`;
+        stockMap[key] = entry.quantity;
+        stockDetailMap[key] = {
+          ...entry,
+          storeId: doc.storeId   // ✅ attach parent storeId here
+        };
+      });
+    });
 
 
     const cartMap = {};
@@ -435,53 +451,53 @@ stockDocs.forEach(doc => {
       cartMap[key] = item.quantity;
     });
 
-products.forEach(product => {
-  product.inventory = [];
-  product.inCart = { status: false, qty: 0, variantIds: [] };
-  product.soldBy = {};
-  let hasStock = false; 
-  product.variants?.forEach(variant => {
-    const key = `${product._id}_${variant._id}`;
-    const quantity = stockMap[key] || 0;
-    const cartQty = cartMap[key] || 0;
+    products.forEach(product => {
+      product.inventory = [];
+      product.inCart = { status: false, qty: 0, variantIds: [] };
+      product.soldBy = {};
+      let hasStock = false;
+      product.variants?.forEach(variant => {
+        const key = `${product._id}_${variant._id}`;
+        const quantity = stockMap[key] || 0;
+        const cartQty = cartMap[key] || 0;
 
-    // ✅ Override price and mrp from stockMapDetail if available
-const stockEntry = stockDetailMap[key]; 
+        // ✅ Override price and mrp from stockMapDetail if available
+        const stockEntry = stockDetailMap[key];
 
-    if (stockEntry?.price != null) {
-      variant.sell_price = stockEntry.price;
-    }
+        if (stockEntry?.price != null) {
+          variant.sell_price = stockEntry.price;
+        }
 
-    if (stockEntry?.mrp != null) {
-      variant.mrp = stockEntry.mrp;
-    }
-    // 🧾 Add quantity to inventory
-    product.inventory.push({ variantId: variant._id, quantity });
+        if (stockEntry?.mrp != null) {
+          variant.mrp = stockEntry.mrp;
+        }
+        // 🧾 Add quantity to inventory
+        product.inventory.push({ variantId: variant._id, quantity });
 
-    if (quantity > 0) {
-      hasStock = true; // ✅ mark product as in stock
-    }
-    // 🛒 Cart info
-    if (cartQty > 0) {
-      product.inCart.status = true;
-      product.inCart.qty += cartQty;
-      product.inCart.variantIds.push(variant._id);
-    }
- if (hasStock && stockEntry?.storeId) {
-      const store = allowedStores.find(
-        s => s._id.toString() === stockEntry.storeId.toString()
-      );
-      if (store) {
-        product.soldBy = store.soldBy;
+        if (quantity > 0) {
+          hasStock = true; // ✅ mark product as in stock
+        }
+        // 🛒 Cart info
+        if (cartQty > 0) {
+          product.inCart.status = true;
+          product.inCart.qty += cartQty;
+          product.inCart.variantIds.push(variant._id);
+        }
+        if (hasStock && stockEntry?.storeId) {
+          const store = allowedStores.find(
+            s => s._id.toString() === stockEntry.storeId.toString()
+          );
+          if (store) {
+            product.soldBy = store.soldBy;
+          }
+        }
+      });
+
+      // ✅ If product had no stock at all → keep empty {}
+      if (!hasStock) {
+        product.soldBy = {};
       }
-    }
-  });
-
-  // ✅ If product had no stock at all → keep empty {}
-  if (!hasStock) {
-    product.soldBy = {};
-  }
-});
+    });
 
     let filter = [];
     if (id) {
@@ -575,21 +591,21 @@ exports.bestSelling = async (req, res) => {
     const allowedStoreIds = allowedStores.map(s => s._id.toString());
 
     const stockDocs = await Stock.find({ storeId: { $in: allowedStoreIds } }).lean();
-  const stockMap = {};
-const stockDetailMap = {}; // 👈 to store full item (price, mrp etc.)
+    const stockMap = {};
+    const stockDetailMap = {}; // 👈 to store full item (price, mrp etc.)
 
-for (const stockDoc of stockDocs) {
-  for (const item of stockDoc.stock || []) {
-    const key = `${item.productId}_${item.variantId}`;
-    stockMap[key] = item.quantity;
-    stockDetailMap[key] = {
-      quantity: item.quantity,
-      price: item.price,
-      mrp: item.mrp,
-      storeId: stockDoc.storeId   // ✅ include storeId here
-    }; // 👈 Store full stock item
-  }
-}
+    for (const stockDoc of stockDocs) {
+      for (const item of stockDoc.stock || []) {
+        const key = `${item.productId}_${item.variantId}`;
+        stockMap[key] = item.quantity;
+        stockDetailMap[key] = {
+          quantity: item.quantity,
+          price: item.price,
+          mrp: item.mrp,
+          storeId: stockDoc.storeId   // ✅ include storeId here
+        }; // 👈 Store full stock item
+      }
+    }
 
     const best = await Products.find({
       $or: [
@@ -606,54 +622,54 @@ for (const stockDoc of stockDocs) {
       cartMap[key] = item.quantity;
     }
     // ✅ Map inventory and cart into products
-  for (const product of best) {
-  product.inventory = [];
-  product.inCart = { status: false, qty: 0, variantIds: [] };
+    for (const product of best) {
+      product.inventory = [];
+      product.inCart = { status: false, qty: 0, variantIds: [] };
 
-  product.soldBy = {};
-  let hasStock = false; 
+      product.soldBy = {};
+      let hasStock = false;
 
-  if (Array.isArray(product.variants)) {
-    for (const variant of product.variants) {
-   const key = `${product._id}_${variant._id}`;
-   const stockEntry = stockDetailMap[key];
-const quantity = stockEntry?.quantity || 0;
-const cartQty = cartMap[key] || 0;
+      if (Array.isArray(product.variants)) {
+        for (const variant of product.variants) {
+          const key = `${product._id}_${variant._id}`;
+          const stockEntry = stockDetailMap[key];
+          const quantity = stockEntry?.quantity || 0;
+          const cartQty = cartMap[key] || 0;
 
-if (stockEntry?.price != null) {
-  variant.sell_price = stockEntry.price;
-}
-if (stockEntry?.mrp != null) {
-  variant.mrp = stockEntry.mrp;
-}
+          if (stockEntry?.price != null) {
+            variant.sell_price = stockEntry.price;
+          }
+          if (stockEntry?.mrp != null) {
+            variant.mrp = stockEntry.mrp;
+          }
 
-product.inventory.push({ variantId: variant._id, quantity });
+          product.inventory.push({ variantId: variant._id, quantity });
 
- if (quantity > 0) {
-      hasStock = true; // ✅ mark product as in stock
-    }
+          if (quantity > 0) {
+            hasStock = true; // ✅ mark product as in stock
+          }
 
-      if (cartQty > 0) {
-        product.inCart.status = true;
-        product.inCart.qty += cartQty;
-        product.inCart.variantIds.push(variant._id); // 👈 store the variantId in cart
-      }
+          if (cartQty > 0) {
+            product.inCart.status = true;
+            product.inCart.qty += cartQty;
+            product.inCart.variantIds.push(variant._id); // 👈 store the variantId in cart
+          }
           if (quantity > 0 && stockEntry?.storeId) {
-        const store = allowedStores.find(
-          s => s._id.toString() === stockEntry.storeId.toString()
-        );
-        if (store) {
-          product.soldBy = store.soldBy;
+            const store = allowedStores.find(
+              s => s._id.toString() === stockEntry.storeId.toString()
+            );
+            if (store) {
+              product.soldBy = store.soldBy;
+            }
+          }
         }
       }
-    }
-  }
 
-  // ✅ If no stock at all → force empty {}
-  if (!hasStock) {
-    product.soldBy = {};
-  }
-}
+      // ✅ If no stock at all → force empty {}
+      if (!hasStock) {
+        product.soldBy = {};
+      }
+    }
 
 
     return res.status(200).json({
@@ -745,11 +761,11 @@ exports.searchProduct = async (req, res) => {
         const key = `${item.productId}_${item.variantId}`;
         stockMap[key] = item.quantity;
         stockDetailMap[key] = {
-      quantity: item.quantity,
-      price: item.price,
-      mrp: item.mrp,
-      storeId: doc.storeId,   // ✅ attach storeId here
-    };
+          quantity: item.quantity,
+          price: item.price,
+          mrp: item.mrp,
+          storeId: doc.storeId,   // ✅ attach storeId here
+        };
       }
     }
 
@@ -765,7 +781,7 @@ exports.searchProduct = async (req, res) => {
       product.inventory = [];
       product.inCart = { status: false, qty: 0, variantIds: [] };
       product.soldBy = {};
-      let hasStock = false; 
+      let hasStock = false;
       for (const variant of product.variants || []) {
         const key = `${product._id}_${variant._id}`;
         const quantity = stockMap[key] || 0;
@@ -783,7 +799,7 @@ exports.searchProduct = async (req, res) => {
         product.inventory.push({ variantId: variant._id, quantity });
 
         if (quantity > 0) {
-        hasStock = true; // ✅ mark product as in stock
+          hasStock = true; // ✅ mark product as in stock
         }
 
         if (cartQty > 0) {
@@ -791,21 +807,21 @@ exports.searchProduct = async (req, res) => {
           product.inCart.qty += cartQty;
           product.inCart.variantIds.push(variant._id);
         }
- if (hasStock && stockEntry?.storeId) {
-      const store = allowedStores.find(
-        s => s._id.toString() === stockEntry.storeId.toString()
-      );
-      if (store) {
-        product.soldBy = store.soldBy;
-      }
-    }
-  };
+        if (hasStock && stockEntry?.storeId) {
+          const store = allowedStores.find(
+            s => s._id.toString() === stockEntry.storeId.toString()
+          );
+          if (store) {
+            product.soldBy = store.soldBy;
+          }
+        }
+      };
 
-  // ✅ If product had no stock at all → keep empty {}
-  if (!hasStock) {
-    product.soldBy = {};
-  }
-};
+      // ✅ If product had no stock at all → keep empty {}
+      if (!hasStock) {
+        product.soldBy = {};
+      }
+    };
 
     return res.status(200).json({
       message: "Search results fetched successfully.",
@@ -823,7 +839,7 @@ exports.searchProduct = async (req, res) => {
 exports.getFeatureProduct = async (req, res) => {
   try {
     const userId = req.user;
-    const {page = 1, limit = 80} = req.query;
+    const { page = 1, limit = 80 } = req.query;
     const skip = (page - 1) * limit;
     const user = await User.findById(userId).lean();
     if (!user || !user.location?.latitude || !user.location?.longitude) {
@@ -854,8 +870,8 @@ exports.getFeatureProduct = async (req, res) => {
     }
 
     // 🌍 Filter stores by location and zone
-const allowedStores = Array.isArray(stores?.matchedStores) ? stores.matchedStores : [];
-console.log(allowedStores)
+    const allowedStores = Array.isArray(stores?.matchedStores) ? stores.matchedStores : [];
+    console.log(allowedStores)
     const allowedStoreIds = allowedStores.map(store => store._id.toString());
 
     // 📦 Build set of all category/sub/subsub IDs
@@ -889,10 +905,12 @@ console.log(allowedStores)
     for (const doc of stockDocs) {
       for (const item of doc.stock || []) {
         const key = `${item.productId}_${item.variantId}`;
-        stockMap[key] = {quantity: item.quantity,
-      price: item.price,
-      mrp: item.mrp,
-      storeId: doc.storeId};
+        stockMap[key] = {
+          quantity: item.quantity,
+          price: item.price,
+          mrp: item.mrp,
+          storeId: doc.storeId
+        };
       }
     }
 
@@ -917,57 +935,57 @@ console.log(allowedStores)
       Products.countDocuments(query)
     ]);
 
- for (const product of products) {
-  product.inventory = [];
-  product.inCart = { status: false, qty: 0, variantIds: [] };
+    for (const product of products) {
+      product.inventory = [];
+      product.inCart = { status: false, qty: 0, variantIds: [] };
 
-  product.soldBy = {};
-  let hasStock = false; 
+      product.soldBy = {};
+      let hasStock = false;
 
-  if (Array.isArray(product.variants)) {
-    for (const variant of product.variants) {
-      const key = `${product._id}_${variant._id}`;
-      const stockEntry = stockMap[key];
-      const quantity = stockEntry?.quantity || 0;
-      const cartQty = cartMap[key] || 0;
+      if (Array.isArray(product.variants)) {
+        for (const variant of product.variants) {
+          const key = `${product._id}_${variant._id}`;
+          const stockEntry = stockMap[key];
+          const quantity = stockEntry?.quantity || 0;
+          const cartQty = cartMap[key] || 0;
 
-      // ✅ Override variant's price and mrp if available
-      if (stockEntry?.price != null) {
-        variant.sell_price = stockEntry.price;
-      }
+          // ✅ Override variant's price and mrp if available
+          if (stockEntry?.price != null) {
+            variant.sell_price = stockEntry.price;
+          }
 
-      if (stockEntry?.mrp != null) {
-        variant.mrp = stockEntry.mrp;
-      }
+          if (stockEntry?.mrp != null) {
+            variant.mrp = stockEntry.mrp;
+          }
 
-      // 📦 Add to inventory
-      product.inventory.push({ variantId: variant._id, quantity });
+          // 📦 Add to inventory
+          product.inventory.push({ variantId: variant._id, quantity });
 
-      if (quantity > 0) {
-      hasStock = true; // ✅ mark product as in stock
-      }
-      // 🛒 Add to inCart
-      if (cartQty > 0) {
-        product.inCart.status = true;
-        product.inCart.qty += cartQty;
-        product.inCart.variantIds.push(variant._id);
-      }
-     if (hasStock && stockEntry?.storeId) {
-      const store = allowedStores.find(
-        s => s._id.toString() === stockEntry.storeId.toString()
-      );
-      if (store) {
-        product.soldBy = store.soldBy;
-      }
+          if (quantity > 0) {
+            hasStock = true; // ✅ mark product as in stock
+          }
+          // 🛒 Add to inCart
+          if (cartQty > 0) {
+            product.inCart.status = true;
+            product.inCart.qty += cartQty;
+            product.inCart.variantIds.push(variant._id);
+          }
+          if (hasStock && stockEntry?.storeId) {
+            const store = allowedStores.find(
+              s => s._id.toString() === stockEntry.storeId.toString()
+            );
+            if (store) {
+              product.soldBy = store.soldBy;
+            }
+          }
+        };
+
+        // ✅ If product had no stock at all → keep empty {}
+        if (!hasStock) {
+          product.soldBy = {};
+        }
+      };
     }
-  };
-
-  // ✅ If product had no stock at all → keep empty {}
-  if (!hasStock) {
-    product.soldBy = {};
-  }
-};
-}
 
     return res.status(200).json({
       message: 'It is feature product.',
@@ -985,20 +1003,20 @@ console.log(allowedStores)
 };
 
 
-exports.unit=async (req,res) => {
+exports.unit = async (req, res) => {
   try {
-  const {unitname}=req.body
-  const newUnit=await Unit.create({unitname})
-  return res.status(200).json({ message: 'Unit Created Successfully', newUnit });
+    const { unitname } = req.body
+    const newUnit = await Unit.create({ unitname })
+    return res.status(200).json({ message: 'Unit Created Successfully', newUnit });
   } catch (error) {
-     console.error(error);
-     return res.status(500).json({ message: "An error occured!", error: error.message });
+    console.error(error);
+    return res.status(500).json({ message: "An error occured!", error: error.message });
   }
 }
-exports.getUnit=async (req,res) => {
+exports.getUnit = async (req, res) => {
   try {
-  const Units=await Unit.find()
-    return res.status(200).json({Result:Units});
+    const Units = await Unit.find()
+    return res.status(200).json({ Result: Units });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "An error occured!", error: error.message });
@@ -1049,13 +1067,13 @@ exports.filter = async (req, res) => {
       ];
     }
 
-   if (brand) {
-  if (mongoose.Types.ObjectId.isValid(brand)) {
-    filters['brand_Name._id'] = new mongoose.Types.ObjectId(brand);
-  } else {
-    filters['brand_Name.name'] = { $regex: brand, $options: 'i' };
-  }
-}
+    if (brand) {
+      if (mongoose.Types.ObjectId.isValid(brand)) {
+        filters['brand_Name._id'] = new mongoose.Types.ObjectId(brand);
+      } else {
+        filters['brand_Name.name'] = { $regex: brand, $options: 'i' };
+      }
+    }
 
     if (bestSeller !== undefined) {
       filters.bestSeller = bestSeller === true || bestSeller === 'true';
@@ -1134,11 +1152,11 @@ exports.bulkProductUpload = async (req, res) => {
     res.status(500).json({ message: "Bulk upload failed", error: err.message });
   }
 };
-exports.deleteProduct=async (req,res) => {
+exports.deleteProduct = async (req, res) => {
   try {
-  const {id} = req.params
-  const deleted = await Products.findByIdAndDelete(id)
-  res.status(200).json({ message: "Product deleted successfully", deleted});
+    const { id } = req.params
+    const deleted = await Products.findByIdAndDelete(id)
+    res.status(200).json({ message: "Product deleted successfully", deleted });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Product Deleted", error });
@@ -1155,10 +1173,10 @@ exports.updateProduct = async (req, res) => {
       maxQuantity, ratings, unit, mrp, sell_price, status, returnProduct
     } = req.body;
 
- const MultipleImage = req.files?.MultipleImage?.map(file => `/${file.key}`) || [];
+    const MultipleImage = req.files?.MultipleImage?.map(file => `/${file.key}`) || [];
 
-const imageKey = req.files?.image?.[0]?.key || "";
-const image = imageKey ? `/${imageKey}` : "";
+    const imageKey = req.files?.image?.[0]?.key || "";
+    const image = imageKey ? `/${imageKey}` : "";
 
     // Fetch the existing product to get its variants
     const existingProduct = await Products.findById(id).select('variants');
@@ -1178,7 +1196,7 @@ const image = imageKey ? `/${imageKey}` : "";
           console.warn(`❗ No file path found for ${key}`);
           continue;
         }
-console.log("⛳ Uploading variant key:", key, "| Path:", file.path);
+        console.log("⛳ Uploading variant key:", key, "| Path:", file.path);
         try {
           const uploaded = await cloudinary.uploader.upload(file.path, {
             folder: "products/variants",
@@ -1417,10 +1435,10 @@ console.log("⛳ Uploading variant key:", key, "| Path:", file.path);
         };
 
         const uploadedFile = req.files?.file?.[0];
-if (uploadedFile && uploadedFile.key) {
-  returnProductData.image = `/${uploadedFile.key}`;
-}
- else {
+        if (uploadedFile && uploadedFile.key) {
+          returnProductData.image = `/${uploadedFile.key}`;
+        }
+        else {
           console.warn("❗ No file provided for returnProduct image");
         }
         console.log("🧾 Final returnProductData:", JSON.stringify(returnProductData, null, 2));
@@ -1455,21 +1473,21 @@ if (uploadedFile && uploadedFile.key) {
     console.log("🧾 variantImageMap keys:", Object.keys(variantImageMap));
     console.log("🧾 parsedVariantsWithIds:", parsedVariantsWithIds.map(v => v.imageKey));
 
-// 👇 This replaces old logic: overwrite entire variants list based on what you send
-const finalVariants = parsedVariantsWithIds.map(variant => {
-  const imageKey = req.files?.[variant.imageKey]?.[0]?.key;
-  const image = imageKey ? `/${imageKey}` : variant.image || "";
-  const discountValue = variant.mrp && variant.sell_price
-    ? Math.round(((variant.mrp - variant.sell_price) / variant.mrp) * 100)
-    : 0;
+    // 👇 This replaces old logic: overwrite entire variants list based on what you send
+    const finalVariants = parsedVariantsWithIds.map(variant => {
+      const imageKey = req.files?.[variant.imageKey]?.[0]?.key;
+      const image = imageKey ? `/${imageKey}` : variant.image || "";
+      const discountValue = variant.mrp && variant.sell_price
+        ? Math.round(((variant.mrp - variant.sell_price) / variant.mrp) * 100)
+        : 0;
 
-  return {
-    ...variant,
-    _id: variant._id || new mongoose.Types.ObjectId(),
-    image,
-    discountValue
-  };
-});
+      return {
+        ...variant,
+        _id: variant._id || new mongoose.Types.ObjectId(),
+        image,
+        discountValue
+      };
+    });
 
 
     const updateData = {
@@ -1480,7 +1498,7 @@ const finalVariants = parsedVariantsWithIds.map(variant => {
       ...(MultipleImage.length && { productImageUrl: MultipleImage }),
       ...(productCategories.length && { category: productCategories }),
       ...(foundSubCategory && { subCategory: { _id: foundSubCategory._id, name: foundSubCategory.name } }),
-      ...(foundSubSubCategory && { subSubCategory: { _id: foundSubSubCategory._id, name:        foundSubSubCategory.name } }),
+      ...(foundSubSubCategory && { subSubCategory: { _id: foundSubSubCategory._id, name: foundSubSubCategory.name } }),
       ...(ribbon && { ribbon }),
       ...(returnProductData && { returnProduct: returnProductData }),
       ...(unitObj && { unit: { _id: unitObj._id, name: unitObj.unitname } }),
@@ -1496,7 +1514,7 @@ const finalVariants = parsedVariantsWithIds.map(variant => {
       ...(minQuantity && { minQuantity }),
       ...(maxQuantity && { maxQuantity }),
       ...(finalFilterArray.length && { filter: finalFilterArray }),
-      ...(finalVariants.length && { variants: finalVariants}),
+      ...(finalVariants.length && { variants: finalVariants }),
       ...(ratings && { ratings }),
       ...(mrp && { mrp }),
       ...(status && { status }),
@@ -1608,7 +1626,7 @@ exports.getRelatedProducts = async (req, res) => {
       relProduct.inventory = [];
       relProduct.inCart = { status: false, qty: 0, variantIds: [] };
       relProduct.soldBy = {};
-      let hasStock = false; 
+      let hasStock = false;
       if (Array.isArray(relProduct.variants)) {
         for (const variant of relProduct.variants) {
           const key = `${relProduct._id}_${variant._id}`;
@@ -1623,7 +1641,7 @@ exports.getRelatedProducts = async (req, res) => {
             quantity: stockEntry?.quantity || 0
           });
 
-    if ((stockEntry?.quantity || 0) > 0) {
+          if ((stockEntry?.quantity || 0) > 0) {
             hasStock = true;
           }
 
@@ -1633,7 +1651,7 @@ exports.getRelatedProducts = async (req, res) => {
             relProduct.inCart.qty += cartQty;
             relProduct.inCart.variantIds.push(variant._id);
           }
-    if (stockEntry?.quantity > 0 && stockEntry?.storeId) {
+          if (stockEntry?.quantity > 0 && stockEntry?.storeId) {
             const store = allowedStores.find(
               s => s._id.toString() === stockEntry.storeId.toString()
             );
@@ -1679,24 +1697,24 @@ exports.updateStock = async (req, res) => {
 
     if (!storeStock) {
       const newStock = await Stock.create({
-          storeId,
-          stock: stock.map(item => {
-        const newItem = {
-          productId,
-          variantId: item.variantId,
-          quantity: item.quantity,
-        };
-      
-        if (item.price != null && item.price !== 0) {
-          newItem.price = item.price;
-        }
-      
-        if (item.mrp != null && item.mrp !== 0) {
-          newItem.mrp = item.mrp;
-        }
-      
-        return newItem;
-      })
+        storeId,
+        stock: stock.map(item => {
+          const newItem = {
+            productId,
+            variantId: item.variantId,
+            quantity: item.quantity,
+          };
+
+          if (item.price != null && item.price !== 0) {
+            newItem.price = item.price;
+          }
+
+          if (item.mrp != null && item.mrp !== 0) {
+            newItem.mrp = item.mrp;
+          }
+
+          return newItem;
+        })
 
       });
 
@@ -1706,10 +1724,10 @@ exports.updateStock = async (req, res) => {
       });
     }
 
-  for (const item of stock) {
+    for (const item of stock) {
       const index = storeStock.stock.findIndex(
         s => s.productId.toString() === productId &&
-             s.variantId.toString() === item.variantId
+          s.variantId.toString() === item.variantId
       );
 
       if (index !== -1) {
@@ -1807,18 +1825,18 @@ exports.adminProducts = async (req, res) => {
 };
 
 
-exports.rating = async (req,res) => {
+exports.rating = async (req, res) => {
   try {
-  const userId = req.user
-  const {rating,Note,order_id} = req.body
-  const userData = await User.findById(userId)
-  console.log(userData);
-  
-  const newRating = await Rating.create({rating,Note,order_id,userInfo:{userId:userId,userName:userData.name}})
-  return res.status(200).json({message:"Rating Created Successfully",newRating})
+    const userId = req.user
+    const { rating, Note, order_id } = req.body
+    const userData = await User.findById(userId)
+    console.log(userData);
+
+    const newRating = await Rating.create({ rating, Note, order_id, userInfo: { userId: userId, userName: userData.name } })
+    return res.status(200).json({ message: "Rating Created Successfully", newRating })
   } catch (error) {
     console.error(error);
-    return res.status(500).json({message:"Server Error"})
+    return res.status(500).json({ message: "Server Error" })
   }
 }
 
@@ -1837,7 +1855,7 @@ exports.rating = async (req,res) => {
 
 // exports.getNotification = async (req, res) => {
 //   try {
-//     const user = req.user; 
+//     const user = req.user;
 //     let userCity = user.city;
 
 //     if (user.Address?.length > 0) {

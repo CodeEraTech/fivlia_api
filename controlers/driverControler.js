@@ -103,12 +103,11 @@ exports.driverOrderStatus = async (req, res) => {
           return res.status(500).json({ message: 'Failed to send OTP via WhatsApp' });
         }
 
-        await OtpModel.create({
-          mobileNumber,
-          orderId,
-          otp: generatedOtp,
-          expiresAt: Date.now() + 1 * 60 * 60 * 1000,
-        });
+ await OtpModel.findOneAndUpdate(
+      { mobileNumber, orderId },
+      { otp: generatedOtp, expiresAt: Date.now() + 60 * 60 * 1000 },
+      { upsert: true, new: true }
+    );
 
         const statusUpdate = await Order.findOneAndUpdate(
           { orderId },

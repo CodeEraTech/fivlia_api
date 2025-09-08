@@ -42,6 +42,8 @@ const productSchema = new mongoose.Schema({
   minQuantity:Number,
   type:String,
   maxQuantity:Number,
+  sellerId:{type: mongoose.Schema.Types.ObjectId,ref:'stores',default:null},
+  approvalStatus:{type: String, enum: ['pending_admin_approval', 'approved', 'rejected'], default: 'pending_admin_approval'},
   unit: {_id: { type: mongoose.Schema.Types.ObjectId, default: () => new mongoose.Types.ObjectId() },
   name: { type: String }},
   online_visible: { type: Boolean, default: true },

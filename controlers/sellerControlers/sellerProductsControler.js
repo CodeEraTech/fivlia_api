@@ -521,14 +521,28 @@ exports.getSellerCategoryList = async (req, res) => {
 
 exports.getExistingProductList = async (req, res) => {
   try {
-    const { q } = req.query;
+    const { q, page = 1, limit = 100 } = req.query;
 
     if (!q || q.length < 3) {
       return res.status(400).json({ message: "Search term must be at least 3 characters" });
     }
 
     const regex = new RegExp(q, "i");
+    const skip = (parseInt(page) - 1) * parseInt(limit);
 
+    // Count total matching products (needed for pagination)
+    const totalCount = await Product.countDocuments({
+      $or: [
+        { productName: regex },
+        { description: regex },
+        { "brand_Name.name": regex },
+        { "category.name": regex },
+        { "subCategory.name": regex },
+        { "subSubCategory.name": regex }
+      ]
+    });
+
+    // Fetch paginated results
     const matchedProducts = await Product.find({
       $or: [
         { productName: regex },
@@ -539,9 +553,12 @@ exports.getExistingProductList = async (req, res) => {
         { "subSubCategory.name": regex }
       ]
     })
+      .skip(skip)
+      .limit(parseInt(limit))
       .select("productName productThumbnailUrl sku brand_Name category subCategory subSubCategory")
       .lean();
 
+    // Transform products
     const products = await Promise.all(
       matchedProducts.map(async (prod) => {
         const subCategoryId = prod.subCategory?.[0]?._id?.toString();
@@ -560,12 +577,12 @@ exports.getExistingProductList = async (req, res) => {
 
           if (fullCategory?.subcat && (subSubCategoryId || subCategoryId)) {
             const matchedSubcat = fullCategory.subcat.find(
-              sub => sub._id.toString() === subCategoryId
+              (sub) => sub._id.toString() === subCategoryId
             );
 
             if (matchedSubcat && Array.isArray(matchedSubcat.subsubcat)) {
               const matchedSubSubCat = matchedSubcat.subsubcat.find(
-                subsub => subsub._id.toString() === subSubCategoryId
+                (subsub) => subsub._id.toString() === subSubCategoryId
               );
               commission = matchedSubSubCat?.commison ?? matchedSubcat?.commison ?? 0;
             } else {
@@ -586,17 +603,23 @@ exports.getExistingProductList = async (req, res) => {
           categoryId: prod.category?.[0]?._id ?? null,
           subCategoryId: prod.subCategory?.[0]?._id ?? null,
           subSubCategoryId: prod.subSubCategory?.[0]?._id ?? null,
-          commission
+          commission,
         };
       })
     );
 
-    return res.status(200).json({ success: true, products });
+    return res.status(200).json({
+      success: true,
+      products,
+      totalCount,
+      currentPage: parseInt(page),
+      perPage: parseInt(limit),
+    });
   } catch (error) {
     console.error("Search product error:", error);
     return res.status(500).json({ success: false, message: "Internal server error" });
   }
-}
+};
 
 
 exports.sellerCategoriesDelete = async (req, res) => {

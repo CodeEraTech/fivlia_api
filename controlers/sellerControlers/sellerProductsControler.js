@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const axios = require('axios');
 const Product = require('../../modals/Product');
 const Category = require('../../modals/category');
+const Stock = require('../../modals/StoreStock')
 
 exports.addSellerProduct = async (req, res) => {
   try {
@@ -385,6 +386,15 @@ exports.getSellerProducts = async (req, res) => {
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
+    const stockData = await Stock.findOne({storeId:sellerId}).lean()
+    const stockEntries = stockData?.stock || [];
+
+    // 🔁 Build a quick lookup map
+    const stockMap = {};
+    for (const item of stockEntries) {
+      const key = `${item.productId}_${item.variantId}`;
+      stockMap[key] = item.quantity;
+    }
     // Count total seller products
     const total = await Products.countDocuments(filter);
 
@@ -396,7 +406,7 @@ exports.getSellerProducts = async (req, res) => {
         path: "product_id",
         model: "Product",
         match: productMatch,
-        select: "productName mrp sell_price productThumbnailUrl category subCategory subSubCategory",
+        select: "productName mrp sell_price productThumbnailUrl category subCategory subSubCategory variants sku",
         populate: [
           {
             path: "category",
@@ -439,7 +449,19 @@ exports.getSellerProducts = async (req, res) => {
               }
             }
           }
-
+const variantsWithStock = (prod.variants || []).map(variant => {
+            const key = `${prod._id}_${variant._id}`;
+              const stockEntry = stockMap[key] ? stockEntries.find(
+    s => s.productId.toString() === prod._id.toString() &&
+         s.variantId.toString() === variant._id.toString()
+  ) : null;
+            return {
+              ...variant,
+              stock: stockMap[key] || 0,
+              mrp: stockEntry?.mrp || variant.mrp,
+              sell_price: stockEntry?.price || variant.sell_price
+            };
+          });
           return {
             sellerProductId: sp._id,
             productId: prod._id,
@@ -449,6 +471,7 @@ exports.getSellerProducts = async (req, res) => {
             mrp: sp.mrp == 0 ? prod.mrp : sp.mrp,
             sell_price: sp.sell_price == 0 ? prod.sell_price : sp.sell_price,
             stock: sp.stock,
+            variants:variantsWithStock,
             status: sp.status ?? false,
             commission
           };
@@ -596,9 +619,4 @@ exports.getExistingProductList = async (req, res) => {
     console.error("Search product error:", error);
     return res.status(500).json({ success: false, message: "Internal server error" });
   }
-}
-
-
-exports.sellerCategoriesDelete = async (req, res) => {
-  
 }

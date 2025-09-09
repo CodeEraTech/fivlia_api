@@ -7,7 +7,7 @@ const http = require('http');
 const socketIo = require('socket.io');
 const registerDriverSocket = require('./socket/socket');
 const cors = require('cors')
-const { initAgenda } = require('./config/agenda'); // ✅ your agenda setup
+// const { initAgenda } = require('./config/agenda'); // ✅ your agenda setup
 const backgroundInvoice = require('./config/backgroundInvoice')
 connectDb();
 
@@ -37,8 +37,8 @@ app.use('/',zonesRoute);
 const startServer = async () => {
   const mongoConnection = await connectDb();
 
-  const agenda = await initAgenda(mongoConnection); 
-  backgroundInvoice(agenda);
+  // const agenda = await initAgenda(mongoConnection); 
+  // backgroundInvoice(agenda);
 
   const PORT = process.env.PORT || 8080;
   const host = process.env.HOST || 'localhost';

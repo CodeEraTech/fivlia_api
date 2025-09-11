@@ -96,7 +96,6 @@ exports.verifyEmail = async (req, res) => {
   res.send("✅ Email verified successfully. You can now log in.");
 };
 
-
 exports.createStore = async (req, res) => {
   try {
     console.log('Incoming body:', req.body);
@@ -231,7 +230,6 @@ console.log('zone',zoneObjs);
     return res.status(500).json({ message: "Server error", error: err.message });
   }
 };
-
 
 exports.storeEdit = async (req, res) => {
   try {

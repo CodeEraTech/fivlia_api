@@ -518,13 +518,36 @@ exports.getCategories = async (req, res) => {
     if (id) {
       // find single category by id
       const singleCategory = await Category.findById(id).lean();
-      if (!singleCategory) {
-        return res.status(404).json({ message: "Category not found" });
-      }
+      if (singleCategory) {
       const formatted = await formatCategory(singleCategory);
       return res.status(200).json({ category: formatted });
     }
+ const subCategoryMatch = allCategories.find(cat =>
+        cat.subcat?.some(sub => String(sub._id) === String(id))
+      );
+      if (subCategoryMatch) {
+        const sub = subCategoryMatch.subcat.find(
+          (s) => String(s._id) === String(id)
+        );
+        const formatted = await formatSub(sub);
+        return res.status(200).json({ subCategory: formatted });
+      }
 
+      // try sub-subcategory
+      for (const cat of allCategories) {
+        for (const sub of cat.subcat || []) {
+          const subsub = sub.subsubcat?.find(
+            (ss) => String(ss._id) === String(id)
+          );
+          if (subsub) {
+            const formatted = await formatSubSub(subsub);
+            return res.status(200).json({ subSubCategory: formatted });
+          }
+        }
+      }
+
+      return res.status(404).json({ message: "Category not found" });
+    }
     // otherwise return all
     const formatted = await Promise.all(allCategories.map(formatCategory));
 

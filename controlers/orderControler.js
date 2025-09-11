@@ -630,10 +630,10 @@ exports.editDriver = async (req, res) => {
     const dlBackKey = req.files?.drivingLicence?.[1]?.key;
 
     const updateData = {
-      driverName,
+      ...(driverName  && {driverName}),
       status,
-      email,
-      password,
+      ...(email && { email }),
+      ...(password && { password }),
       ...(image && { image }),
       ...(Police_Verification_Copy && {
      Police_Verification_Copy
@@ -651,7 +651,7 @@ exports.editDriver = async (req, res) => {
       back: dlBackKey ? `/${dlBackKey}` : "",
        }
       }),
-      ...(address && { address }),
+      ...(req.body.address ? { address: JSON.parse(req.body.address) } : {}),
     };
 
     const edit = await driver.findByIdAndUpdate(driverId, updateData, { new: true });

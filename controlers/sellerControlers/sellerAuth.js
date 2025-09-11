@@ -65,9 +65,8 @@ zones.forEach(doc => {
     }
   });
 });
-
-console.log(matchedZones)
-        const newSeller = await seller.create({storeName,ownerName: `${firstName} ${lastName}`,Authorized_Store:false,PhoneNumber,email,aadharCard,panCard,fsiNumber,city,zone:matchedZones,gstNumber,approveStatus: 'pending_verification',Latitude,Longitude,sellFood,fullAddress})
+const cityObj = { _id: zones[0]._id, name: zones[0].city };
+        const newSeller = await seller.create({storeName,ownerName: `${firstName} ${lastName}`,Authorized_Store:false,PhoneNumber,email,aadharCard,panCard,fsiNumber,city:cityObj,zone:matchedZones,gstNumber,approveStatus: 'pending_verification',Latitude,Longitude,sellFood,fullAddress})
         
       var options = {
        method: 'POST',
@@ -90,7 +89,7 @@ console.log(matchedZones)
    });
      await sendVerificationEmail(email,"Welcome to Fivlia – Your store is under verification",otpTemplate(otpEmail));
 
-        return res.status(200).json({ message: 'OTP sent via WhatsApp And Email', otp });
+        return res.status(200).json({ message: 'OTP sent via WhatsApp And Email' });
     } catch (error) {
     console.error(error);
     return res.status(500).json({message: "An Error Occured"});
@@ -299,7 +298,8 @@ exports.verifyOtpSeller = async (req, res) => {
 
       return res.status(200).json({
         message: 'Login successful',
-        sellerId: sellerDoc._id
+        sellerId: sellerDoc._id,
+        storeName:sellerDoc.storeName,
       });
     }
     // 1️⃣ Find OTP record

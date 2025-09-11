@@ -93,7 +93,7 @@ async function generatePDFInvoice(order, user, store, subtotal, gstTotal) {
       if (store) {
         doc.text(`Sold By: ${store.storeName || 'FIVLIA'}`);
         doc.text(`GST ID: ${setting[0]?.GST_Number || 'N/A'}`);
-        doc.text(`Address: ${store.city.name || 'N/A'}`);
+        doc.text(`Address: ${store.fullAddress||store.city.name || 'N/A'}`);
       } else {
         doc.text('Store: FIVLIA');
         doc.text('N/A');
@@ -114,6 +114,7 @@ async function generatePDFInvoice(order, user, store, subtotal, gstTotal) {
       doc.text(`Name: ${user.fullName || 'N/A'}`);
       doc.text(`Mobile: ${user.mobileNumber || user.alternateNumber || 'N/A'}`);
       doc.text(`Email: ${user.email || 'N/A'}`);
+      doc.text(`Address: ${user.address || 'N/A'}`);
       doc.moveDown(0.5);
 
       // Line separator
@@ -169,7 +170,7 @@ async function generatePDFInvoice(order, user, store, subtotal, gstTotal) {
       }
       
       if (order.platformFee > 0) {
-        const platformLine = 'Platform Fee:'.padEnd(30) + order.platformFee.toFixed(2).padStart(15);
+        const platformLine = 'Platform Fee:'.padEnd(30) + order.platformFee.toFixed(2).padStart(11);
         doc.text(platformLine);
       }
 
@@ -179,7 +180,7 @@ async function generatePDFInvoice(order, user, store, subtotal, gstTotal) {
       doc.moveTo(10, doc.y + 1).lineTo(216, doc.y + 1).stroke();
       doc.moveDown(0.3);
 
-      const totalLine = 'TOTAL:'.padEnd(30) + order.totalPrice.toFixed(2).padStart(15);
+      const totalLine = 'TOTAL:'.padEnd(30) + order.totalPrice.toFixed(2).padStart(9);
       doc.fontSize(9).font('Helvetica-Bold').text(totalLine);
       
       doc.moveDown(0.3);

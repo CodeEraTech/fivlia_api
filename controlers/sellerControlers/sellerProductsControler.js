@@ -363,7 +363,7 @@ exports.getSellerProducts = async (req, res) => {
   const {
     sellerId,
     page = 1,
-    limit = 10,
+    limit,
     search = "",
     category = ""
   } = req.query;
@@ -397,7 +397,9 @@ exports.getSellerProducts = async (req, res) => {
     }
     // Count total seller products
     const total = await Products.countDocuments(filter);
-
+    console.log('stockData',stockData)
+    console.log('stockEntries',stockEntries)
+console.log('stockMap',stockMap)
     // Fetch paginated seller products and populate from Product
     const sellerProducts = await Products.find(filter)
       .skip(skip)
@@ -450,11 +452,13 @@ exports.getSellerProducts = async (req, res) => {
             }
           }
 const variantsWithStock = (prod.variants || []).map(variant => {
-            const key = `${prod._id}_${variant._id}`;
+            const key = `${sp._id}_${variant._id}`;
               const stockEntry = stockMap[key] ? stockEntries.find(
     s => s.productId.toString() === prod._id.toString() &&
          s.variantId.toString() === variant._id.toString()
   ) : null;
+  
+  console.log('stockMap[key]',stockMap[key])
             return {
               ...variant,
               stock: stockMap[key] || 0,
@@ -470,7 +474,6 @@ const variantsWithStock = (prod.variants || []).map(variant => {
             category: categoryName,
             mrp: sp.mrp == 0 ? prod.mrp : sp.mrp,
             sell_price: sp.sell_price == 0 ? prod.sell_price : sp.sell_price,
-            stock: sp.stock,
             variants:variantsWithStock,
             status: sp.status ?? false,
             commission
@@ -544,28 +547,14 @@ exports.getSellerCategoryList = async (req, res) => {
 
 exports.getExistingProductList = async (req, res) => {
   try {
-    const { q, page = 1, limit = 100 } = req.query;
+    const { q } = req.query;
 
     if (!q || q.length < 3) {
       return res.status(400).json({ message: "Search term must be at least 3 characters" });
     }
 
     const regex = new RegExp(q, "i");
-    const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    // Count total matching products (needed for pagination)
-    const totalCount = await Product.countDocuments({
-      $or: [
-        { productName: regex },
-        { description: regex },
-        { "brand_Name.name": regex },
-        { "category.name": regex },
-        { "subCategory.name": regex },
-        { "subSubCategory.name": regex }
-      ]
-    });
-
-    // Fetch paginated results
     const matchedProducts = await Product.find({
       $or: [
         { productName: regex },
@@ -576,12 +565,9 @@ exports.getExistingProductList = async (req, res) => {
         { "subSubCategory.name": regex }
       ]
     })
-      .skip(skip)
-      .limit(parseInt(limit))
       .select("productName productThumbnailUrl sku brand_Name category subCategory subSubCategory")
       .lean();
 
-    // Transform products
     const products = await Promise.all(
       matchedProducts.map(async (prod) => {
         const subCategoryId = prod.subCategory?.[0]?._id?.toString();
@@ -600,12 +586,12 @@ exports.getExistingProductList = async (req, res) => {
 
           if (fullCategory?.subcat && (subSubCategoryId || subCategoryId)) {
             const matchedSubcat = fullCategory.subcat.find(
-              (sub) => sub._id.toString() === subCategoryId
+              sub => sub._id.toString() === subCategoryId
             );
 
             if (matchedSubcat && Array.isArray(matchedSubcat.subsubcat)) {
               const matchedSubSubCat = matchedSubcat.subsubcat.find(
-                (subsub) => subsub._id.toString() === subSubCategoryId
+                subsub => subsub._id.toString() === subSubCategoryId
               );
               commission = matchedSubSubCat?.commison ?? matchedSubcat?.commison ?? 0;
             } else {
@@ -626,18 +612,12 @@ exports.getExistingProductList = async (req, res) => {
           categoryId: prod.category?.[0]?._id ?? null,
           subCategoryId: prod.subCategory?.[0]?._id ?? null,
           subSubCategoryId: prod.subSubCategory?.[0]?._id ?? null,
-          commission,
+          commission
         };
       })
     );
 
-    return res.status(200).json({
-      success: true,
-      products,
-      totalCount,
-      currentPage: parseInt(page),
-      perPage: parseInt(limit),
-    });
+    return res.status(200).json({ success: true, products });
   } catch (error) {
     console.error("Search product error:", error);
     return res.status(500).json({ success: false, message: "Internal server error" });

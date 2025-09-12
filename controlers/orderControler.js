@@ -1,11 +1,11 @@
-const {Order,TempOrder} = require('../modals/order')
+const { Order, TempOrder } = require('../modals/order')
 const Products = require('../modals/Product')
-const {Cart} = require('../modals/cart')
+const { Cart } = require('../modals/cart')
 const autoAssignDriver = require('../config/driverOrderAccept/AutoAssignDriver')
 const driver = require('../modals/driver')
 const User = require('../modals/User')
 const Status = require('../modals/deliveryStatus')
-const {SettingAdmin} = require('../modals/setting')
+const { SettingAdmin } = require('../modals/setting')
 const Address = require('../modals/Address')
 const stock = require('../modals/StoreStock')
 const admin_transaction = require('../modals/adminTranaction')
@@ -15,69 +15,70 @@ const Assign = require('../modals/driverModals/assignments');
 const sendNotification = require('../firebase/pushnotification');
 const Store = require('../modals/store');
 const deliveryStatus = require('../modals/deliveryStatus')
-const {getNextOrderId} = require('../config/counter')
+const { getNextOrderId } = require('../config/counter')
+const { createRazorpayOrder } = require("../utils/razorpayService");
 
 const MAX_DISTANCE_METERS = 5000;
 
 exports.placeOrder = async (req, res) => {
   try {
-    const { cartIds, addressId, storeId,paymentMode} = req.body;
+    const { cartIds, addressId, storeId, paymentMode } = req.body;
 
 
-   const nextOrderId = await getNextOrderId();
+    const nextOrderId = await getNextOrderId();
 
     const chargesData = await SettingAdmin.findOne();
     const cartItems = await Cart.find({ _id: { $in: cartIds } });
     // console.log(chargesData);
-  if (!cartItems) {
-   return res.status(400).json({ message: `Cart item with ID ${cartIds} not found.` });
-  }
+    if (!cartItems) {
+      return res.status(400).json({ message: `Cart item with ID ${cartIds} not found.` });
+    }
 
     const itemsTotal = cartItems.reduce((sum, item) => {
       return sum + Number(item.price) * Number(item.quantity);
     }, 0);
-const platformFeeRate = (chargesData.Platform_Fee || 0) / 100;
-const platformFeeAmount = itemsTotal * platformFeeRate;
+    const platformFeeRate = (chargesData.Platform_Fee || 0) / 100;
+    const platformFeeAmount = itemsTotal * platformFeeRate;
 
     const totalPrice = itemsTotal + chargesData.Delivery_Charges + platformFeeAmount;
-const paymentOption = cartItems[0].paymentOption;
+    const paymentOption = cartItems[0].paymentOption;
 
-if (paymentMode === true && paymentOption !== true) {
-  return res.status(401).json({ message: "Cash On Delivery is not available in your zone" });
-}
+    if (paymentMode === true && paymentOption !== true) {
+      return res.status(401).json({ message: "Cash On Delivery is not available in your zone" });
+    }
 
     const userId = cartItems[0].userId;
     const cashOnDelivery = paymentMode === true;
 
-const orderItems = [];
+    const orderItems = [];
 
-for (const item of cartItems) {
-  const product = await Products.findById(item.productId)
-  if (!product) {
-    console.error(`Product not found: ${item.productId}`);
-    return res.status(400).json({
-      message: `Product not found for ID: ${item.productId}`,
-    });
-  }
-  const gst = product.tax
-  orderItems.push({
-    productId: item.productId,
-    varientId: item.varientId,
-    name: item.name,
-    quantity: item.quantity,
-    price: Number(item.price),
-    image: item.image,
-    gst,
-  });
-}
+    for (const item of cartItems) {
+      const product = await Products.findById(item.productId)
+      if (!product) {
+        console.error(`Product not found: ${item.productId}`);
+        return res.status(400).json({
+          message: `Product not found for ID: ${item.productId}`,
+        });
+      }
+      const gst = product.tax
+      orderItems.push({
+        productId: item.productId,
+        varientId: item.varientId,
+        name: item.name,
+        quantity: item.quantity,
+        price: Number(item.price),
+        image: item.image,
+        gst,
+      });
+    }
 
     if (paymentMode === true) {
 
       const newOrder = await Order.create({
-        orderId:nextOrderId,
+        orderId: nextOrderId,
         items: orderItems,
         addressId,
-        paymentStatus:'Successful',
+        paymentStatus: 'Successful',
         cashOnDelivery,
         totalPrice,
         userId,
@@ -87,62 +88,59 @@ for (const item of cartItems) {
       });
 
       for (const item of cartItems) {
-      const dataStock = await stock.updateOne(
-         {
-           storeId: storeId,
-           "stock.productId": item.productId,
-           "stock.variantId": item.varientId
-         },
-         {
-           $inc: { "stock.$.quantity": -item.quantity }
-         }
-       );
-       console.log('dataStock',dataStock)
-      await Products.updateOne(
+        const dataStock = await stock.updateOne(
+          {
+            storeId: storeId,
+            "stock.productId": item.productId,
+            "stock.variantId": item.varientId
+          },
+          {
+            $inc: { "stock.$.quantity": -item.quantity }
+          }
+        );
+        console.log('dataStock', dataStock)
+        await Products.updateOne(
           { _id: item.productId },
           { $inc: { purchases: item.quantity } }
         );
-           await Cart.deleteMany({ _id: { $in: cartIds } });
+        await Cart.deleteMany({ _id: { $in: cartIds } });
       }
- const storeBefore = await Store.findById(storeId).lean();
-const storeData = await Store.findByIdAndUpdate(
-  storeId,
-  { $inc: { wallet: totalPrice } },
-  { new: true }
-);
-const lastAmount = await admin_transaction.findById('6899c9b7eeb3a6cd3a142237').lean()
+      const storeBefore = await Store.findById(storeId).lean();
+      const storeData = await Store.findByIdAndUpdate(
+        storeId,
+        { $inc: { wallet: totalPrice } },
+        { new: true }
+      );
+      const lastAmount = await admin_transaction.findById('6899c9b7eeb3a6cd3a142237').lean()
 
-const updatedWallet = await admin_transaction.findByIdAndUpdate(
-  '6899c9b7eeb3a6cd3a142237',
-  { $inc: { wallet: totalPrice } },
-  { new: true }, 
-);
-// console.log('wallet',updatedWallet)
+      const updatedWallet = await admin_transaction.findByIdAndUpdate(
+        '6899c9b7eeb3a6cd3a142237',
+        { $inc: { wallet: totalPrice } },
+        { new: true },
+      );
 
-// console.log('lastAmount',lastAmount)
-
-await admin_transaction.create({
-     currentAmount:updatedWallet.wallet,
-     lastAmount:lastAmount.wallet,
-     type:'Credit',
-     amount: totalPrice,
-     orderId:nextOrderId,
-     description:'Item Price Added'
-})
-await store_transaction.create({
-     currentAmount:storeData.wallet,
-     lastAmount:storeBefore.wallet,
-     type:'Credit',
-     amount: totalPrice,
-     orderId:nextOrderId,
-     storeId:storeId,
-     description:'Item Price Added'
-})
-return res.status(200).json({ message: "Order placed successfully",  order: newOrder,});
+      await admin_transaction.create({
+        currentAmount: updatedWallet.wallet,
+        lastAmount: lastAmount.wallet,
+        type: 'Credit',
+        amount: totalPrice,
+        orderId: nextOrderId,
+        description: 'Item Price Added'
+      })
+      await store_transaction.create({
+        currentAmount: storeData.wallet,
+        lastAmount: storeBefore.wallet,
+        type: 'Credit',
+        amount: totalPrice,
+        orderId: nextOrderId,
+        storeId: storeId,
+        description: 'Item Price Added'
+      })
+      return res.status(200).json({ message: "Order placed successfully", order: newOrder, });
     } else {
       const tempOrder = await TempOrder.create({
         userId,
-        orderId:nextOrderId,
+        orderId: nextOrderId,
         items: orderItems,
         addressId,
         totalPrice,
@@ -153,10 +151,12 @@ return res.status(200).json({ message: "Order placed successfully",  order: newO
         deliveryCharges: chargesData.Delivery_Charges,
         platformFee: chargesData.Platform_Fee,
       });
+      const payResponse = await createRazorpayOrder(totalPrice, "INR", `receipt_${tempOrder._id}`, { orderId: nextOrderId });
       return res.status(200).json({
         message: "Proceed to payment",
         tempOrderId: tempOrder._id,
         tempOrder,
+        payResponse
       });
     }
 
@@ -210,43 +210,43 @@ exports.verifyPayment = async (req, res) => {
           { $inc: { purchases: item.quantity } }
         );
       }
-      
-       await Cart.deleteMany({ _id: { $in: tempOrder.cartIds } });
 
-const updatedWallet = await admin_transaction.findByIdAndUpdate(
-  '6899c9b7eeb3a6cd3a142237',
-  { $inc: { wallet: tempOrder.totalPrice } }, 
-  { new: true }
-);
-const lastAmount = updatedWallet.wallet - tempOrder.totalPrice;
+      await Cart.deleteMany({ _id: { $in: tempOrder.cartIds } });
 
-await admin_transaction.create({
-     currentAmount:updatedWallet.wallet,
-     lastAmount:lastAmount,
-     type:'Credit',
-     amount: tempOrder.totalPrice,
-     orderId:tempOrder.orderId,
-     description:'Item Price Added',
-})
+      const updatedWallet = await admin_transaction.findByIdAndUpdate(
+        '6899c9b7eeb3a6cd3a142237',
+        { $inc: { wallet: tempOrder.totalPrice } },
+        { new: true }
+      );
+      const lastAmount = updatedWallet.wallet - tempOrder.totalPrice;
+
+      await admin_transaction.create({
+        currentAmount: updatedWallet.wallet,
+        lastAmount: lastAmount,
+        type: 'Credit',
+        amount: tempOrder.totalPrice,
+        orderId: tempOrder.orderId,
+        description: 'Item Price Added',
+      })
 
     }
 
-  const storeBefore = await Store.findById(tempOrder.storeId).lean();
-  const storeData = await Store.findByIdAndUpdate(
-  tempOrder.storeId,
-  { $inc: { wallet: tempOrder.totalPrice } },
-  { new: true }
-);
+    const storeBefore = await Store.findById(tempOrder.storeId).lean();
+    const storeData = await Store.findByIdAndUpdate(
+      tempOrder.storeId,
+      { $inc: { wallet: tempOrder.totalPrice } },
+      { new: true }
+    );
 
-await store_transaction.create({
-     currentAmount:storeData.wallet,
-     lastAmount:storeBefore.wallet,
-     type:'Credit',
-     amount: tempOrder.totalPrice,
-     orderId:tempOrder.orderId,
-     storeId:tempOrder.storeId,
-     description:'Item Price Added'
-})
+    await store_transaction.create({
+      currentAmount: storeData.wallet,
+      lastAmount: storeBefore.wallet,
+      type: 'Credit',
+      amount: tempOrder.totalPrice,
+      orderId: tempOrder.orderId,
+      storeId: tempOrder.storeId,
+      description: 'Item Price Added'
+    })
 
     // 5. Delete the temp order
     await TempOrder.findByIdAndDelete(tempOrderId);
@@ -267,7 +267,7 @@ await store_transaction.create({
 
 exports.getOrders = async (req, res) => {
   try {
-    const {limit,page=1, storeId } = req.query;
+    const { limit, page = 1, storeId } = req.query;
     const skip = (page - 1) * limit;
     const query = storeId ? { storeId } : {};
 
@@ -293,20 +293,20 @@ exports.getOrders = async (req, res) => {
         // Format full address
         const formattedAddress = order.addressId
           ? {
-              fullName: order.addressId.fullName || 'N/A',
-              fullAddress: [
-                order.addressId.address || '',
-                order.addressId.house_No || '',
-                order.addressId.floor ? `Floor ${order.addressId.floor}` : '',
-                order.addressId.landmark || '',
-                order.addressId.city || '',
-                order.addressId.state || '',
-                order.addressId.pincode || '',
-              ]
-                .filter(Boolean)
-                .join(', ') || 'N/A',
-              moibleNumber: order.addressId.mobileNumber || '',
-            }
+            fullName: order.addressId.fullName || 'N/A',
+            fullAddress: [
+              order.addressId.address || '',
+              order.addressId.house_No || '',
+              order.addressId.floor ? `Floor ${order.addressId.floor}` : '',
+              order.addressId.landmark || '',
+              order.addressId.city || '',
+              order.addressId.state || '',
+              order.addressId.pincode || '',
+            ]
+              .filter(Boolean)
+              .join(', ') || 'N/A',
+            moibleNumber: order.addressId.mobileNumber || '',
+          }
           : { fullName: 'N/A', fullAddress: 'N/A' };
 
         // Inject variant info inside items
@@ -314,22 +314,22 @@ exports.getOrders = async (req, res) => {
           order.items.map(async (item) => {
             const product = await Products.findById(item.productId).lean();
 
-             if (!product) {
-      console.warn(`⚠️ Product not found for ID: ${item.productId}`);
-      return {
-        ...item,
-        product: null,
-        variantName: null,
-        variantPrice: null,
-      };
-    }
+            if (!product) {
+              console.warn(`⚠️ Product not found for ID: ${item.productId}`);
+              return {
+                ...item,
+                product: null,
+                variantName: null,
+                variantPrice: null,
+              };
+            }
 
             const variant = product?.variants?.find(
               (v) => v._id.toString() === item.varientId?.toString()
             );
             return {
               ...item,
-              sku:product.sku || null,
+              sku: product.sku || null,
               variantName: variant?.variantValue || null,
               variantPrice: variant?.sell_price || null,
             };
@@ -342,15 +342,15 @@ exports.getOrders = async (req, res) => {
           addressId: formattedAddress,
           storeId: order.storeId
             ? {
-                _id: order.storeId._id || 'N/A',
-                storeName: order.storeId.storeName || 'N/A',
-              }
+              _id: order.storeId._id || 'N/A',
+              storeName: order.storeId.storeName || 'N/A',
+            }
             : null,
           city,
         };
       })
     );
-const count = totalOrders
+    const count = totalOrders
     return res.status(200).json({
       message: 'Orders retrieved successfully',
       orders: ordersWithCity,
@@ -381,11 +381,11 @@ exports.getOrderDetails = async (req, res) => {
       if (order.driver && order.driver.driverId) {
         driverInfo = await driver.findOne({ _id: order.driver.driverId }).lean();
 
-          driverInfo = {
-            driverId: driverInfo.driverId || '',
-            name: driverInfo.driverName || '',
-            mobileNo: driverInfo.address?.mobileNo || '',
-          };
+        driverInfo = {
+          driverId: driverInfo.driverId || '',
+          name: driverInfo.driverName || '',
+          mobileNo: driverInfo.address?.mobileNo || '',
+        };
       }
 
       // 3. Get product details for each item
@@ -415,7 +415,7 @@ exports.getOrderDetails = async (req, res) => {
         cashOnDelivery: order.cashOnDelivery,
         deliveryCharges: order.deliveryCharges,
         platformFee: order.platformFee,
-        transactionId:order.transactionId || '',
+        transactionId: order.transactionId || '',
         items: itemsWithDetails,
         address,
         driver: driverInfo, // 🟢 Include driver data
@@ -442,27 +442,27 @@ exports.orderStatus = async (req, res) => {
     const updateData = { orderStatus: status };
 
     if (driverId) {
-      const driverDoc = await driver.findOne({ _id:driverId });
+      const driverDoc = await driver.findOne({ _id: driverId });
       // if (!driverDoc) return res.status(404).json({ message: "Driver not found" });
 
       updateData.driver = {
         driverId: driverDoc._id,
         name: driverDoc.driverName,
-        mobileNumber:driverDoc.address.mobileNo
+        mobileNumber: driverDoc.address.mobileNo
       };
     }
 
     // 1. Update order status
     const updatedOrder = await Order.findByIdAndUpdate(id, updateData, { new: true });
     if (!updatedOrder) return res.status(404).json({ message: "Order not found" });
-if (status === 'Accepted') {
-  autoAssignDriver(updatedOrder).catch(err => {
-    console.error('Driver assignment failed:', err.message);
-  });
-}
+    if (status === 'Accepted') {
+      autoAssignDriver(updatedOrder).catch(err => {
+        console.error('Driver assignment failed:', err.message);
+      });
+    }
 
     if (status === "Delivered" && updatedOrder.driver?.driverId) {
-     const data =  await Assign.findOneAndDelete({
+      const data = await Assign.findOneAndDelete({
         driverId: updatedOrder.driver.driverId,
         orderId: updatedOrder.orderId, // or updatedOrder.orderId depending on what you save
         orderStatus: "Accepted",
@@ -500,9 +500,9 @@ if (status === 'Accepted') {
   }
 };
 
-exports.deliveryStatus=async (req,res) => {
+exports.deliveryStatus = async (req, res) => {
   try {
-     const {statusTitle,status}=req.body
+    const { statusTitle, status } = req.body
 
     const lastStatus = await deliveryStatus.findOne().sort({ statusCode: -1 });
 
@@ -510,106 +510,107 @@ exports.deliveryStatus=async (req,res) => {
     if (lastStatus && !isNaN(parseInt(lastStatus.statusCode))) {
       nextStatusCode = (parseInt(lastStatus.statusCode) + 1).toString();
     }
-     const rawImagePath = req.files?.image?.[0]?.key || "";
+    const rawImagePath = req.files?.image?.[0]?.key || "";
     const image = rawImagePath ? `/${rawImagePath}` : "";
-     const newStatus = await deliveryStatus.create({statusCode:nextStatusCode,statusTitle,status,image})
-     return res.status(200).json({message:'New Status Created',newStatus})
+    const newStatus = await deliveryStatus.create({ statusCode: nextStatusCode, statusTitle, status, image })
+    return res.status(200).json({ message: 'New Status Created', newStatus })
   } catch (error) {
     console.error('Get orders error:', error.message);
-    return res.status(500).json({ message: 'Server Error', error: error.message }); 
+    return res.status(500).json({ message: 'Server Error', error: error.message });
   }
 }
-exports.updatedeliveryStatus=async (req,res) => {
+exports.updatedeliveryStatus = async (req, res) => {
   try {
-     const {id} = req.params
-     const {statusCode,statusTitle,status}=req.body
-        const rawImagePath = req.files?.image?.[0]?.key || "";
+    const { id } = req.params
+    const { statusCode, statusTitle, status } = req.body
+    const rawImagePath = req.files?.image?.[0]?.key || "";
     const image = rawImagePath ? `/${rawImagePath}` : "";
-     const newStatus = await deliveryStatus.findByIdAndUpdate(id,{statusCode,statusTitle,image,status})
-     return res.status(200).json({message:'Status Updated',newStatus})
+    const newStatus = await deliveryStatus.findByIdAndUpdate(id, { statusCode, statusTitle, image, status })
+    return res.status(200).json({ message: 'Status Updated', newStatus })
   } catch (error) {
     console.error('Get orders error:', error.message);
-    return res.status(500).json({ message: 'Server Error', error: error.message }); 
+    return res.status(500).json({ message: 'Server Error', error: error.message });
   }
 }
 
-exports.getdeliveryStatus=async (req,res) => {
+exports.getdeliveryStatus = async (req, res) => {
   try {
-     const Status = await deliveryStatus.find()
-     return res.status(200).json({message:'Delivery Status',Status})
+    const Status = await deliveryStatus.find()
+    return res.status(200).json({ message: 'Delivery Status', Status })
   } catch (error) {
     console.error('Get orders error:', error.message);
-    return res.status(500).json({ message: 'Server Error', error: error.message }); 
+    return res.status(500).json({ message: 'Server Error', error: error.message });
   }
 }
 // routes/testRoute.js or controller
 exports.test = async (req, res) => {
   try {
-  const token = 'd4HVM3utRw6dS3eK8J0qUN:APA91bEyK6IHXVqttY8xbhEqckbtvehYD4QaF6LaVzRTuC1Wk0fnCiMTaRNMsV0Sobm9WkDeD0rPnnuQ8SNhtdqO6YcLMvZL1hNBaX3r3Zl2tV8X9UGcOag';
+    const token = 'd4HVM3utRw6dS3eK8J0qUN:APA91bEyK6IHXVqttY8xbhEqckbtvehYD4QaF6LaVzRTuC1Wk0fnCiMTaRNMsV0Sobm9WkDeD0rPnnuQ8SNhtdqO6YcLMvZL1hNBaX3r3Zl2tV8X9UGcOag';
 
-  const response = await sendPushNotification(
-    token,
-    '🚀 Backend Test',
-    'If you received this, backend FCM works!',
-    { testMode: 'true' }
-  );
+    const response = await sendPushNotification(
+      token,
+      '🚀 Backend Test',
+      'If you received this, backend FCM works!',
+      { testMode: 'true' }
+    );
 
-  res.json({ message: 'Notification sent', response });
+    res.json({ message: 'Notification sent', response });
   } catch (error) {
     console.error(error);
-   return res.status(500).json({ message: '❌ Failed to send notification', error: error.message}); 
+    return res.status(500).json({ message: '❌ Failed to send notification', error: error.message });
   }
 }
 
 exports.driver = async (req, res) => {
   try {
-  const {driverName,status,email,password}=req.body
+    const { driverName, status, email, password } = req.body
     const rawImagePath = req.files?.image?.[0]?.key || "";
-    const image = rawImagePath ? `/${rawImagePath}` : ""; 
-   const policeKey = req.files?.Police_Verification_Copy?.[0]?.key;
+    const image = rawImagePath ? `/${rawImagePath}` : "";
+    const policeKey = req.files?.Police_Verification_Copy?.[0]?.key;
     const Police_Verification_Copy = policeKey ? `/${policeKey}` : "";
- const aadharFrontKey = req.files?.aadharCard?.[0]?.key;
+    const aadharFrontKey = req.files?.aadharCard?.[0]?.key;
     const aadharBackKey = req.files?.aadharCard?.[1]?.key;
 
     const dlFrontKey = req.files?.drivingLicence?.[0]?.key;
     const dlBackKey = req.files?.drivingLicence?.[1]?.key;
 
-  const address = JSON.parse(req.body.address);
-  const totalDrivers = await driver.countDocuments();
-const paddedNumber = String(totalDrivers + 1).padStart(3, "0");
-const driverId = `FV${paddedNumber}`
-const newDriver = await driver.create({driverId,driverName,status,image,address,email,password,
-        Police_Verification_Copy,
-        aadharCard: {
-         front: aadharFrontKey ? `/${aadharFrontKey}` : "",
-      back: aadharBackKey ? `/${aadharBackKey}` : "",
-        },
-        drivingLicence: {
-      front: dlFrontKey ? `/${dlFrontKey}` : "",
-      back: dlBackKey ? `/${dlBackKey}` : "",
-        }
-      })
- return res.status(200).json({ message: 'Driver added successfully', newDriver}); 
-} catch (error) {
-   console.error(error);
-   return res.status(500).json({ message: '❌ Failed to add driver', error: error.message}); 
+    const address = JSON.parse(req.body.address);
+    const totalDrivers = await driver.countDocuments();
+    const paddedNumber = String(totalDrivers + 1).padStart(3, "0");
+    const driverId = `FV${paddedNumber}`
+    const newDriver = await driver.create({
+      driverId, driverName, status, image, address, email, password,
+      Police_Verification_Copy,
+      aadharCard: {
+        front: aadharFrontKey ? `/${aadharFrontKey}` : "",
+        back: aadharBackKey ? `/${aadharBackKey}` : "",
+      },
+      drivingLicence: {
+        front: dlFrontKey ? `/${dlFrontKey}` : "",
+        back: dlBackKey ? `/${dlBackKey}` : "",
+      }
+    })
+    return res.status(200).json({ message: 'Driver added successfully', newDriver });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: '❌ Failed to add driver', error: error.message });
   }
 }
 
-exports.getDriver = async (req,res) => {
+exports.getDriver = async (req, res) => {
   try {
     const Driver = await driver.find()
-    return res.status(200).json({ message: 'Drivers', Driver}); 
+    return res.status(200).json({ message: 'Drivers', Driver });
   } catch (error) {
-   console.error(error);
-   return res.status(500).json({ message: 'Server error', error: error.message}); 
+    console.error(error);
+    return res.status(500).json({ message: 'Server error', error: error.message });
   }
 }
 
 exports.editDriver = async (req, res) => {
   try {
     const { driverId } = req.params;
-    const { driverName, status, email,password} = req.body;
+    const { driverName, status, email, password } = req.body;
 
     let address = {};
     if (req.body.address) {
@@ -619,37 +620,37 @@ exports.editDriver = async (req, res) => {
         return res.status(400).json({ message: "Invalid address JSON" });
       }
     }
-  const rawImagePath = req.files?.image?.[0]?.key || "";
-    const image = rawImagePath ? `/${rawImagePath}` : ""; 
-      const policeKey = req.files?.Police_Verification_Copy?.[0]?.key;
+    const rawImagePath = req.files?.image?.[0]?.key || "";
+    const image = rawImagePath ? `/${rawImagePath}` : "";
+    const policeKey = req.files?.Police_Verification_Copy?.[0]?.key;
     const Police_Verification_Copy = policeKey ? `/${policeKey}` : "";
-     const aadharFrontKey = req.files?.aadharCard?.[0]?.key;
+    const aadharFrontKey = req.files?.aadharCard?.[0]?.key;
     const aadharBackKey = req.files?.aadharCard?.[1]?.key;
 
-     const dlFrontKey = req.files?.drivingLicence?.[0]?.key;
+    const dlFrontKey = req.files?.drivingLicence?.[0]?.key;
     const dlBackKey = req.files?.drivingLicence?.[1]?.key;
 
     const updateData = {
-      ...(driverName  && {driverName}),
+      ...(driverName && { driverName }),
       status,
       ...(email && { email }),
       ...(password && { password }),
       ...(image && { image }),
       ...(Police_Verification_Copy && {
-     Police_Verification_Copy
+        Police_Verification_Copy
       }),
-       ...(aadharFrontKey && aadharBackKey && {
-            aadharCard: {
-         front: aadharFrontKey ? `/${aadharFrontKey}` : "",
-      back: aadharBackKey ? `/${aadharBackKey}` : "",
+      ...(aadharFrontKey && aadharBackKey && {
+        aadharCard: {
+          front: aadharFrontKey ? `/${aadharFrontKey}` : "",
+          back: aadharBackKey ? `/${aadharBackKey}` : "",
         },
-     
+
       }),
       ...(dlFrontKey && dlBackKey && {
-      drivingLicence: {
-      front: dlFrontKey ? `/${dlFrontKey}` : "",
-      back: dlBackKey ? `/${dlBackKey}` : "",
-       }
+        drivingLicence: {
+          front: dlFrontKey ? `/${dlFrontKey}` : "",
+          back: dlBackKey ? `/${dlBackKey}` : "",
+        }
       }),
       ...(req.body.address ? { address: JSON.parse(req.body.address) } : {}),
     };
@@ -663,9 +664,9 @@ exports.editDriver = async (req, res) => {
   }
 };
 
-exports.getNotification = async (req,res) => {
+exports.getNotification = async (req, res) => {
   try {
-  const notifications = await Notification.find().sort({ createdAt: -1 });
+    const notifications = await Notification.find().sort({ createdAt: -1 });
     return res.status(200).json({ message: "✅ Notifications", notifications });
   } catch (error) {
     console.error("❌ Get Notification Error:", error);
@@ -675,8 +676,8 @@ exports.getNotification = async (req,res) => {
 
 exports.notification = async (req, res) => {
   try {
-    const { title, description, city} = req.body;
-      const rawImagePath = req.files?.image?.[0]?.key || "";
+    const { title, description, city } = req.body;
+    const rawImagePath = req.files?.image?.[0]?.key || "";
     const image = rawImagePath ? `/${rawImagePath}` : "";
     console.log(image)
     const newNotification = await Notification.create({
@@ -697,36 +698,36 @@ exports.notification = async (req, res) => {
   }
 };
 
-exports.editNotification = async (req,res) => {
-try{
-  const {id} = req.params
-  const {title, description, city} = req.body
+exports.editNotification = async (req, res) => {
+  try {
+    const { id } = req.params
+    const { title, description, city } = req.body
     const rawImagePath = req.files?.image?.[0]?.key || "";
     const updateData = { title, description, city };
 
     if (rawImagePath) {
       updateData.image = `/${rawImagePath}`;
     }
-    const newNotification = await Notification.findByIdAndUpdate(id,updateData, { new: true });
+    const newNotification = await Notification.findByIdAndUpdate(id, updateData, { new: true });
 
     return res.status(200).json({
       message: "✅ Notification updated successfully",
       notification: newNotification,
     });
 
-}catch(error){
-  console.error("❌ Notification error:", error.message);
-  return res.status(500).json({ message: "❌ Failed to create notification", error: error.message });
-}
+  } catch (error) {
+    console.error("❌ Notification error:", error.message);
+    return res.status(500).json({ message: "❌ Failed to create notification", error: error.message });
+  }
 }
 
-exports.deleteNotification = async (req,res)=>{
-  try{
-  const {id} = req.params
-  const deleteNotification = await Notification.findByIdAndDelete(id);
-  return res.status(200).json({message: "✅ Notification deleted"});
-  }catch(error){
-  console.error("❌ Notification error:", error.message);
-  return res.status(500).json({ message: "❌ Failed to create notification", error: error.message }); 
+exports.deleteNotification = async (req, res) => {
+  try {
+    const { id } = req.params
+    const deleteNotification = await Notification.findByIdAndDelete(id);
+    return res.status(200).json({ message: "✅ Notification deleted" });
+  } catch (error) {
+    console.error("❌ Notification error:", error.message);
+    return res.status(500).json({ message: "❌ Failed to create notification", error: error.message });
   }
 }

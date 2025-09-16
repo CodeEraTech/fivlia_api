@@ -6,7 +6,7 @@ const verifyToken = require('../midllerware/authToken');
 //invoice
 const { generateThermalInvoiceController } = require('../config/invoice')
 //website
-const { forwebbestselling, forwebgetProduct, forwebgetFeatureProduct, forwebsearchProduct, forwebgetRelatedProducts, forwebgetBanner, getDeliveryEstimateForWebsite, addPage, editPage, getPage, deletePage, updatePageStatus, contactUs } = require('../controlers/websiteapicontroler')
+const { forwebbestselling, forwebgetProduct, forwebgetFeatureProduct, forwebsearchProduct, forwebgetRelatedProducts, forwebgetBanner, getDeliveryEstimateForWebsite, addPage, editPage, getPage, deletePage, updatePageStatus, contactUs, getAllSellerProducts } = require('../controlers/websiteapicontroler')
 
 const { driverLogin, acceptOrder, driverOrderStatus, acceptedOrder, activeStatus, driverWallet, transactionList, cancelOrders, getDriverDetail, completedOrders, editProfile, deleteDriver, withdrawalRequest } = require('../controlers/driverControler')
 
@@ -138,6 +138,7 @@ router.get('/website/forwebgetBanner', forwebgetBanner)
 router.get('/getPage', getPage)
 router.get('/getDetailsGst', getDetailsGst)
 router.post('/save-contact-us', contactUs)
+router.get('/seller-products', getAllSellerProducts)
 
 router.get('/completedOrders/:mobileNumber', completedOrders)
 router.get('/getDriverDetail/:id', getDriverDetail)

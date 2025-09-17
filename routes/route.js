@@ -14,7 +14,7 @@ const { getDashboardStats, getStoreDashboardStats, walletAdmin, adminTranaction,
 const { getDeliveryEstimate } = require('../controlers/DeliveryControler')
 
 //seller product
-const { addSellerProduct, editSellerProduct, updateSellerStock, deleteSellerProduct, addCategoryInSeller, getDetailsGst, getCategoryProduct, getSellerCategoryMapping, getSellerCategories, getSellerProducts, updateSellerProducStatus, getSellerCategoryList, getExistingProductList } = require('../controlers/sellerControlers/sellerProductsControler')
+const { addSellerProduct, editSellerProduct, updateSellerStock, deleteSellerProduct, addCategoryInSeller, getDetailsGst, getCategoryProduct, getSellerCategoryMapping, getSellerCategories, getSellerProducts, updateSellerProducStatus, getSellerCategoryList, getExistingProductList, getUnapprovedProducts, saveBrandApprovelDocument } = require('../controlers/sellerControlers/sellerProductsControler')
 
 //seller auth
 const { addSeller, getSeller, getSellerRequest, sendOtp, acceptDeclineRequest, verifyOtpSeller } = require('../controlers/sellerControlers/sellerAuth')
@@ -94,6 +94,9 @@ router.get('/getSellerProducts', getSellerProducts)
 router.put('/updateSellerProducStatus/:id', updateSellerProducStatus)
 router.get('/getSellerCategoryList/:id', getSellerCategoryList)
 router.get('/getExistingProductList', getExistingProductList)
+router.get('/getUnapprovedProducts', getUnapprovedProducts)
+router.post('/saveBrandApprovelDocument', upload, saveBrandApprovelDocument)
+
 
 router.get('/getSeller', getSeller)
 router.get('/getSellerRequest', getSellerRequest)

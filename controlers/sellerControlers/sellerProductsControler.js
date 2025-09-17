@@ -1,55 +1,75 @@
-const Products = require('../../modals/sellerModals/sellerProduct')
-const Store = require('../../modals/store')
-const mongoose = require('mongoose');
-const axios = require('axios');
-const Product = require('../../modals/Product');
-const Category = require('../../modals/category');
-const Stock = require('../../modals/StoreStock')
+const Products = require("../../modals/sellerModals/sellerProduct");
+const Store = require("../../modals/store");
+const mongoose = require("mongoose");
+const axios = require("axios");
+const Product = require("../../modals/Product");
+const Category = require("../../modals/category");
+const Stock = require("../../modals/StoreStock");
 
 exports.addSellerProduct = async (req, res) => {
   try {
-    const { id } = req.params
-    const { name, price, stock, approvalStatus, category, status } = req.body
-    const image = `${req.files.image?.[0].key}`
-    const newProduct = await Products.create({ image, name, price, stock, approvalStatus, category, status, sellerId: id })
-    return res.status(200).json({ message: "Product request send to admin", newProduct })
+    const { id } = req.params;
+    const { name, price, stock, approvalStatus, category, status } = req.body;
+    const image = `${req.files.image?.[0].key}`;
+    const newProduct = await Products.create({
+      image,
+      name,
+      price,
+      stock,
+      approvalStatus,
+      category,
+      status,
+      sellerId: id,
+    });
+    return res
+      .status(200)
+      .json({ message: "Product request send to admin", newProduct });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ ResponseMsg: "An Error Occured" });
   }
-}
+};
 
 exports.editSellerProduct = async (req, res) => {
   try {
-    const { id } = req.params
-    const { name, price, stock, rating, approvalStatus, category, status } = req.body
+    const { id } = req.params;
+    const { name, price, stock, rating, approvalStatus, category, status } =
+      req.body;
 
-    const updateData = { name, price, stock, rating, approvalStatus, category, status };
+    const updateData = {
+      name,
+      price,
+      stock,
+      rating,
+      approvalStatus,
+      category,
+      status,
+    };
 
     // Add image only if provided
     if (req.files?.image?.[0]?.key) {
       updateData.image = req.files.image[0].key;
     }
 
-    const editProduct = await Products.findByIdAndUpdate(id, updateData)
-    return res.status(200).json({ message: "Product Updated", editProduct })
+    const editProduct = await Products.findByIdAndUpdate(id, updateData);
+    return res.status(200).json({ message: "Product Updated", editProduct });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ ResponseMsg: "An Error Occured" });
   }
-}
+};
 
 exports.deleteSellerProduct = async (req, res) => {
   try {
-    const { id } = req.params
+    const { id } = req.params;
 
-    const deleteProduct = await Products.findByIdAndDelete(id)
-    return res.status(200).json({ message: "Product Deleted", deleteProduct })
+    const deleteProduct = await Products.findByIdAndDelete(id);
+    return res.status(200).json({ message: "Product Deleted", deleteProduct });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ ResponseMsg: "An Error Occured" });
   }
-}
+};
 
 exports.updateSellerStock = async (req, res) => {
   try {
@@ -84,7 +104,7 @@ exports.updateSellerStock = async (req, res) => {
     // console.error("Error updating product:", err);
     return res.status(500).json({ message: "Server error" });
   }
-}
+};
 
 exports.addCategoryInSeller = async (req, res) => {
   try {
@@ -114,7 +134,9 @@ exports.addCategoryInSeller = async (req, res) => {
         ? cat.subCategories.map((sub) => ({
             subCategoryId:
               sub.subCategoryId &&
-              mongoose.isValidObjectId(sub.subCategoryId.$oid || sub.subCategoryId)
+              mongoose.isValidObjectId(
+                sub.subCategoryId.$oid || sub.subCategoryId
+              )
                 ? new mongoose.Types.ObjectId(
                     sub.subCategoryId.$oid || sub.subCategoryId
                   )
@@ -124,7 +146,9 @@ exports.addCategoryInSeller = async (req, res) => {
                   .map((ss) => ({
                     subSubCategoryId:
                       ss.subSubCategoryId &&
-                      mongoose.isValidObjectId(ss.subSubCategoryId.$oid || ss.subSubCategoryId)
+                      mongoose.isValidObjectId(
+                        ss.subSubCategoryId.$oid || ss.subSubCategoryId
+                      )
                         ? new mongoose.Types.ObjectId(
                             ss.subSubCategoryId.$oid || ss.subSubCategoryId
                           )
@@ -238,7 +262,6 @@ exports.getDetailsGst = async (req, res) => {
       success: true,
       gstDetails: response.data,
     });
-
   } catch (error) {
     console.error("Error fetching GST details:", error.message);
 
@@ -255,9 +278,9 @@ exports.getCategoryProduct = async (req, res) => {
     let { categories, subCategories, subsubCategories } = req.query;
 
     // Split IDs from query params
-    categories = categories ? categories.split('%') : [];
-    subCategories = subCategories ? subCategories.split('%') : [];
-    subsubCategories = subsubCategories ? subsubCategories.split('%') : [];
+    categories = categories ? categories.split("%") : [];
+    subCategories = subCategories ? subCategories.split("%") : [];
+    subsubCategories = subsubCategories ? subsubCategories.split("%") : [];
 
     // Helper to convert to ObjectIds
     const toObjectIdArray = (ids) =>
@@ -274,24 +297,27 @@ exports.getCategoryProduct = async (req, res) => {
       $or: [
         { "category._id": { $in: categoryIds } },
         { "subCategory._id": { $in: subCategoryIds } },
-        { "subSubCategory._id": { $in: subsubCategoryIds } }
-      ]
+        { "subSubCategory._id": { $in: subsubCategoryIds } },
+      ],
     };
 
     const products = await Product.find(query)
       .select(
         "_id productName productThumbnailUrl " +
-        "category._id category.name " +
-        "subCategory._id subCategory.name " +
-        "subSubCategory._id subSubCategory.name "
+          "category._id category.name " +
+          "subCategory._id subCategory.name " +
+          "subSubCategory._id subSubCategory.name "
       )
       .lean();
 
-
-    res.status(200).json({ message: 'Products fetched successfully', products });
+    res
+      .status(200)
+      .json({ message: "Products fetched successfully", products });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "An error occurred", error: error.message });
+    return res
+      .status(500)
+      .json({ message: "An error occurred", error: error.message });
   }
 };
 
@@ -315,7 +341,7 @@ exports.getSellerCategoryMapping = async (req, res) => {
     console.error("Error fetching seller mapping:", err);
     return res.status(500).json({ message: "Server error" });
   }
-}
+};
 
 exports.getSellerCategories = async (req, res) => {
   const { id } = req.params;
@@ -323,36 +349,47 @@ exports.getSellerCategories = async (req, res) => {
   try {
     const store = await Store.findById(id).select("sellerCategories").lean();
 
-    if (!store || !store.sellerCategories || store.sellerCategories.length === 0) {
-      return res.status(404).json({ message: "No seller categories found for this store." });
+    if (
+      !store ||
+      !store.sellerCategories ||
+      store.sellerCategories.length === 0
+    ) {
+      return res
+        .status(404)
+        .json({ message: "No seller categories found for this store." });
     }
 
     // Get all category IDs to fetch from Category collection
-    const categoryIds = store.sellerCategories.map(c => c.categoryId);
-    const categories = await Category.find({ _id: { $in: categoryIds } }).lean();
+    const categoryIds = store.sellerCategories.map((c) => c.categoryId);
+    const categories = await Category.find({
+      _id: { $in: categoryIds },
+    }).lean();
 
-    const result = store.sellerCategories.map(storeCat => {
-      const fullCat = categories.find(c => c._id.toString() === storeCat.categoryId.toString());
-      if (!fullCat) return null;
+    const result = store.sellerCategories
+      .map((storeCat) => {
+        const fullCat = categories.find(
+          (c) => c._id.toString() === storeCat.categoryId.toString()
+        );
+        if (!fullCat) return null;
 
-      const subCategories = storeCat.subCategories || [];
-      let totalSubSubCategories = 0;
+        const subCategories = storeCat.subCategories || [];
+        let totalSubSubCategories = 0;
 
-      subCategories.forEach(sub => {
-        totalSubSubCategories += (sub.subSubCategories || []).length;
-      });
+        subCategories.forEach((sub) => {
+          totalSubSubCategories += (sub.subSubCategories || []).length;
+        });
 
-      return {
-        _id: storeCat.categoryId,
-        name: fullCat.name || "Unknown",
-        image: fullCat.image || null,
-        subCategoryCount: subCategories.length,
-        subSubCategoryCount: totalSubSubCategories,
-      };
-    }).filter(Boolean); // filter out nulls
+        return {
+          _id: storeCat.categoryId,
+          name: fullCat.name || "Unknown",
+          image: fullCat.image || null,
+          subCategoryCount: subCategories.length,
+          subSubCategoryCount: totalSubSubCategories,
+        };
+      })
+      .filter(Boolean); // filter out nulls
 
     return res.status(200).json({ categories: result });
-
   } catch (error) {
     console.error("Error in getSellerCategories:", error);
     return res.status(500).json({ message: "Internal server error", error });
@@ -360,17 +397,13 @@ exports.getSellerCategories = async (req, res) => {
 };
 
 exports.getSellerProducts = async (req, res) => {
-  const {
-    sellerId,
-    page = 1,
-    limit,
-    search = "",
-    category = ""
-  } = req.query;
+  const { sellerId, page = 1, limit, search = "", category = "" } = req.query;
 
   try {
     if (!sellerId) {
-      return res.status(400).json({ success: false, message: "Missing sellerId" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Missing sellerId" });
     }
 
     const filter = { sellerId };
@@ -386,7 +419,7 @@ exports.getSellerProducts = async (req, res) => {
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    const stockData = await Stock.findOne({storeId:sellerId}).lean()
+    const stockData = await Stock.findOne({ storeId: sellerId }).lean();
     const stockEntries = stockData?.stock || [];
 
     // 🔁 Build a quick lookup map
@@ -397,9 +430,9 @@ exports.getSellerProducts = async (req, res) => {
     }
     // Count total seller products
     const total = await Products.countDocuments(filter);
-    console.log('stockData',stockData)
-    console.log('stockEntries',stockEntries)
-console.log('stockMap',stockMap)
+    console.log("stockData", stockData);
+    console.log("stockEntries", stockEntries);
+    console.log("stockMap", stockMap);
     // Fetch paginated seller products and populate from Product
     const sellerProducts = await Products.find(filter)
       .skip(skip)
@@ -408,20 +441,21 @@ console.log('stockMap',stockMap)
         path: "product_id",
         model: "Product",
         match: productMatch,
-        select: "productName mrp sell_price productThumbnailUrl category subCategory subSubCategory variants sku",
+        select:
+          "productName mrp sell_price productThumbnailUrl category subCategory subSubCategory variants sku",
         populate: [
           {
             path: "category",
-            model: "Category"
-          }
-        ]
+            model: "Category",
+          },
+        ],
       })
       .lean();
 
     const products = await Promise.all(
       sellerProducts
-        .filter(sp => sp.product_id)
-        .map(async sp => {
+        .filter((sp) => sp.product_id)
+        .map(async (sp) => {
           const prod = sp.product_id;
 
           const subCategoryId = prod.subCategory?.[0]?._id?.toString();
@@ -438,32 +472,36 @@ console.log('stockMap',stockMap)
 
             if (fullCategory?.subcat && (subSubCategoryId || subCategoryId)) {
               const matchedSubcat = fullCategory.subcat.find(
-                sub => sub._id.toString() === subCategoryId
+                (sub) => sub._id.toString() === subCategoryId
               );
 
               if (matchedSubcat && Array.isArray(matchedSubcat.subsubcat)) {
                 const matchedSubSubCat = matchedSubcat.subsubcat.find(
-                  subsub => subsub._id.toString() === subSubCategoryId
+                  (subsub) => subsub._id.toString() === subSubCategoryId
                 );
-                commission = matchedSubSubCat?.commison ?? matchedSubcat?.commison ?? 0;
+                commission =
+                  matchedSubSubCat?.commison ?? matchedSubcat?.commison ?? 0;
               } else {
                 commission = matchedSubcat?.commison ?? 0;
               }
             }
           }
-const variantsWithStock = (prod.variants || []).map(variant => {
+          const variantsWithStock = (prod.variants || []).map((variant) => {
             const key = `${sp._id}_${variant._id}`;
-              const stockEntry = stockMap[key] ? stockEntries.find(
-    s => s.productId.toString() === prod._id.toString() &&
-         s.variantId.toString() === variant._id.toString()
-  ) : null;
-  
-  console.log('stockMap[key]',stockMap[key])
+            const stockEntry = stockMap[key]
+              ? stockEntries.find(
+                  (s) =>
+                    s.productId.toString() === prod._id.toString() &&
+                    s.variantId.toString() === variant._id.toString()
+                )
+              : null;
+
+            console.log("stockMap[key]", stockMap[key]);
             return {
               ...variant,
               stock: stockMap[key] || 0,
               mrp: stockEntry?.mrp || variant.mrp,
-              sell_price: stockEntry?.price || variant.sell_price
+              sell_price: stockEntry?.price || variant.sell_price,
             };
           });
           return {
@@ -474,9 +512,9 @@ const variantsWithStock = (prod.variants || []).map(variant => {
             category: categoryName,
             mrp: sp.mrp == 0 ? prod.mrp : sp.mrp,
             sell_price: sp.sell_price == 0 ? prod.sell_price : sp.sell_price,
-            variants:variantsWithStock,
+            variants: variantsWithStock,
             status: sp.status ?? false,
-            commission
+            commission,
           };
         })
     );
@@ -489,7 +527,6 @@ const variantsWithStock = (prod.variants || []).map(variant => {
       limit: parseInt(limit),
       totalPages: Math.ceil(total / limit),
     });
-
   } catch (err) {
     console.error("Error in getSellerProducts:", err);
     res.status(500).json({ success: false, message: "Server error" });
@@ -500,8 +537,6 @@ exports.updateSellerProducStatus = async (req, res) => {
   const { id } = req.params;
   const { productId, status } = req.body;
   try {
-
-
     if (!id || !productId || typeof status !== "boolean") {
       return res.status(400).json({ message: "Invalid request" });
     }
@@ -524,7 +559,7 @@ exports.updateSellerProducStatus = async (req, res) => {
     // console.error("Error updating product status:", err);
     return res.status(500).json({ message: "Server error" });
   }
-}
+};
 
 exports.getSellerCategoryList = async (req, res) => {
   try {
@@ -534,7 +569,9 @@ exports.getSellerCategoryList = async (req, res) => {
       return res.status(404).json({ message: "Store not found" });
     }
     const categoryIds = store.sellerCategories.map((c) => c.categoryId);
-    const categories = await Category.find({ _id: { $in: categoryIds } }).lean();
+    const categories = await Category.find({
+      _id: { $in: categoryIds },
+    }).lean();
     return res.status(200).json({
       message: "Categories fetched successfully",
       categories,
@@ -543,14 +580,16 @@ exports.getSellerCategoryList = async (req, res) => {
     //console.error("Error fetching seller categories:", err);
     return res.status(500).json({ message: "Server error" });
   }
-}
+};
 
 exports.getExistingProductList = async (req, res) => {
   try {
     const { q } = req.query;
 
     if (!q || q.length < 3) {
-      return res.status(400).json({ message: "Search term must be at least 3 characters" });
+      return res
+        .status(400)
+        .json({ message: "Search term must be at least 3 characters" });
     }
 
     const regex = new RegExp(q, "i");
@@ -562,10 +601,12 @@ exports.getExistingProductList = async (req, res) => {
         { "brand_Name.name": regex },
         { "category.name": regex },
         { "subCategory.name": regex },
-        { "subSubCategory.name": regex }
-      ]
+        { "subSubCategory.name": regex },
+      ],
     })
-      .select("productName productThumbnailUrl sku brand_Name category subCategory subSubCategory")
+      .select(
+        "productName productThumbnailUrl sku brand_Name category subCategory subSubCategory"
+      )
       .lean();
 
     const products = await Promise.all(
@@ -586,14 +627,15 @@ exports.getExistingProductList = async (req, res) => {
 
           if (fullCategory?.subcat && (subSubCategoryId || subCategoryId)) {
             const matchedSubcat = fullCategory.subcat.find(
-              sub => sub._id.toString() === subCategoryId
+              (sub) => sub._id.toString() === subCategoryId
             );
 
             if (matchedSubcat && Array.isArray(matchedSubcat.subsubcat)) {
               const matchedSubSubCat = matchedSubcat.subsubcat.find(
-                subsub => subsub._id.toString() === subSubCategoryId
+                (subsub) => subsub._id.toString() === subSubCategoryId
               );
-              commission = matchedSubSubCat?.commison ?? matchedSubcat?.commison ?? 0;
+              commission =
+                matchedSubSubCat?.commison ?? matchedSubcat?.commison ?? 0;
             } else {
               commission = matchedSubcat?.commison ?? 0;
             }
@@ -612,7 +654,7 @@ exports.getExistingProductList = async (req, res) => {
           categoryId: prod.category?.[0]?._id ?? null,
           subCategoryId: prod.subCategory?.[0]?._id ?? null,
           subSubCategoryId: prod.subSubCategory?.[0]?._id ?? null,
-          commission
+          commission,
         };
       })
     );
@@ -620,6 +662,66 @@ exports.getExistingProductList = async (req, res) => {
     return res.status(200).json({ success: true, products });
   } catch (error) {
     console.error("Search product error:", error);
-    return res.status(500).json({ success: false, message: "Internal server error" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal server error" });
   }
-}
+};
+
+exports.getUnapprovedProducts = async (req, res) => {
+  try {
+    const sellerId = req.query.sellerId;
+    const search = req.query.search || "";
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 100;
+
+    if (!sellerId || !mongoose.Types.ObjectId.isValid(sellerId)) {
+      return res.status(400).json({ message: "Invalid sellerId" });
+    }
+
+    const query = {
+      addedBy: sellerId,
+      //sellerProductStatus: "pending_admin_approval",
+      productName: { $regex: search, $options: "i" },
+    };
+    const total = await Product.countDocuments(query);
+
+    const products = await Product.find(query)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean();
+
+    res.status(200).json({
+      total,
+      page,
+      limit,
+      products,
+    });
+  } catch (error) {
+    console.error("Error fetching unapproved products:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+exports.saveBrandApprovelDocument = async (req, res) => {
+  try {
+    const { productId, description } = req.body;
+    const product = await Product.findById(productId);
+    if (!product) return res.status(404).json({ message: "Product not found" });
+    if (req.files.brandDocument) {
+      const image = `/${req.files.brandDocument?.[0].key}`;
+      console.log(image,34873784);
+      product.brandApprovalDocument = image;
+    }
+    if (description) {
+      product.brandApprovelDescription = description;
+    }
+    product.sellerProductStatus = "submit_brand_approval";
+    await product.save();
+    res.status(200).json({ message: "Brand approval updated successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Something went wrong" });
+  }
+};

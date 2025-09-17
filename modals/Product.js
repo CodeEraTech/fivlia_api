@@ -1,73 +1,139 @@
 // models/Product.js
-const mongoose = require('mongoose');
-const { required } = require('zod/v4-mini');
-const { quantity } = require('../controlers/cartControler');
+const mongoose = require("mongoose");
+const { required } = require("zod/v4-mini");
+const { quantity } = require("../controlers/cartControler");
 
-const locationSchema=new mongoose.Schema({
-  city:[{ _id: { type: mongoose.Schema.Types.ObjectId, ref: 'Locations' },
-      name:String}],
-  zone:[{_id: { type: mongoose.Schema.Types.ObjectId, },
-      name:String}]
-})
+const locationSchema = new mongoose.Schema({
+  city: [
+    {
+      _id: { type: mongoose.Schema.Types.ObjectId, ref: "Locations" },
+      name: String,
+    },
+  ],
+  zone: [{ _id: { type: mongoose.Schema.Types.ObjectId }, name: String }],
+});
 
-const variantSchema = new mongoose.Schema({
-  sell_price: { type: Number},
-  image:String
-},{strict:false});
-
-const productSchema = new mongoose.Schema({
-  productName: { type: String},
-  description: String,
-   mrp: { type: Number },
-  sell_price: { type: Number},
-   sku: { type: String },
-  productImageUrl: [{ type: String }],
-  productThumbnailUrl:{type:String},
-  category: [{
-      _id: { type: mongoose.Schema.Types.ObjectId, ref: 'Categories' },
-      name:String
-  }],
-  subCategory:[{
-    _id: { type: mongoose.Schema.Types.ObjectId },
-    name:String
-  }],
-  subSubCategory: [ {_id: { type: mongoose.Schema.Types.ObjectId },name:String}],
-  ribbon: String,
-  brand_Name: {
-    _id: { type: mongoose.Schema.Types.ObjectId ,ref:'brands'},
-    name:String
+const variantSchema = new mongoose.Schema(
+  {
+    sell_price: { type: Number },
+    image: String,
   },
-  location:  [locationSchema],
-  tax: String,
-  minQuantity:Number,
-  type:String,
-  maxQuantity:Number,
-  sellerId:{type: mongoose.Schema.Types.ObjectId,ref:'stores',default:null},
-  approvalStatus:{type: String, enum: ['pending_admin_approval', 'approved', 'rejected'], default: 'pending_admin_approval'},
-  unit: {_id: { type: mongoose.Schema.Types.ObjectId, default: () => new mongoose.Types.ObjectId() },
-  name: { type: String }},
-  online_visible: { type: Boolean, default: true },
-  feature_product: { type: Boolean, default: false },
-  fulfilled_by: String,
-  returnProduct:{image:String,title:String,  _id: { type: mongoose.Schema.Types.ObjectId, default: () => new mongoose.Types.ObjectId() }},
- inventory: [{
-  variantId: { type: mongoose.Schema.Types.ObjectId },
-  _id: { type: mongoose.Schema.Types.ObjectId, default: () => new mongoose.Types.ObjectId() },quantity: { type: Number, default: 0 },
-}],
+  { strict: false }
+);
 
-  rating:{rate:{type:Number, default:4.5},users:{type:Number,default:10},_id:{type:mongoose.Schema.Types.ObjectId,auto: true}},//object with user count
-  variants: [variantSchema],
-  filter: [{_id: { type: mongoose.Schema.Types.ObjectId },Filter_name: { type: String },
-selected: [{_id: { type: mongoose.Schema.Types.ObjectId },name: { type: String }}],
+const productSchema = new mongoose.Schema(
+  {
+    productName: { type: String },
+    description: String,
+    mrp: { type: Number },
+    sell_price: { type: Number },
+    sku: { type: String },
+    productImageUrl: [{ type: String }],
+    productThumbnailUrl: { type: String },
+    category: [
+      {
+        _id: { type: mongoose.Schema.Types.ObjectId, ref: "Categories" },
+        name: String,
+      },
+    ],
+    subCategory: [
+      {
+        _id: { type: mongoose.Schema.Types.ObjectId },
+        name: String,
+      },
+    ],
+    subSubCategory: [
+      { _id: { type: mongoose.Schema.Types.ObjectId }, name: String },
+    ],
+    ribbon: String,
+    brand_Name: {
+      _id: { type: mongoose.Schema.Types.ObjectId, ref: "brands" },
+      name: String,
+    },
+    location: [locationSchema],
+    tax: String,
+    minQuantity: Number,
+    type: String,
+    maxQuantity: Number,
+    unit: {
+      _id: {
+        type: mongoose.Schema.Types.ObjectId,
+        default: () => new mongoose.Types.ObjectId(),
+      },
+      name: { type: String },
+    },
+    online_visible: { type: Boolean, default: true },
+    feature_product: { type: Boolean, default: false },
+    fulfilled_by: String,
+    returnProduct: {
+      image: String,
+      title: String,
+      _id: {
+        type: mongoose.Schema.Types.ObjectId,
+        default: () => new mongoose.Types.ObjectId(),
+      },
+    },
+    inventory: [
+      {
+        variantId: { type: mongoose.Schema.Types.ObjectId },
+        _id: {
+          type: mongoose.Schema.Types.ObjectId,
+          default: () => new mongoose.Types.ObjectId(),
+        },
+        quantity: { type: Number, default: 0 },
+      },
+    ],
 
-}],
-  isVeg:{type:Number,default:0},
- //ye chakni hai category se
-  purchases:{type:Number,default:0},
-  status:{type:Boolean,default:true}
-}, { timestamps: true });
+    rating: {
+      rate: { type: Number, default: 4.5 },
+      users: { type: Number, default: 10 },
+      _id: { type: mongoose.Schema.Types.ObjectId, auto: true },
+    }, //object with user count
+    variants: [variantSchema],
+    filter: [
+      {
+        _id: { type: mongoose.Schema.Types.ObjectId },
+        Filter_name: { type: String },
+        selected: [
+          {
+            _id: { type: mongoose.Schema.Types.ObjectId },
+            name: { type: String },
+          },
+        ],
+      },
+    ],
+    isVeg: { type: Number, default: 0 },
+    purchases: { type: Number, default: 0 },
+    status: { type: Boolean, default: true },
+    addedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Store",
+      default: null,
+    },
+    sellerProductStatus: {
+      type: String,
+      enum: [
+        "pending_admin_approval",
+        "request_brand_approval",
+        "submit_brand_approval",
+        "approved",
+        "rejected",
+      ],
+      default: null,
+    },
+    brandApprovalDocument: {
+      type: String,
+      default: null,
+    },
+    brandApprovelDescription: {
+      type: String,
+      default: null,
+    },
+  },
+  { timestamps: true }
+);
 
-productSchema.pre('save', function (next) {
+productSchema.pre("save", function (next) {
   if (this.mrp && this.sell_price) {
     const discount = ((this.mrp - this.sell_price) / this.mrp) * 100;
     this.discountValue = Math.round(discount);
@@ -78,7 +144,4 @@ productSchema.pre('save', function (next) {
   next();
 });
 
-
-
-
-module.exports = mongoose.model('Product', productSchema);
+module.exports = mongoose.model("Product", productSchema);

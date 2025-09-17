@@ -1,33 +1,33 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 const admin = require("../firebase/firebase");
-const Products = require('../modals/Product');
-const Attribute = require('../modals/attribute');
-const Store = require('../modals/store')
-const Filters = require('../modals/filter')
-const { getStoresWithinRadius } = require('../config/google');
-const User = require('../modals/User')
-const { Cart } = require('../modals/cart')
-const Category = require('../modals/category');
-const Unit = require('../modals/unit');
-const { CityData, ZoneData } = require('../modals/cityZone');
-const brand = require('../modals/brand')
-const Notification = require('../modals/Notification');
-const cloudinary = require('../config/aws');
-const moment = require('moment-timezone');
+const Products = require("../modals/Product");
+const Attribute = require("../modals/attribute");
+const Store = require("../modals/store");
+const Filters = require("../modals/filter");
+const { getStoresWithinRadius } = require("../config/google");
+const User = require("../modals/User");
+const { Cart } = require("../modals/cart");
+const Category = require("../modals/category");
+const Unit = require("../modals/unit");
+const { CityData, ZoneData } = require("../modals/cityZone");
+const brand = require("../modals/brand");
+const Notification = require("../modals/Notification");
+const cloudinary = require("../config/aws");
+const moment = require("moment-timezone");
 const Stock = require("../modals/StoreStock");
-const Rating = require("../modals/rating")
-const path = require('path')
+const Rating = require("../modals/rating");
+const path = require("path");
 
 exports.addAtribute = async (req, res) => {
   try {
-    const { Attribute_name, varient } = req.body
-    const newAttribute = await Attribute.create({ Attribute_name, varient })
-    return res.status(200).json({ message: "Attribute Created", newAttribute })
+    const { Attribute_name, varient } = req.body;
+    const newAttribute = await Attribute.create({ Attribute_name, varient });
+    return res.status(200).json({ message: "Attribute Created", newAttribute });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "An error occured" })
+    return res.status(500).json({ message: "An error occured" });
   }
-}
+};
 exports.editAttributes = async (req, res) => {
   try {
     const { id } = req.params;
@@ -43,10 +43,13 @@ exports.editAttributes = async (req, res) => {
     }
 
     if (Array.isArray(varient)) {
-      varient.forEach(newVar => {
-        const exists = attribute.varient.some(v => v.name === newVar.name);
+      varient.forEach((newVar) => {
+        const exists = attribute.varient.some((v) => v.name === newVar.name);
         if (!exists) {
-          attribute.varient.push({ _id: new mongoose.Types.ObjectId(), ...newVar });
+          attribute.varient.push({
+            _id: new mongoose.Types.ObjectId(),
+            ...newVar,
+          });
         }
       });
     }
@@ -61,46 +64,70 @@ exports.editAttributes = async (req, res) => {
 
 exports.getAttributes = async (req, res) => {
   try {
-    const Attributes = await Attribute.find()
-    res.json(Attributes)
+    const Attributes = await Attribute.find();
+    res.json(Attributes);
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "An error occured" })
+    return res.status(500).json({ message: "An error occured" });
   }
-}
+};
 
 exports.getAttributesId = async (req, res) => {
   try {
-    const { id } = req.params
-    const Attributes = await Category.findById(id, 'attribute')
-    res.json(Attributes)
+    const { id } = req.params;
+    const Attributes = await Category.findById(id, "attribute");
+    res.json(Attributes);
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "An error occured" })
+    return res.status(500).json({ message: "An error occured" });
   }
-}
+};
 
 exports.deleteAttribute = async (req, res) => {
   try {
-    const { id } = req.params
-    const dltAttribute = await Attribute.findByIdAndDelete(id)
-    return res.status(200).json({ message: "Attribute Deleted" })
+    const { id } = req.params;
+    const dltAttribute = await Attribute.findByIdAndDelete(id);
+    return res.status(200).json({ message: "Attribute Deleted" });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "An error occured" })
+    return res.status(500).json({ message: "An error occured" });
   }
-}
+};
 
 exports.addProduct = async (req, res) => {
   try {
     const {
-      productName, description, category, subCategory, subSubCategory, rating,
-      ribbon, brand_Name, sold_by, type, location, online_visible,
-      inventory, tax, feature_product, fulfilled_by, variants, minQuantity,
-      maxQuantity, ratings, unit, mrp, sell_price, filter, returnProduct, isVeg, sellerId
+      productName,
+      description,
+      category,
+      subCategory,
+      subSubCategory,
+      rating,
+      ribbon,
+      brand_Name,
+      sold_by,
+      type,
+      location,
+      online_visible,
+      inventory,
+      tax,
+      feature_product,
+      fulfilled_by,
+      variants,
+      minQuantity,
+      maxQuantity,
+      ratings,
+      unit,
+      mrp,
+      sell_price,
+      filter,
+      returnProduct,
+      isVeg,
+      sellerId,
     } = req.body;
 
-    const MultipleImage = req.files?.MultipleImage?.map(file => `/${file.key}`) || [];
+    const MultipleImage =
+      req.files?.MultipleImage?.map((file) => `/${file.key}`) || [];
 
     const imageKey = req.files?.image?.[0]?.key || "";
     const image = imageKey ? `/${imageKey}` : "";
@@ -108,7 +135,8 @@ exports.addProduct = async (req, res) => {
     let parsedVariants = [];
     if (variants) {
       try {
-        parsedVariants = typeof variants === 'string' ? JSON.parse(variants) : variants;
+        parsedVariants =
+          typeof variants === "string" ? JSON.parse(variants) : variants;
       } catch (e) {
         parsedVariants = [];
       }
@@ -118,9 +146,10 @@ exports.addProduct = async (req, res) => {
     if (req.body.filter) {
       let parsedFilter;
       try {
-        parsedFilter = typeof req.body.filter === 'string'
-          ? JSON.parse(req.body.filter)
-          : req.body.filter;
+        parsedFilter =
+          typeof req.body.filter === "string"
+            ? JSON.parse(req.body.filter)
+            : req.body.filter;
       } catch {
         parsedFilter = [];
       }
@@ -130,12 +159,19 @@ exports.addProduct = async (req, res) => {
         if (!filterDoc) continue;
 
         let selectedArray = [];
-        const selectedIds = Array.isArray(item.selected) ? item.selected : [item.selected];
+        const selectedIds = Array.isArray(item.selected)
+          ? item.selected
+          : [item.selected];
 
         for (const selId of selectedIds) {
-          const selectedObj = filterDoc.Filter.find(f => f._id.toString() === selId);
+          const selectedObj = filterDoc.Filter.find(
+            (f) => f._id.toString() === selId
+          );
           if (selectedObj) {
-            selectedArray.push({ _id: selectedObj._id, name: selectedObj.name });
+            selectedArray.push({
+              _id: selectedObj._id,
+              name: selectedObj.name,
+            });
           }
         }
 
@@ -143,21 +179,24 @@ exports.addProduct = async (req, res) => {
           finalFilterArray.push({
             _id: filterDoc._id,
             Filter_name: filterDoc.Filter_name,
-            selected: selectedArray
+            selected: selectedArray,
           });
         }
       }
     }
 
-    const brandObj = brand_Name ? await brand.findOne({ brandName: brand_Name }) : null;
+    const brandObj = brand_Name
+      ? await brand.findOne({ brandName: brand_Name })
+      : null;
 
     let categories = [];
     try {
-      categories = typeof category === 'string' ? JSON.parse(category) : category;
+      categories =
+        typeof category === "string" ? JSON.parse(category) : category;
     } catch {
       categories = [category];
     }
-const productLocation = [];
+    const productLocation = [];
     if (sellerId) {
       const seller = await Store.findById(sellerId).lean();
       if (seller && seller.city) {
@@ -165,17 +204,18 @@ const productLocation = [];
 
         productLocation.push({
           city: [{ _id: seller.city._id, name: seller.city.name }],
-          zone: (seller.zone || []).map(z => ({
+          zone: (seller.zone || []).map((z) => ({
             _id: z._id,
-            name: z.name
-          }))
+            name: z.name,
+          })),
         });
       }
     } else {
       let parsedLocation = [];
       try {
-        parsedLocation = typeof location === 'string' ? JSON.parse(location) : location;
-      } catch { }
+        parsedLocation =
+          typeof location === "string" ? JSON.parse(location) : location;
+      } catch {}
 
       for (let loc of parsedLocation) {
         try {
@@ -191,85 +231,100 @@ const productLocation = [];
             if (loc.zone && Array.isArray(loc.zone)) {
               for (let zoneObj of loc.zone) {
                 const zoneName = zoneObj.name;
-                const zoneMatch = cityData.zones.find(zone => zone.address === zoneName);
+                const zoneMatch = cityData.zones.find(
+                  (zone) => zone.address === zoneName
+                );
                 if (zoneMatch) {
-                  matchedZones.push({ _id: zoneMatch._id, name: zoneMatch.address });
+                  matchedZones.push({
+                    _id: zoneMatch._id,
+                    name: zoneMatch.address,
+                  });
                 }
               }
             }
 
             productLocation.push({
               city: [{ _id: cityData._id, name: cityData.city }],
-              zone: matchedZones
+              zone: matchedZones,
             });
           }
-        } catch { }
+        } catch {}
       }
     }
 
-
-    const categoryIds = categories.filter(c => /^[0-9a-fA-F]{24}$/.test(c));
-    const categoryNames = categories.filter(c => !/^[0-9a-fA-F]{24}$/.test(c));
+    const categoryIds = categories.filter((c) => /^[0-9a-fA-F]{24}$/.test(c));
+    const categoryNames = categories.filter(
+      (c) => !/^[0-9a-fA-F]{24}$/.test(c)
+    );
 
     const foundCategories = await Category.find({
-      $or: [
-        { _id: { $in: categoryIds } },
-        { name: { $in: categoryNames } }
-      ]
+      $or: [{ _id: { $in: categoryIds } }, { name: { $in: categoryNames } }],
     }).lean();
 
-    const productCategories = foundCategories.map(cat => ({ _id: cat._id, name: cat.name }));
+    const productCategories = foundCategories.map((cat) => ({
+      _id: cat._id,
+      name: cat.name,
+    }));
 
-    const foundSubCategory = subCategory && foundCategories[0]?.subcat?.find(sub =>
-      sub.name === subCategory || sub._id.toString() === subCategory
-    );
+    const foundSubCategory =
+      subCategory &&
+      foundCategories[0]?.subcat?.find(
+        (sub) => sub.name === subCategory || sub._id.toString() === subCategory
+      );
 
-    const foundSubSubCategory = subSubCategory && foundSubCategory?.subsubcat?.find(subsub =>
-      subsub.name === subSubCategory || subsub._id.toString() === subSubCategory
-    );
+    const foundSubSubCategory =
+      subSubCategory &&
+      foundSubCategory?.subsubcat?.find(
+        (subsub) =>
+          subsub.name === subSubCategory ||
+          subsub._id.toString() === subSubCategory
+      );
 
     let returnProductData = null;
     if (returnProduct) {
       try {
-        const parsedReturn = typeof returnProduct === 'string' ? JSON.parse(returnProduct) : returnProduct;
+        const parsedReturn =
+          typeof returnProduct === "string"
+            ? JSON.parse(returnProduct)
+            : returnProduct;
         returnProductData = { title: parsedReturn.title?.trim() || "" };
 
         // ✅ Get image key from S3-uploaded file
         const uploadedFile = req.files?.file?.[0];
         if (uploadedFile && uploadedFile.key) {
-          returnProductData.image = `/${uploadedFile.key}`;  // prepend '/'
+          returnProductData.image = `/${uploadedFile.key}`; // prepend '/'
         }
       } catch (err) {
         console.error("ReturnProduct parse/upload error:", err);
       }
     }
 
-
-    const parsedVariantsArray = parsedVariants.map(v => ({
+    const parsedVariantsArray = parsedVariants.map((v) => ({
       ...v,
-      _id: new mongoose.Types.ObjectId()
+      _id: new mongoose.Types.ObjectId(),
     }));
 
     const variantImageMap = {};
     if (req.files) {
-      Object.keys(req.files).forEach(key => {
+      Object.keys(req.files).forEach((key) => {
         if (Array.isArray(req.files[key]) && req.files[key][0]?.path) {
           variantImageMap[key] = req.files[key][0].path;
         }
       });
     }
 
-    const finalInventoryArray = parsedVariantsArray.map(variant => ({
+    const finalInventoryArray = parsedVariantsArray.map((variant) => ({
       _id: new mongoose.Types.ObjectId(),
       variantId: variant._id,
-      quantity: 0
+      quantity: 0,
     }));
 
     const finalVariants = [];
     for (let variant of parsedVariantsArray) {
-      const discount = variant.mrp && variant.sell_price
-        ? Math.round(((variant.mrp - variant.sell_price) / variant.mrp) * 100)
-        : 0;
+      const discount =
+        variant.mrp && variant.sell_price
+          ? Math.round(((variant.mrp - variant.sell_price) / variant.mrp) * 100)
+          : 0;
 
       const imageKey = req.files?.[variant.imageKey]?.[0]?.key;
       const image = imageKey ? `/${imageKey}` : "";
@@ -277,7 +332,7 @@ const productLocation = [];
       finalVariants.push({
         ...variant,
         discountValue: discount,
-        ...(image && { image })
+        ...(image && { image }),
       });
     }
 
@@ -300,14 +355,23 @@ const productLocation = [];
       ...(image && { productThumbnailUrl: image }),
       ...(MultipleImage.length && { productImageUrl: MultipleImage }),
       ...(productCategories.length && { category: productCategories }),
-      ...(foundSubCategory && { subCategory: { _id: foundSubCategory._id, name: foundSubCategory.name } }),
-      ...(foundSubSubCategory && { subSubCategory: { _id: foundSubSubCategory._id, name: foundSubSubCategory.name } }),
+      ...(foundSubCategory && {
+        subCategory: { _id: foundSubCategory._id, name: foundSubCategory.name },
+      }),
+      ...(foundSubSubCategory && {
+        subSubCategory: {
+          _id: foundSubSubCategory._id,
+          name: foundSubSubCategory.name,
+        },
+      }),
       ...(sku && { sku }),
       ...(sellerId && { sellerId }),
       ...(returnProduct && { returnProduct: returnProductData }),
       ...(ribbon && { ribbon }),
-      ...(unit && typeof unit === 'string' && { unit: { name: unit } }),
-      ...(brandObj && { brand_Name: { _id: brandObj._id, name: brandObj.brandName } }),
+      ...(unit && typeof unit === "string" && { unit: { name: unit } }),
+      ...(brandObj && {
+        brand_Name: { _id: brandObj._id, name: brandObj.brandName },
+      }),
       ...(sold_by && { sold_by }),
       ...(type && { type }),
       ...(productLocation.length && { location: productLocation }),
@@ -323,16 +387,22 @@ const productLocation = [];
       ...(ratings && { ratings }),
       ...(mrp && { mrp }),
       ...(isVeg && { isVeg }),
-      ...(sell_price && { sell_price })
+      ...(sell_price && { sell_price }),
+      ...(sellerId && {
+        addedBy: sellerId,
+        sellerProductStatus: "pending_admin_approval",
+        status: false,
+      }),
     });
 
     return res.status(200).json({ message: "Product Added" });
   } catch (error) {
-    console.error("Server error:", error);
-    return res.status(500).json({ message: "An error occurred!", error: error.message });
+    //console.error("Server error:", error);
+    return res
+      .status(500)
+      .json({ message: "An error occurred!", error: error.message });
   }
 };
-
 
 exports.getProduct = async (req, res) => {
   try {
@@ -350,44 +420,52 @@ exports.getProduct = async (req, res) => {
     const userLng = user.location.longitude;
 
     const [activeCities, zoneDocs, stores] = await Promise.all([
-      CityData.find({ status: true }, 'city').lean(),
-      ZoneData.find({ status: true }, 'zones').lean(),
-      getStoresWithinRadius(userLat, userLng)
+      CityData.find({ status: true }, "city").lean(),
+      ZoneData.find({ status: true }, "zones").lean(),
+      getStoresWithinRadius(userLat, userLng),
     ]);
 
-    const activeCitySet = new Set(activeCities.map(c => c.city.toLowerCase()));
+    const activeCitySet = new Set(
+      activeCities.map((c) => c.city.toLowerCase())
+    );
     const activeZoneIdSet = new Set();
 
-    zoneDocs.forEach(doc => {
-      doc.zones?.forEach(zone => {
+    zoneDocs.forEach((doc) => {
+      doc.zones?.forEach((zone) => {
         if (zone.status) activeZoneIdSet.add(zone._id.toString());
       });
     });
 
-    const allowedStores = Array.isArray(stores?.matchedStores) ? stores.matchedStores : [];
+    const allowedStores = Array.isArray(stores?.matchedStores)
+      ? stores.matchedStores
+      : [];
 
     if (!allowedStores.length) {
       return res.status(200).json({
         message: "No matching products found for your location.",
         products: [],
         filter: [],
-        count: 0
+        count: 0,
       });
     }
 
-    const allowedStoreIds = allowedStores.map(s => s._id);
+    const allowedStoreIds = allowedStores.map((s) => s._id);
     const categoryIdSet = new Set();
 
-    const storeCategoryIds = allowedStores.flatMap(store =>
-      Array.isArray(store.Category) ? store.Category : [store.Category]
-    ).filter(Boolean);
+    const storeCategoryIds = allowedStores
+      .flatMap((store) =>
+        Array.isArray(store.Category) ? store.Category : [store.Category]
+      )
+      .filter(Boolean);
 
-    const categories = await Category.find({ _id: { $in: storeCategoryIds } }).lean();
-    categories.forEach(category => {
+    const categories = await Category.find({
+      _id: { $in: storeCategoryIds },
+    }).lean();
+    categories.forEach((category) => {
       categoryIdSet.add(category._id.toString());
-      category.subcat?.forEach(sub => {
+      category.subcat?.forEach((sub) => {
         if (sub?._id) categoryIdSet.add(sub._id.toString());
-        sub.subsubcat?.forEach(subsub => {
+        sub.subsubcat?.forEach((subsub) => {
           if (subsub?._id) categoryIdSet.add(subsub._id.toString());
         });
       });
@@ -402,7 +480,7 @@ exports.getProduct = async (req, res) => {
           message: "No matching products found for your location.",
           products: [],
           filter: [],
-          count: 0
+          count: 0,
         });
       }
 
@@ -410,16 +488,16 @@ exports.getProduct = async (req, res) => {
         $or: [
           { "category._id": id },
           { "subCategory._id": id },
-          { "subSubCategory._id": id }
-        ]
+          { "subSubCategory._id": id },
+        ],
       };
     } else {
       productQuery = {
         $or: [
           { "category._id": { $in: categoryArray } },
           { "subCategory._id": { $in: categoryArray } },
-          { "subSubCategory._id": { $in: categoryArray } }
-        ]
+          { "subSubCategory._id": { $in: categoryArray } },
+        ],
       };
     }
 
@@ -427,36 +505,35 @@ exports.getProduct = async (req, res) => {
       Stock.find({ storeId: { $in: allowedStoreIds } }).lean(),
       Products.find(productQuery).skip(skip).limit(Number(limit)).lean(),
       Cart.find({ userId }).lean(),
-      Products.countDocuments(productQuery)
+      Products.countDocuments(productQuery),
     ]);
 
     const stockMap = {};
     const stockDetailMap = {};
 
-    stockDocs.forEach(doc => {
-      (doc.stock || []).forEach(entry => {
+    stockDocs.forEach((doc) => {
+      (doc.stock || []).forEach((entry) => {
         const key = `${entry.productId}_${entry.variantId}`;
         stockMap[key] = entry.quantity;
         stockDetailMap[key] = {
           ...entry,
-          storeId: doc.storeId   // ✅ attach parent storeId here
+          storeId: doc.storeId, // ✅ attach parent storeId here
         };
       });
     });
 
-
     const cartMap = {};
-    cartDocs.forEach(item => {
+    cartDocs.forEach((item) => {
       const key = `${item.productId}_${item.varientId}`;
       cartMap[key] = item.quantity;
     });
 
-    products.forEach(product => {
+    products.forEach((product) => {
       product.inventory = [];
       product.inCart = { status: false, qty: 0, variantIds: [] };
       product.soldBy = {};
       let hasStock = false;
-      product.variants?.forEach(variant => {
+      product.variants?.forEach((variant) => {
         const key = `${product._id}_${variant._id}`;
         const quantity = stockMap[key] || 0;
         const cartQty = cartMap[key] || 0;
@@ -485,7 +562,7 @@ exports.getProduct = async (req, res) => {
         }
         if (hasStock && stockEntry?.storeId) {
           const store = allowedStores.find(
-            s => s._id.toString() === stockEntry.storeId.toString()
+            (s) => s._id.toString() === stockEntry.storeId.toString()
           );
           if (store) {
             product.soldBy = store.soldBy;
@@ -503,7 +580,7 @@ exports.getProduct = async (req, res) => {
     if (id) {
       const matchedCategory = await Category.findById(id).lean();
       if (matchedCategory?.filter?.length) {
-        const filterIds = matchedCategory.filter.map(f => f._id);
+        const filterIds = matchedCategory.filter.map((f) => f._id);
         filter = await Filters.find({ _id: { $in: filterIds } }).lean();
       }
     }
@@ -515,9 +592,8 @@ exports.getProduct = async (req, res) => {
       count: products.length,
       page: Number(page),
       limit: Number(limit),
-      totalPages: Math.ceil(totalProducts / limit)
+      totalPages: Math.ceil(totalProducts / limit),
     });
-
   } catch (error) {
     console.error("❌ getProduct error:", error);
     return res.status(500).json({
@@ -526,7 +602,6 @@ exports.getProduct = async (req, res) => {
     });
   }
 };
-
 
 exports.bestSelling = async (req, res) => {
   try {
@@ -542,15 +617,15 @@ exports.bestSelling = async (req, res) => {
     const userLng = user.location.longitude;
 
     const [activeCities, zoneDocs, stores, cartDocs] = await Promise.all([
-      CityData.find({ status: true }, 'city').lean(),
-      ZoneData.find({}, 'zones').lean(),
+      CityData.find({ status: true }, "city").lean(),
+      ZoneData.find({}, "zones").lean(),
       getStoresWithinRadius(userLat, userLng),
       Cart.find({ userId }).lean(),
     ]);
 
-
-
-    const activeCitySet = new Set(activeCities.map(c => c.city?.toLowerCase()));
+    const activeCitySet = new Set(
+      activeCities.map((c) => c.city?.toLowerCase())
+    );
     const activeZoneIds = new Set();
 
     for (const doc of zoneDocs) {
@@ -560,23 +635,29 @@ exports.bestSelling = async (req, res) => {
         }
       }
     }
-    const allowedStores = Array.isArray(stores?.matchedStores) ? stores.matchedStores : [];
+    const allowedStores = Array.isArray(stores?.matchedStores)
+      ? stores.matchedStores
+      : [];
 
     if (!allowedStores.length) {
       return res.status(200).json({
         message: "No best-selling products found for your location.",
-        best: []
+        best: [],
       });
     }
 
     const allCategoryIds = new Set();
-    const categoryIds = allowedStores.flatMap(store =>
+    const categoryIds = allowedStores.flatMap((store) =>
       Array.isArray(store.Category) ? store.Category : [store.Category]
     );
 
-    const uniqueCatIds = [...new Set(categoryIds.filter(Boolean).map(id => id.toString()))];
+    const uniqueCatIds = [
+      ...new Set(categoryIds.filter(Boolean).map((id) => id.toString())),
+    ];
 
-    const categories = await Category.find({ _id: { $in: uniqueCatIds } }).lean();
+    const categories = await Category.find({
+      _id: { $in: uniqueCatIds },
+    }).lean();
     for (const category of categories) {
       allCategoryIds.add(category._id.toString());
       for (const sub of category.subcat || []) {
@@ -588,9 +669,11 @@ exports.bestSelling = async (req, res) => {
     }
 
     const categoryArray = Array.from(allCategoryIds);
-    const allowedStoreIds = allowedStores.map(s => s._id.toString());
+    const allowedStoreIds = allowedStores.map((s) => s._id.toString());
 
-    const stockDocs = await Stock.find({ storeId: { $in: allowedStoreIds } }).lean();
+    const stockDocs = await Stock.find({
+      storeId: { $in: allowedStoreIds },
+    }).lean();
     const stockMap = {};
     const stockDetailMap = {}; // 👈 to store full item (price, mrp etc.)
 
@@ -602,7 +685,7 @@ exports.bestSelling = async (req, res) => {
           quantity: item.quantity,
           price: item.price,
           mrp: item.mrp,
-          storeId: stockDoc.storeId   // ✅ include storeId here
+          storeId: stockDoc.storeId, // ✅ include storeId here
         }; // 👈 Store full stock item
       }
     }
@@ -611,9 +694,12 @@ exports.bestSelling = async (req, res) => {
       $or: [
         { "category._id": { $in: categoryArray } },
         { "subCategory._id": { $in: categoryArray } },
-        { "subSubCategory._id": { $in: categoryArray } }
-      ]
-    }).sort({ purchases: -1 }).limit(10).lean();
+        { "subSubCategory._id": { $in: categoryArray } },
+      ],
+    })
+      .sort({ purchases: -1 })
+      .limit(10)
+      .lean();
 
     // ✅ Build cart map from user cart
     const cartMap = {};
@@ -656,7 +742,7 @@ exports.bestSelling = async (req, res) => {
           }
           if (quantity > 0 && stockEntry?.storeId) {
             const store = allowedStores.find(
-              s => s._id.toString() === stockEntry.storeId.toString()
+              (s) => s._id.toString() === stockEntry.storeId.toString()
             );
             if (store) {
               product.soldBy = store.soldBy;
@@ -671,18 +757,16 @@ exports.bestSelling = async (req, res) => {
       }
     }
 
-
     return res.status(200).json({
       message: "Success",
       best,
-      count: best.length
+      count: best.length,
     });
-
   } catch (error) {
     console.error("❌ bestSelling error:", error);
     return res.status(500).json({
       message: "An error occurred!",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -704,35 +788,41 @@ exports.searchProduct = async (req, res) => {
     // 2. Get nearby stores and user cart
     const [stores, cartDocs] = await Promise.all([
       getStoresWithinRadius(userLat, userLng),
-      Cart.find({ userId }).lean()
+      Cart.find({ userId }).lean(),
     ]);
 
-    const allowedStores = Array.isArray(stores?.matchedStores) ? stores.matchedStores : [];
-    const allowedStoreIds = allowedStores.map(s => s._id.toString());
+    const allowedStores = Array.isArray(stores?.matchedStores)
+      ? stores.matchedStores
+      : [];
+    const allowedStoreIds = allowedStores.map((s) => s._id.toString());
 
     // 3. Build search filter
     const searchFilter = {};
     if (name) {
-      searchFilter.productName = { $regex: name, $options: 'i' };
+      searchFilter.productName = { $regex: name, $options: "i" };
     }
 
     // 4. Collect allowed category/subcategory/subsub from stores
     const categoryIds = new Set();
-    const storeCategoryIds = allowedStores.flatMap(store =>
+    const storeCategoryIds = allowedStores.flatMap((store) =>
       Array.isArray(store.Category)
-        ? store.Category.map(id => id?.toString())
-        : store.Category ? [store.Category.toString()] : []
+        ? store.Category.map((id) => id?.toString())
+        : store.Category
+        ? [store.Category.toString()]
+        : []
     );
 
     const uniqueCategoryIds = [...new Set(storeCategoryIds)];
 
     if (uniqueCategoryIds.length > 0) {
-      const categories = await Category.find({ _id: { $in: uniqueCategoryIds } }).lean();
+      const categories = await Category.find({
+        _id: { $in: uniqueCategoryIds },
+      }).lean();
       for (const cat of categories) {
         categoryIds.add(cat._id.toString());
-        (cat.subcat || []).forEach(sub => {
+        (cat.subcat || []).forEach((sub) => {
           if (sub?._id) categoryIds.add(sub._id.toString());
-          (sub.subsubcat || []).forEach(subsub => {
+          (sub.subsubcat || []).forEach((subsub) => {
             if (subsub?._id) categoryIds.add(subsub._id.toString());
           });
         });
@@ -747,12 +837,14 @@ exports.searchProduct = async (req, res) => {
       $or: [
         { "category._id": { $in: categoryArray } },
         { subCategoryId: { $in: categoryArray } },
-        { subSubCategoryId: { $in: categoryArray } }
-      ]
+        { subSubCategoryId: { $in: categoryArray } },
+      ],
     }).lean();
 
     // 6. Get stock from nearby stores
-    const stockDocs = await Stock.find({ storeId: { $in: allowedStoreIds } }).lean();
+    const stockDocs = await Stock.find({
+      storeId: { $in: allowedStoreIds },
+    }).lean();
 
     const stockMap = {};
     const stockDetailMap = {};
@@ -764,7 +856,7 @@ exports.searchProduct = async (req, res) => {
           quantity: item.quantity,
           price: item.price,
           mrp: item.mrp,
-          storeId: doc.storeId,   // ✅ attach storeId here
+          storeId: doc.storeId, // ✅ attach storeId here
         };
       }
     }
@@ -809,32 +901,32 @@ exports.searchProduct = async (req, res) => {
         }
         if (hasStock && stockEntry?.storeId) {
           const store = allowedStores.find(
-            s => s._id.toString() === stockEntry.storeId.toString()
+            (s) => s._id.toString() === stockEntry.storeId.toString()
           );
           if (store) {
             product.soldBy = store.soldBy;
           }
         }
-      };
+      }
 
       // ✅ If product had no stock at all → keep empty {}
       if (!hasStock) {
         product.soldBy = {};
       }
-    };
+    }
 
     return res.status(200).json({
       message: "Search results fetched successfully.",
       products,
-      count: products.length
+      count: products.length,
     });
-
   } catch (error) {
     console.error("Server error:", error);
-    return res.status(500).json({ message: "An error occurred!", error: error.message });
+    return res
+      .status(500)
+      .json({ message: "An error occurred!", error: error.message });
   }
 };
-
 
 exports.getFeatureProduct = async (req, res) => {
   try {
@@ -850,19 +942,19 @@ exports.getFeatureProduct = async (req, res) => {
     const userLng = user.location.longitude;
 
     const [activeCities, zoneDocs, stores, cartDocs] = await Promise.all([
-      CityData.find({ status: true }, 'city').lean(),
-      ZoneData.find({}, 'zones').lean(),
+      CityData.find({ status: true }, "city").lean(),
+      ZoneData.find({}, "zones").lean(),
       getStoresWithinRadius(userLat, userLng),
-      Cart.find({ userId }).lean()
+      Cart.find({ userId }).lean(),
     ]);
 
-
-
-    const activeCitySet = new Set(activeCities.map(c => c.city.toLowerCase()));
+    const activeCitySet = new Set(
+      activeCities.map((c) => c.city.toLowerCase())
+    );
 
     const activeZoneIds = new Set();
     for (const doc of zoneDocs) {
-      (doc.zones || []).forEach(zone => {
+      (doc.zones || []).forEach((zone) => {
         if (zone.status && zone._id) {
           activeZoneIds.add(zone._id.toString());
         }
@@ -870,27 +962,33 @@ exports.getFeatureProduct = async (req, res) => {
     }
 
     // 🌍 Filter stores by location and zone
-    const allowedStores = Array.isArray(stores?.matchedStores) ? stores.matchedStores : [];
-    console.log(allowedStores)
-    const allowedStoreIds = allowedStores.map(store => store._id.toString());
+    const allowedStores = Array.isArray(stores?.matchedStores)
+      ? stores.matchedStores
+      : [];
+    console.log(allowedStores);
+    const allowedStoreIds = allowedStores.map((store) => store._id.toString());
 
     // 📦 Build set of all category/sub/subsub IDs
     const categoryIds = new Set();
-    const storeCategoryIds = allowedStores.flatMap(store =>
+    const storeCategoryIds = allowedStores.flatMap((store) =>
       Array.isArray(store.Category)
-        ? store.Category.map(id => id?.toString())
-        : store.Category ? [store.Category.toString()] : []
+        ? store.Category.map((id) => id?.toString())
+        : store.Category
+        ? [store.Category.toString()]
+        : []
     );
 
     const uniqueCategoryIds = [...new Set(storeCategoryIds)];
 
     if (uniqueCategoryIds.length > 0) {
-      const categories = await Category.find({ _id: { $in: uniqueCategoryIds } }).lean();
+      const categories = await Category.find({
+        _id: { $in: uniqueCategoryIds },
+      }).lean();
       for (const cat of categories) {
         categoryIds.add(cat._id.toString());
-        (cat.subcat || []).forEach(sub => {
+        (cat.subcat || []).forEach((sub) => {
           if (sub?._id) categoryIds.add(sub._id.toString());
-          (sub.subsubcat || []).forEach(subsub => {
+          (sub.subsubcat || []).forEach((subsub) => {
             if (subsub?._id) categoryIds.add(subsub._id.toString());
           });
         });
@@ -900,7 +998,9 @@ exports.getFeatureProduct = async (req, res) => {
     const categoryArray = [...categoryIds];
 
     // 🧾 Build stock map
-    const stockDocs = await Stock.find({ storeId: { $in: allowedStoreIds } }).lean();
+    const stockDocs = await Stock.find({
+      storeId: { $in: allowedStoreIds },
+    }).lean();
     const stockMap = {};
     for (const doc of stockDocs) {
       for (const item of doc.stock || []) {
@@ -909,7 +1009,7 @@ exports.getFeatureProduct = async (req, res) => {
           quantity: item.quantity,
           price: item.price,
           mrp: item.mrp,
-          storeId: doc.storeId
+          storeId: doc.storeId,
         };
       }
     }
@@ -927,12 +1027,12 @@ exports.getFeatureProduct = async (req, res) => {
       $or: [
         { "category._id": { $in: categoryArray } },
         { subCategoryId: { $in: categoryArray } },
-        { subSubCategoryId: { $in: categoryArray } }
-      ]
-    }
+        { subSubCategoryId: { $in: categoryArray } },
+      ],
+    };
     const [products, count] = await Promise.all([
       Products.find(query).skip(skip).limit(Number(limit)).lean(),
-      Products.countDocuments(query)
+      Products.countDocuments(query),
     ]);
 
     for (const product of products) {
@@ -972,62 +1072,68 @@ exports.getFeatureProduct = async (req, res) => {
           }
           if (hasStock && stockEntry?.storeId) {
             const store = allowedStores.find(
-              s => s._id.toString() === stockEntry.storeId.toString()
+              (s) => s._id.toString() === stockEntry.storeId.toString()
             );
             if (store) {
               product.soldBy = store.soldBy;
             }
           }
-        };
+        }
 
         // ✅ If product had no stock at all → keep empty {}
         if (!hasStock) {
           product.soldBy = {};
         }
-      };
+      }
     }
 
     return res.status(200).json({
-      message: 'It is feature product.',
+      message: "It is feature product.",
       products,
       count,
       totalPages: Math.ceil(count / limit),
       currentPage: Number(page),
-      limit
+      limit,
     });
-
   } catch (error) {
     console.error("Server error:", error);
-    return res.status(500).json({ message: "An error occurred!", error: error.message });
+    return res
+      .status(500)
+      .json({ message: "An error occurred!", error: error.message });
   }
 };
 
-
 exports.unit = async (req, res) => {
   try {
-    const { unitname } = req.body
-    const newUnit = await Unit.create({ unitname })
-    return res.status(200).json({ message: 'Unit Created Successfully', newUnit });
+    const { unitname } = req.body;
+    const newUnit = await Unit.create({ unitname });
+    return res
+      .status(200)
+      .json({ message: "Unit Created Successfully", newUnit });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "An error occured!", error: error.message });
+    return res
+      .status(500)
+      .json({ message: "An error occured!", error: error.message });
   }
-}
+};
 exports.getUnit = async (req, res) => {
   try {
-    const Units = await Unit.find()
+    const Units = await Unit.find();
     return res.status(200).json({ Result: Units });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "An error occured!", error: error.message });
+    return res
+      .status(500)
+      .json({ message: "An error occured!", error: error.message });
   }
-}
+};
 
 exports.getVarients = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const attribute = await Attribute.findById(id, 'varient');
+    const attribute = await Attribute.findById(id, "varient");
 
     if (!attribute) {
       return res.status(404).json({ message: "Attribute not found" });
@@ -1036,7 +1142,9 @@ exports.getVarients = async (req, res) => {
     return res.status(200).json({ varient: attribute.varient });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "An error occurred", error: error.message });
+    return res
+      .status(500)
+      .json({ message: "An error occurred", error: error.message });
   }
 };
 
@@ -1054,45 +1162,45 @@ exports.filter = async (req, res) => {
       size,
       productName,
       material,
-      gender
+      gender,
     } = req.body;
 
     const filters = {};
 
     if (id) {
       filters.$or = [
-        { 'category._id': id },
-        { 'subCategory._id': id },
-        { 'subSubCategory._id': id }
+        { "category._id": id },
+        { "subCategory._id": id },
+        { "subSubCategory._id": id },
       ];
     }
 
     if (brand) {
       if (mongoose.Types.ObjectId.isValid(brand)) {
-        filters['brand_Name._id'] = new mongoose.Types.ObjectId(brand);
+        filters["brand_Name._id"] = new mongoose.Types.ObjectId(brand);
       } else {
-        filters['brand_Name.name'] = { $regex: brand, $options: 'i' };
+        filters["brand_Name.name"] = { $regex: brand, $options: "i" };
       }
     }
 
     if (bestSeller !== undefined) {
-      filters.bestSeller = bestSeller === true || bestSeller === 'true';
+      filters.bestSeller = bestSeller === true || bestSeller === "true";
     }
 
     if (productName) {
-      filters.productName = { $regex: productName, $options: 'i' };
+      filters.productName = { $regex: productName, $options: "i" };
     }
 
     if (material) {
-      filters.material = { $regex: material, $options: 'i' };
+      filters.material = { $regex: material, $options: "i" };
     }
 
     if (gender) {
-      filters.gender = { $regex: gender, $options: 'i' };
+      filters.gender = { $regex: gender, $options: "i" };
     }
 
     if (weight) {
-      const [min, max] = weight.split('-').map(Number);
+      const [min, max] = weight.split("-").map(Number);
       filters.weight = {};
       if (!isNaN(min)) filters.weight.$gte = min;
       if (!isNaN(max)) filters.weight.$lte = max;
@@ -1102,15 +1210,15 @@ exports.filter = async (req, res) => {
     const variantMatch = {};
 
     if (color) {
-      variantMatch.color = { $regex: color, $options: 'i' };
+      variantMatch.color = { $regex: color, $options: "i" };
     }
 
     if (size) {
-      variantMatch.Size = { $regex: size, $options: 'i' };
+      variantMatch.Size = { $regex: size, $options: "i" };
     }
 
     if (price) {
-      const [min, max] = price.split('-').map(Number);
+      const [min, max] = price.split("-").map(Number);
       variantMatch.sell_price = {};
       if (!isNaN(min)) variantMatch.sell_price.$gte = min;
       if (!isNaN(max)) variantMatch.sell_price.$lte = max;
@@ -1133,7 +1241,7 @@ exports.filter = async (req, res) => {
     res.json(products);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Server error while filtering products' });
+    res.status(500).json({ error: "Server error while filtering products" });
   }
 };
 
@@ -1142,11 +1250,16 @@ exports.bulkProductUpload = async (req, res) => {
     const products = req.body;
 
     if (!Array.isArray(products)) {
-      return res.status(400).json({ message: "Invalid format: Expected an array of products" });
+      return res
+        .status(400)
+        .json({ message: "Invalid format: Expected an array of products" });
     }
 
     const createdProducts = await Products.insertMany(products);
-    res.status(201).json({ message: "Products uploaded successfully", count: createdProducts.length });
+    res.status(201).json({
+      message: "Products uploaded successfully",
+      count: createdProducts.length,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Bulk upload failed", error: err.message });
@@ -1154,36 +1267,60 @@ exports.bulkProductUpload = async (req, res) => {
 };
 exports.deleteProduct = async (req, res) => {
   try {
-    const { id } = req.params
-    const deleted = await Products.findByIdAndDelete(id)
+    const { id } = req.params;
+    const deleted = await Products.findByIdAndDelete(id);
     res.status(200).json({ message: "Product deleted successfully", deleted });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Product Deleted", error });
   }
-}
+};
 
 exports.updateProduct = async (req, res) => {
   try {
     const id = req.params.id;
     const {
-      productName, description, category, subCategory, subSubCategory,
-      ribbon, rating, filter, brand_Name, sold_by, type, location, online_visible,
-      tax, feature_product, fulfilled_by, minQuantity,
-      maxQuantity, ratings, unit, mrp, sell_price, status, returnProduct
+      productName,
+      description,
+      category,
+      subCategory,
+      subSubCategory,
+      ribbon,
+      rating,
+      filter,
+      brand_Name,
+      sold_by,
+      type,
+      location,
+      online_visible,
+      tax,
+      feature_product,
+      fulfilled_by,
+      minQuantity,
+      maxQuantity,
+      ratings,
+      unit,
+      mrp,
+      sell_price,
+      status,
+      returnProduct,
     } = req.body;
 
-    const MultipleImage = req.files?.MultipleImage?.map(file => `/${file.key}`) || [];
+    const MultipleImage =
+      req.files?.MultipleImage?.map((file) => `/${file.key}`) || [];
 
     const imageKey = req.files?.image?.[0]?.key || "";
     const image = imageKey ? `/${imageKey}` : "";
 
     // Fetch the existing product to get its variants
-    const existingProduct = await Products.findById(id).select('variants');
+    const existingProduct = await Products.findById(id).select("variants");
     if (!existingProduct) {
       return res.status(404).json({ message: "Product not found" });
     }
-    console.log("🧾 Existing product variants:", JSON.stringify(existingProduct.variants, null, 2));
+    console.log(
+      "🧾 Existing product variants:",
+      JSON.stringify(existingProduct.variants, null, 2)
+    );
 
     const variantImageMap = {};
 
@@ -1209,7 +1346,10 @@ exports.updateProduct = async (req, res) => {
             console.warn(`❗ Cloudinary didn't return secure_url for ${key}`);
           }
         } catch (err) {
-          console.error(`❌ Error uploading ${key} to Cloudinary:`, err.message);
+          console.error(
+            `❌ Error uploading ${key} to Cloudinary:`,
+            err.message
+          );
         }
       }
     }
@@ -1218,7 +1358,7 @@ exports.updateProduct = async (req, res) => {
     if (req.body.filter) {
       parsedFilter = [];
 
-      if (typeof req.body.filter === 'string') {
+      if (typeof req.body.filter === "string") {
         try {
           const firstParsed = JSON.parse(req.body.filter);
           if (Array.isArray(firstParsed)) {
@@ -1231,12 +1371,18 @@ exports.updateProduct = async (req, res) => {
                   parsedFilter.push(obj);
                 }
               } catch (innerErr) {
-                console.warn("❗ Error parsing filter inner string:", innerErr.message);
+                console.warn(
+                  "❗ Error parsing filter inner string:",
+                  innerErr.message
+                );
               }
             }
           }
         } catch (outerErr) {
-          console.warn("❗ Error parsing filter outer string:", outerErr.message);
+          console.warn(
+            "❗ Error parsing filter outer string:",
+            outerErr.message
+          );
         }
       } else if (Array.isArray(req.body.filter)) {
         parsedFilter = req.body.filter;
@@ -1253,24 +1399,33 @@ exports.updateProduct = async (req, res) => {
           continue;
         }
 
-        console.log(`🧾 Filter doc for _id ${item._id}:`, JSON.stringify(filterDoc.Filter, null, 2));
+        console.log(
+          `🧾 Filter doc for _id ${item._id}:`,
+          JSON.stringify(filterDoc.Filter, null, 2)
+        );
 
         let selectedArray = [];
-        const selectedIds = Array.isArray(item.selected) ? item.selected : [item.selected];
+        const selectedIds = Array.isArray(item.selected)
+          ? item.selected
+          : [item.selected];
 
         for (const selId of selectedIds) {
           if (!selId) {
             console.warn("❗ Invalid selected ID:", selId);
             continue;
           }
-          const selectedObj = filterDoc.Filter.find(f => f._id.toString() === selId.toString());
+          const selectedObj = filterDoc.Filter.find(
+            (f) => f._id.toString() === selId.toString()
+          );
           if (selectedObj) {
             selectedArray.push({
               _id: selectedObj._id,
-              name: selectedObj.name
+              name: selectedObj.name,
             });
           } else {
-            console.warn(`❗ Selected filter ID ${selId} not found in filter ${filterDoc.Filter_name}`);
+            console.warn(
+              `❗ Selected filter ID ${selId} not found in filter ${filterDoc.Filter_name}`
+            );
           }
         }
 
@@ -1278,20 +1433,24 @@ exports.updateProduct = async (req, res) => {
           finalFilterArray.push({
             _id: filterDoc._id,
             Filter_name: filterDoc.Filter_name,
-            selected: selectedArray
+            selected: selectedArray,
           });
         }
       }
-      console.log("🧾 Final filter array:", JSON.stringify(finalFilterArray, null, 2));
+      console.log(
+        "🧾 Final filter array:",
+        JSON.stringify(finalFilterArray, null, 2)
+      );
     }
 
     const productLocation = [];
     if (location) {
       let parsedLocation;
       try {
-        parsedLocation = typeof location === 'string' ? JSON.parse(location) : location;
+        parsedLocation =
+          typeof location === "string" ? JSON.parse(location) : location;
       } catch (err) {
-        console.warn('Invalid location format:', location);
+        console.warn("Invalid location format:", location);
         parsedLocation = [];
       }
 
@@ -1308,8 +1467,8 @@ exports.updateProduct = async (req, res) => {
             const cityName = cityObj.name || cityObj.city || null;
             if (!cityName) continue;
 
-            const filteredZones = zonesArray.filter(zoneObj => {
-              const zoneName = zoneObj.name || zoneObj.address || '';
+            const filteredZones = zonesArray.filter((zoneObj) => {
+              const zoneName = zoneObj.name || zoneObj.address || "";
               return zoneName.toLowerCase().includes(cityName.toLowerCase());
             });
 
@@ -1317,7 +1476,7 @@ exports.updateProduct = async (req, res) => {
 
             result.push({
               city: cityName,
-              zones: filteredZones
+              zones: filteredZones,
             });
           }
         }
@@ -1335,11 +1494,13 @@ exports.updateProduct = async (req, res) => {
           }
 
           const zoneAddresses = loc.zones
-            .map(z => (z.name || z.address || '').trim())
-            .filter(z => z.length > 0);
+            .map((z) => (z.name || z.address || "").trim())
+            .filter((z) => z.length > 0);
 
-          const matchedZones = cityData.zones.filter(z =>
-            zoneAddresses.some(addr => addr.toLowerCase() === z.address.trim().toLowerCase())
+          const matchedZones = cityData.zones.filter((z) =>
+            zoneAddresses.some(
+              (addr) => addr.toLowerCase() === z.address.trim().toLowerCase()
+            )
           );
 
           if (matchedZones.length === 0) {
@@ -1349,9 +1510,8 @@ exports.updateProduct = async (req, res) => {
 
           productLocation.push({
             city: { _id: cityData._id, name: cityData.city },
-            zone: matchedZones.map(z => ({ _id: z._id, name: z.address }))
+            zone: matchedZones.map((z) => ({ _id: z._id, name: z.address })),
           });
-
         } catch (err) {
           console.error("Error processing location:", err);
         }
@@ -1373,75 +1533,80 @@ exports.updateProduct = async (req, res) => {
 
     let unitObj = null;
     if (unit) {
-      if (typeof unit === 'string' && /^[0-9a-fA-F]{24}$/.test(unit)) {
+      if (typeof unit === "string" && /^[0-9a-fA-F]{24}$/.test(unit)) {
         unitObj = await Unit.findById(unit);
-      } else if (typeof unit === 'object' && unit._id) {
+      } else if (typeof unit === "object" && unit._id) {
         unitObj = await Unit.findById(unit._id);
       }
 
       if (!unitObj) {
-        console.warn('Unit not found or invalid:', unit);
+        console.warn("Unit not found or invalid:", unit);
       }
     }
 
     let categories = [];
     if (category) {
       try {
-        categories = typeof category === 'string' ? JSON.parse(category) : category;
+        categories =
+          typeof category === "string" ? JSON.parse(category) : category;
       } catch {
         categories = [category];
       }
     }
 
-    const categoryIds = categories.filter(c => /^[0-9a-fA-F]{24}$/.test(c));
-    const categoryNames = categories.filter(c => !/^[0-9a-fA-F]{24}$/.test(c));
+    const categoryIds = categories.filter((c) => /^[0-9a-fA-F]{24}$/.test(c));
+    const categoryNames = categories.filter(
+      (c) => !/^[0-9a-fA-F]{24}$/.test(c)
+    );
 
     const foundCategories = await Category.find({
-      $or: [
-        { _id: { $in: categoryIds } },
-        { name: { $in: categoryNames } }
-      ]
+      $or: [{ _id: { $in: categoryIds } }, { name: { $in: categoryNames } }],
     }).lean();
 
-    const productCategories = foundCategories.map(cat => ({
+    const productCategories = foundCategories.map((cat) => ({
       _id: cat._id,
-      name: cat.name
+      name: cat.name,
     }));
 
     let foundSubCategory = null;
     if (subCategory && foundCategories.length > 0) {
-      foundSubCategory = foundCategories[0].subcat?.find(sub =>
-        sub.name === subCategory || sub._id.toString() === subCategory
+      foundSubCategory = foundCategories[0].subcat?.find(
+        (sub) => sub.name === subCategory || sub._id.toString() === subCategory
       );
     }
 
     let foundSubSubCategory = null;
     if (subSubCategory && foundSubCategory) {
-      foundSubSubCategory = foundSubCategory.subsubcat?.find(subsub =>
-        subsub.name === subSubCategory || subsub._id.toString() === subSubCategory
+      foundSubSubCategory = foundSubCategory.subsubcat?.find(
+        (subsub) =>
+          subsub.name === subSubCategory ||
+          subsub._id.toString() === subSubCategory
       );
     }
 
     let returnProductData = null;
     if (returnProduct) {
       try {
-        const parsedReturn = typeof returnProduct === 'string'
-          ? JSON.parse(returnProduct)
-          : returnProduct;
+        const parsedReturn =
+          typeof returnProduct === "string"
+            ? JSON.parse(returnProduct)
+            : returnProduct;
 
         returnProductData = {
           _id: new mongoose.Types.ObjectId(),
-          title: parsedReturn.title?.trim() || ""
+          title: parsedReturn.title?.trim() || "",
         };
 
         const uploadedFile = req.files?.file?.[0];
         if (uploadedFile && uploadedFile.key) {
           returnProductData.image = `/${uploadedFile.key}`;
-        }
-        else {
+        } else {
           console.warn("❗ No file provided for returnProduct image");
         }
-        console.log("🧾 Final returnProductData:", JSON.stringify(returnProductData, null, 2));
+        console.log(
+          "🧾 Final returnProductData:",
+          JSON.stringify(returnProductData, null, 2)
+        );
       } catch (err) {
         console.warn("❗ Failed to parse returnProduct:", err.message);
       }
@@ -1450,45 +1615,52 @@ exports.updateProduct = async (req, res) => {
     let parsedVariantsArray = [];
     if (req.body.variants) {
       try {
-        parsedVariantsArray = typeof req.body.variants === 'string'
-          ? JSON.parse(req.body.variants)
-          : req.body.variants;
+        parsedVariantsArray =
+          typeof req.body.variants === "string"
+            ? JSON.parse(req.body.variants)
+            : req.body.variants;
       } catch (err) {
         console.error("❌ Failed to parse variants:", err.message);
       }
     }
 
-    const parsedVariantsWithIds = parsedVariantsArray.map(v => ({
+    const parsedVariantsWithIds = parsedVariantsArray.map((v) => ({
       ...v,
-      _id: v._id || new mongoose.Types.ObjectId()
+      _id: v._id || new mongoose.Types.ObjectId(),
     }));
 
-    const finalInventoryArray = parsedVariantsWithIds.map(variant => ({
+    const finalInventoryArray = parsedVariantsWithIds.map((variant) => ({
       _id: new mongoose.Types.ObjectId(),
       variantId: variant._id,
-      quantity: 0
+      quantity: 0,
     }));
 
-    console.log("🧾 Final inventory:", JSON.stringify(finalInventoryArray, null, 2));
+    console.log(
+      "🧾 Final inventory:",
+      JSON.stringify(finalInventoryArray, null, 2)
+    );
     console.log("🧾 variantImageMap keys:", Object.keys(variantImageMap));
-    console.log("🧾 parsedVariantsWithIds:", parsedVariantsWithIds.map(v => v.imageKey));
+    console.log(
+      "🧾 parsedVariantsWithIds:",
+      parsedVariantsWithIds.map((v) => v.imageKey)
+    );
 
     // 👇 This replaces old logic: overwrite entire variants list based on what you send
-    const finalVariants = parsedVariantsWithIds.map(variant => {
+    const finalVariants = parsedVariantsWithIds.map((variant) => {
       const imageKey = req.files?.[variant.imageKey]?.[0]?.key;
       const image = imageKey ? `/${imageKey}` : variant.image || "";
-      const discountValue = variant.mrp && variant.sell_price
-        ? Math.round(((variant.mrp - variant.sell_price) / variant.mrp) * 100)
-        : 0;
+      const discountValue =
+        variant.mrp && variant.sell_price
+          ? Math.round(((variant.mrp - variant.sell_price) / variant.mrp) * 100)
+          : 0;
 
       return {
         ...variant,
         _id: variant._id || new mongoose.Types.ObjectId(),
         image,
-        discountValue
+        discountValue,
       };
     });
-
 
     const updateData = {
       ...(productName && { productName }),
@@ -1497,12 +1669,21 @@ exports.updateProduct = async (req, res) => {
       ...(image && { productThumbnailUrl: image }),
       ...(MultipleImage.length && { productImageUrl: MultipleImage }),
       ...(productCategories.length && { category: productCategories }),
-      ...(foundSubCategory && { subCategory: { _id: foundSubCategory._id, name: foundSubCategory.name } }),
-      ...(foundSubSubCategory && { subSubCategory: { _id: foundSubSubCategory._id, name: foundSubSubCategory.name } }),
+      ...(foundSubCategory && {
+        subCategory: { _id: foundSubCategory._id, name: foundSubCategory.name },
+      }),
+      ...(foundSubSubCategory && {
+        subSubCategory: {
+          _id: foundSubSubCategory._id,
+          name: foundSubSubCategory.name,
+        },
+      }),
       ...(ribbon && { ribbon }),
       ...(returnProductData && { returnProduct: returnProductData }),
       ...(unitObj && { unit: { _id: unitObj._id, name: unitObj.unitname } }),
-      ...(brandObj && { brand_Name: { _id: brandObj._id, name: brandObj.brandName } }),
+      ...(brandObj && {
+        brand_Name: { _id: brandObj._id, name: brandObj.brandName },
+      }),
       ...(sold_by && { sold_by }),
       ...(type && { type }),
       ...(productLocation.length && { location: productLocation }),
@@ -1518,22 +1699,28 @@ exports.updateProduct = async (req, res) => {
       ...(ratings && { ratings }),
       ...(mrp && { mrp }),
       ...(status && { status }),
-      ...(sell_price && { sell_price })
+      ...(sell_price && { sell_price }),
     };
 
     console.log("🧾 Update data:", JSON.stringify(updateData, null, 2));
 
-    const updatedProduct = await Products.findByIdAndUpdate(id, updateData, { new: true });
+    const updatedProduct = await Products.findByIdAndUpdate(id, updateData, {
+      new: true,
+    });
 
     if (!updatedProduct) {
       return res.status(404).json({ message: "Product not found" });
     }
 
-    return res.status(200).json({ message: "Product updated successfully", updated: updatedProduct });
-
+    return res.status(200).json({
+      message: "Product updated successfully",
+      updated: updatedProduct,
+    });
   } catch (error) {
     console.error("Error updating product:", error);
-    return res.status(500).json({ message: "Error updating product", error: error.message });
+    return res
+      .status(500)
+      .json({ message: "Error updating product", error: error.message });
   }
 };
 
@@ -1549,7 +1736,12 @@ exports.getRelatedProducts = async (req, res) => {
     const [product, cartDocs, stores] = await Promise.all([
       Products.findById(productId).lean(),
       userId ? Cart.find({ userId }).lean() : Promise.resolve([]),
-      userId ? getStoresWithinRadius(req.user.location.latitude, req.user.location.longitude) : Promise.resolve({ matchedStores: [] })
+      userId
+        ? getStoresWithinRadius(
+            req.user.location.latitude,
+            req.user.location.longitude
+          )
+        : Promise.resolve({ matchedStores: [] }),
     ]);
 
     if (!product) {
@@ -1558,25 +1750,37 @@ exports.getRelatedProducts = async (req, res) => {
 
     // Determine which category level to use
     let relatedCategoryIds = [];
-    if (Array.isArray(product.subSubCategory) && product.subSubCategory.length > 0) {
-      relatedCategoryIds = product.subSubCategory.map(c => String(c._id));
-    } else if (Array.isArray(product.subCategory) && product.subCategory.length > 0) {
-      relatedCategoryIds = product.subCategory.map(c => String(c._id));
+    if (
+      Array.isArray(product.subSubCategory) &&
+      product.subSubCategory.length > 0
+    ) {
+      relatedCategoryIds = product.subSubCategory.map((c) => String(c._id));
+    } else if (
+      Array.isArray(product.subCategory) &&
+      product.subCategory.length > 0
+    ) {
+      relatedCategoryIds = product.subCategory.map((c) => String(c._id));
     } else if (Array.isArray(product.category) && product.category.length > 0) {
-      relatedCategoryIds = product.category.map(c => String(c._id));
+      relatedCategoryIds = product.category.map((c) => String(c._id));
     }
 
     // If no categories at all, return empty array
     if (relatedCategoryIds.length === 0) {
-      return res.status(200).json({ message: "Related Product", relatedProducts: [] });
+      return res
+        .status(200)
+        .json({ message: "Related Product", relatedProducts: [] });
     }
 
     // --- Build allowed stores list
-    const allowedStores = Array.isArray(stores?.matchedStores) ? stores.matchedStores : [];
-    const allowedStoreIds = allowedStores.map(store => store._id.toString());
+    const allowedStores = Array.isArray(stores?.matchedStores)
+      ? stores.matchedStores
+      : [];
+    const allowedStoreIds = allowedStores.map((store) => store._id.toString());
 
     // --- Build stock map for those stores
-    const stockDocs = await Stock.find({ storeId: { $in: allowedStoreIds } }).lean();
+    const stockDocs = await Stock.find({
+      storeId: { $in: allowedStoreIds },
+    }).lean();
     const stockMap = {};
     for (const doc of stockDocs) {
       for (const item of doc.stock || []) {
@@ -1585,7 +1789,7 @@ exports.getRelatedProducts = async (req, res) => {
           quantity: item.quantity || 0,
           price: item.price ?? null,
           mrp: item.mrp ?? null,
-          storeId: doc.storeId
+          storeId: doc.storeId,
         };
       }
     }
@@ -1603,21 +1807,38 @@ exports.getRelatedProducts = async (req, res) => {
       $or: [
         { "subSubCategory._id": { $in: relatedCategoryIds } },
         { "subCategory._id": { $in: relatedCategoryIds } },
-        { "category._id": { $in: relatedCategoryIds } }
-      ]
-    }).limit(20).lean();
+        { "category._id": { $in: relatedCategoryIds } },
+      ],
+    })
+      .limit(20)
+      .lean();
 
     // --- Score & sort candidates
     const relatedProducts = candidates
       .map((p) => {
         let score = 0;
-        if ((p.subSubCategory || []).some(c => relatedCategoryIds.includes(String(c._id)))) score = 3;
-        else if ((p.subCategory || []).some(c => relatedCategoryIds.includes(String(c._id)))) score = 2;
-        else if ((p.category || []).some(c => relatedCategoryIds.includes(String(c._id)))) score = 1;
+        if (
+          (p.subSubCategory || []).some((c) =>
+            relatedCategoryIds.includes(String(c._id))
+          )
+        )
+          score = 3;
+        else if (
+          (p.subCategory || []).some((c) =>
+            relatedCategoryIds.includes(String(c._id))
+          )
+        )
+          score = 2;
+        else if (
+          (p.category || []).some((c) =>
+            relatedCategoryIds.includes(String(c._id))
+          )
+        )
+          score = 1;
 
         return { ...p, relevanceScore: score };
       })
-      .filter(p => p.relevanceScore > 0)
+      .filter((p) => p.relevanceScore > 0)
       .sort((a, b) => b.relevanceScore - a.relevanceScore)
       .slice(0, 10);
 
@@ -1638,13 +1859,12 @@ exports.getRelatedProducts = async (req, res) => {
 
           relProduct.inventory.push({
             variantId: variant._id,
-            quantity: stockEntry?.quantity || 0
+            quantity: stockEntry?.quantity || 0,
           });
 
           if ((stockEntry?.quantity || 0) > 0) {
             hasStock = true;
           }
-
 
           if (cartQty > 0) {
             relProduct.inCart.status = true;
@@ -1653,7 +1873,7 @@ exports.getRelatedProducts = async (req, res) => {
           }
           if (stockEntry?.quantity > 0 && stockEntry?.storeId) {
             const store = allowedStores.find(
-              s => s._id.toString() === stockEntry.storeId.toString()
+              (s) => s._id.toString() === stockEntry.storeId.toString()
             );
             if (store) {
               relProduct.soldBy = store.soldBy;
@@ -1672,10 +1892,11 @@ exports.getRelatedProducts = async (req, res) => {
       message: "Related Product",
       relatedProducts,
     });
-
   } catch (err) {
     console.error("❌ Error fetching related products:", err);
-    return res.status(500).json({ message: "Server error", error: err.message });
+    return res
+      .status(500)
+      .json({ message: "Server error", error: err.message });
   }
 };
 
@@ -1684,13 +1905,10 @@ exports.updateStock = async (req, res) => {
     const { productId } = req.params;
     const { storeId, stock } = req.body;
 
-    if (
-      !productId ||
-      !storeId ||
-      !Array.isArray(stock) ||
-      stock.length === 0
-    ) {
-      return res.status(400).json({ message: "All fields are required and stock must be an array." });
+    if (!productId || !storeId || !Array.isArray(stock) || stock.length === 0) {
+      return res.status(400).json({
+        message: "All fields are required and stock must be an array.",
+      });
     }
 
     let storeStock = await Stock.findOne({ storeId });
@@ -1698,7 +1916,7 @@ exports.updateStock = async (req, res) => {
     if (!storeStock) {
       const newStock = await Stock.create({
         storeId,
-        stock: stock.map(item => {
+        stock: stock.map((item) => {
           const newItem = {
             productId,
             variantId: item.variantId,
@@ -1714,19 +1932,19 @@ exports.updateStock = async (req, res) => {
           }
 
           return newItem;
-        })
-
+        }),
       });
 
       return res.status(201).json({
         message: "New stock document created",
-        stock: newStock
+        stock: newStock,
       });
     }
 
     for (const item of stock) {
       const index = storeStock.stock.findIndex(
-        s => s.productId.toString() === productId &&
+        (s) =>
+          s.productId.toString() === productId &&
           s.variantId.toString() === item.variantId
       );
 
@@ -1761,21 +1979,26 @@ exports.updateStock = async (req, res) => {
 
     return res.status(200).json({
       message: "Stock updated successfully",
-      stock: storeStock
+      stock: storeStock,
     });
-
   } catch (error) {
     console.error("❌ Error in updateStock:", error);
     return res.status(500).json({
       message: "Server error",
-      error: error.message
+      error: error.message,
     });
   }
 };
 
 exports.adminProducts = async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = "", city = "", category = "" } = req.query;
+    const {
+      page = 1,
+      limit = 10,
+      search = "",
+      city = "",
+      category = "",
+    } = req.query;
 
     const pageNum = Number(page);
     const limitNum = Number(limit);
@@ -1787,7 +2010,7 @@ exports.adminProducts = async (req, res) => {
     if (search) {
       query.$or = [
         { productName: { $regex: search, $options: "i" } },
-        { sku: { $regex: search, $options: "i" } }
+        { sku: { $regex: search, $options: "i" } },
       ];
     }
 
@@ -1806,7 +2029,7 @@ exports.adminProducts = async (req, res) => {
         .skip(skip)
         .limit(limitNum)
         .lean(),
-      Products.countDocuments(query)
+      Products.countDocuments(query),
     ]);
 
     return res.status(200).json({
@@ -1815,30 +2038,35 @@ exports.adminProducts = async (req, res) => {
       count: total,
       page: pageNum,
       limit: limitNum,
-      totalPages: Math.ceil(total / limitNum)
+      totalPages: Math.ceil(total / limitNum),
     });
-
   } catch (error) {
     console.error("❌ Error in adminProducts:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
-
 exports.rating = async (req, res) => {
   try {
-    const userId = req.user
-    const { rating, Note, order_id } = req.body
-    const userData = await User.findById(userId)
+    const userId = req.user;
+    const { rating, Note, order_id } = req.body;
+    const userData = await User.findById(userId);
     console.log(userData);
 
-    const newRating = await Rating.create({ rating, Note, order_id, userInfo: { userId: userId, userName: userData.name } })
-    return res.status(200).json({ message: "Rating Created Successfully", newRating })
+    const newRating = await Rating.create({
+      rating,
+      Note,
+      order_id,
+      userInfo: { userId: userId, userName: userData.name },
+    });
+    return res
+      .status(200)
+      .json({ message: "Rating Created Successfully", newRating });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "Server Error" })
+    return res.status(500).json({ message: "Server Error" });
   }
-}
+};
 
 // exports.notification=async (req,res) => {
 //   try {
@@ -1871,7 +2099,6 @@ exports.rating = async (req, res) => {
 
 //     const matchingCities = await ZoneData.find({ city: userCity }).select('_id');
 //     const cityIds = matchingCities.map(c => c._id);
-
 
 //     const notifications = await Notification.find({
 //       $or: [

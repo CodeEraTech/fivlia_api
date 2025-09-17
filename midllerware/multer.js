@@ -34,6 +34,7 @@ const upload = multer({
 module.exports = upload.fields([
   { name: 'image', maxCount: 1 },
   { name: 'pdf', maxCount: 1 },
+  { name: 'brandDocument', maxCount: 1 },
   { name: 'file', maxCount: 1 },
   { name: 'gstCertificate', maxCount:1},
   { name: 'MultipleImage', maxCount: 10 },

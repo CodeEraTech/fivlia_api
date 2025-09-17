@@ -9,6 +9,7 @@ const {otpTemplate} = require('../../utils/emailTemplates')
 const Products = require('../../modals/Product');
 const CategoryModel = require('../../modals/category');
 const Stock = require('../../modals/StoreStock')
+const jwt = require('jsonwebtoken');
 const sellerProduct = require('../../modals/sellerModals/sellerProduct');
 const {whatsappOtp} = require('../../config/whatsappsender')
 
@@ -132,7 +133,10 @@ exports.sendOtp = async (req,res) => {
 exports.getSellerRequest = async (req,res) => {
     try{
     const requests = await seller.find({approveStatus:"pending_admin_approval"})
-    return res.status(200).json({message:"Seller Approval Requests",requests})
+    const locationRequests = await seller.find({ "pendingAddressUpdate.status": "pending" });
+    const productRequest = await Products.find({sellerProductStatus:"pending_admin_approval"}) 
+    const BrandRequest = await Products.find({sellerProductStatus:"request_brand_approval"}) 
+    return res.status(200).json({message:"Seller Approval Requests",requests,locationRequests,productRequest,BrandRequest})
     }catch(error){
     console.error(error);
     return res.status(500).json({ResponseMsg: "An Error Occured"});
@@ -293,13 +297,14 @@ exports.verifyOtpSeller = async (req, res) => {
      if (!otpRecord) {
       return res.status(400).json({ message: 'Invalid OTP' });
     }
-
+     const token = jwt.sign({ _id: sellerDoc._id }, process.env.jwtSecretKey, {expiresIn:"1d"});
      await OtpModel.deleteOne({ _id: otpRecord._id });
 
       return res.status(200).json({
         message: 'Login successful',
         sellerId: sellerDoc._id,
         storeName:sellerDoc.storeName,
+        token
       });
     }
     // 1️⃣ Find OTP record
@@ -367,5 +372,119 @@ exports.verifyOtpSeller = async (req, res) => {
     return res.status(500).json({ message: "An error occurred", error: error.message });
   }
 };
+
+exports.editSellerProfile = async (req, res) => {
+  try {
+    const {
+      storeName,
+      city, 
+      zone, 
+      Latitude,
+      Longitude,
+      ownerName,
+      gstNumber,
+      fsiNumber,
+      PhoneNumber,
+      email,
+      password,
+      bankDetails, // {bankName, accountHolder, accountNumber, ifsc, branch}
+    } = req.body;
+
+    const sellerId =req.params.id;
+
+    const updateFields = {};
+
+    if (storeName) updateFields.storeName = storeName;
+    if (ownerName) updateFields.ownerName = ownerName;
+    if (email) updateFields.email = email;
+    if (req.files?.image?.[0]) {updateFields.image = `/${req.files.image?.[0].key}`;}
+    if (PhoneNumber) updateFields.PhoneNumber = PhoneNumber;
+    if (gstNumber) updateFields.gstNumber = gstNumber;
+    if (fsiNumber) updateFields.fsiNumber = fsiNumber;
+    if (password) updateFields.password = password;
+   
+    if (bankDetails) {
+  // Parse bankDetails if it comes as JSON string (from form-data)
+  let parsedBankDetails = bankDetails;
+  if (typeof bankDetails === "string") {
+    try {
+      parsedBankDetails = JSON.parse(bankDetails);
+    } catch (err) {
+      return res.status(400).json({ success: false, message: "Invalid bankDetails format" });
+    }
+  }
+
+  // Validate fields before saving
+  const { bankName, accountHolder, accountNumber, ifsc, branch } = parsedBankDetails;
+  updateFields.bankDetails = {
+    ...(bankName && { bankName }),
+    ...(accountHolder && { accountHolder }),
+    ...(accountNumber && { accountNumber }),
+    ...(ifsc && { ifsc }),
+    ...(branch && { branch }),
+  };
+}
+    // Do not overwrite live city/zone/lat/lng -> store in pendingAddressUpdate
+    if (city || zone || Latitude || Longitude) {
+      // Fetch city object
+      let cityObj = null;
+      if (city) {
+        const cityDoc = await ZoneData.findById(city);
+        if (cityDoc) {
+          cityObj = { _id: cityDoc._id, name: cityDoc.city };
+        }
+      }
+
+      let zoneArray = [];
+      if (zone) {
+        const cityDoc = await ZoneData.findOne({ "zones._id": zone });
+        if (cityDoc) {
+          const zoneDoc = cityDoc.zones.find((z) => String(z._id) === String(zone));
+          if (zoneDoc) {
+            zoneArray.push({
+              _id: zoneDoc._id,
+              name: cityDoc.city,
+              title: zoneDoc.zoneTitle,
+              latitude: zoneDoc.latitude,
+              longitude: zoneDoc.longitude,
+              range: zoneDoc.range,
+            });
+          }
+        }
+      }
+
+      updateFields.pendingAddressUpdate = {
+        ...(cityObj && { city: cityObj }),
+        ...(zoneArray.length > 0 && { zone: zoneArray }),
+        ...(Latitude && { Latitude }),
+        ...(Longitude && { Longitude }),
+        requestedAt: new Date(),
+        status: "pending",
+      };
+    }
+
+    const updatedSeller = await seller.findByIdAndUpdate(
+      sellerId,
+      { $set: updateFields },
+      { new: true }
+    );
+
+    if (!updatedSeller) {
+      return res.status(404).json({ success: false, message: "Seller not updated or not found" });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Seller profile updated successfully (pending address approval if changed)",
+      seller: updatedSeller,
+    });
+  } catch (error) {
+    console.error("editSellerProfile error:", error);
+    return res.status(500).json({ success: false, message: "Server Error", error: error.message });
+  }
+};
+
+
+
 
 // https://api.fivlia.in/getSellerProducts?categories=683eeb6ff6f5264ba0295760%683ed131f6f5264ba0295759&subCategories=683ef865f6f5264ba0295774%683ed131f6f5264ba0295755&subsubCategories=683ef865f6f5264ba0295724%683ed131f6f5264ba0295715

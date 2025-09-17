@@ -2,7 +2,6 @@ const Store = require('../modals/store');
 const seller = require('../modals/sellerModals/seller')
 const Stock = require('../modals/StoreStock')
 const admin = require("../firebase/firebase");
-const jwt = require('jsonwebtoken');
 const request = require('request');
 const Products = require('../modals/Product');
 const OtpModel = require("../modals/otp")

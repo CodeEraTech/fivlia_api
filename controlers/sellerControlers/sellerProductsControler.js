@@ -1,4 +1,4 @@
-const Products = require('../../modals/sellerModals/sellerProduct')
+const Products = require('../../modals/StoreStock')
 const Store = require('../../modals/store')
 const mongoose = require('mongoose');
 const axios = require('axios');
@@ -6,85 +6,73 @@ const Product = require('../../modals/Product');
 const Category = require('../../modals/category');
 const Stock = require('../../modals/StoreStock')
 
-exports.addSellerProduct = async (req, res) => {
-  try {
-    const { id } = req.params
-    const { name, price, stock, approvalStatus, category, status } = req.body
-    const image = `${req.files.image?.[0].key}`
-    const newProduct = await Products.create({ image, name, price, stock, approvalStatus, category, status, sellerId: id })
-    return res.status(200).json({ message: "Product request send to admin", newProduct })
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ ResponseMsg: "An Error Occured" });
-  }
-}
+// exports.addSellerProduct = async (req, res) => {
+//   try {
+//     const { id } = req.params
+//     const { name, price, stock, approvalStatus, category, status } = req.body
+//     const image = `${req.files.image?.[0].key}`
+//     const newProduct = await Products.create({ image, name, price, stock, approvalStatus, category, status, sellerId: id })
+//     return res.status(200).json({ message: "Product request send to admin", newProduct })
+//   } catch (error) {
+//     console.error(error);
+//     return res.status(500).json({ ResponseMsg: "An Error Occured" });
+//   }
+// }
 
-exports.editSellerProduct = async (req, res) => {
-  try {
-    const { id } = req.params
-    const { name, price, stock, rating, approvalStatus, category, status } = req.body
+// exports.editSellerProduct = async (req, res) => {
+//   try {
+//     const { id } = req.params
+//     const { name, price, stock, rating, approvalStatus, category, status } = req.body
 
-    const updateData = { name, price, stock, rating, approvalStatus, category, status };
+//     const updateData = { name, price, stock, rating, approvalStatus, category, status };
 
-    // Add image only if provided
-    if (req.files?.image?.[0]?.key) {
-      updateData.image = req.files.image[0].key;
-    }
+//     // Add image only if provided
+//     if (req.files?.image?.[0]?.key) {
+//       updateData.image = req.files.image[0].key;
+//     }
 
-    const editProduct = await Products.findByIdAndUpdate(id, updateData)
-    return res.status(200).json({ message: "Product Updated", editProduct })
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ ResponseMsg: "An Error Occured" });
-  }
-}
+//     const editProduct = await Products.findByIdAndUpdate(id, updateData)
+//     return res.status(200).json({ message: "Product Updated", editProduct })
+//   } catch (error) {
+//     console.error(error);
+//     return res.status(500).json({ ResponseMsg: "An Error Occured" });
+//   }
+// }
 
-exports.deleteSellerProduct = async (req, res) => {
-  try {
-    const { id } = req.params
+// exports.updateSellerStock = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const { productId, stock, sell_price, mrp } = req.body;
 
-    const deleteProduct = await Products.findByIdAndDelete(id)
-    return res.status(200).json({ message: "Product Deleted", deleteProduct })
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ ResponseMsg: "An Error Occured" });
-  }
-}
+//     if (!id || !productId) {
+//       return res.status(400).json({ message: "Invalid request" });
+//     }
 
-exports.updateSellerStock = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { productId, stock, sell_price, mrp } = req.body;
+//     // Convert to numbers (since frontend sends them as strings)
+//     const updateData = {};
+//     if (stock !== undefined) updateData.stock = Number(stock);
+//     if (sell_price !== undefined) updateData.sell_price = Number(sell_price);
+//     if (mrp !== undefined) updateData.mrp = Number(mrp);
 
-    if (!id || !productId) {
-      return res.status(400).json({ message: "Invalid request" });
-    }
+//     // find and update product for this seller
+//     const updated = await Products.findOneAndUpdate(
+//       { product_id: productId, sellerId: id },
+//       { $set: updateData },
+//       { new: true }
+//     );
 
-    // Convert to numbers (since frontend sends them as strings)
-    const updateData = {};
-    if (stock !== undefined) updateData.stock = Number(stock);
-    if (sell_price !== undefined) updateData.sell_price = Number(sell_price);
-    if (mrp !== undefined) updateData.mrp = Number(mrp);
+//     if (!updated) {
+//       return res.status(404).json({ message: "Product not found" });
+//     }
 
-    // find and update product for this seller
-    const updated = await Products.findOneAndUpdate(
-      { product_id: productId, sellerId: id },
-      { $set: updateData },
-      { new: true }
-    );
-
-    if (!updated) {
-      return res.status(404).json({ message: "Product not found" });
-    }
-
-    return res.status(200).json({
-      message: "Product updated successfully",
-    });
-  } catch (err) {
-    // console.error("Error updating product:", err);
-    return res.status(500).json({ message: "Server error" });
-  }
-}
+//     return res.status(200).json({
+//       message: "Product updated successfully",
+//     });
+//   } catch (err) {
+//     console.error("Error updating product:", err);
+//     return res.status(500).json({ message: "Server error" });
+//   }
+// }
 
 exports.addCategoryInSeller = async (req, res) => {
   try {
@@ -188,29 +176,41 @@ exports.addCategoryInSeller = async (req, res) => {
     await store.save();
 
     // ✅ Handle Products (update if exists, else add new)
-    const existingProducts = await Products.find(
-      { sellerId: id },
-      { product_id: 1 }
-    ).lean();
-    const existingProductIds = existingProducts.map((p) =>
-      p.product_id.toString()
-    );
+   let storeStock = await Products.findOne({ storeId: id });
+    if (!storeStock) {
+      storeStock = await Products.create({ storeId: id, stock: [] });
+    }
+
+    if (!Array.isArray(storeStock.stock)) {
+    storeStock.stock = [];
+    }
 
     for (const productId of sellerProducts) {
       const pid = productId.$oid || productId;
       if (!mongoose.isValidObjectId(pid)) continue;
+      
+      const adminProduct = await Product.findById(pid).lean();
+      if (!adminProduct) continue;
 
-      if (!existingProductIds.includes(pid.toString())) {
-        await Products.create({
-          sellerId: id,
-          product_id: new mongoose.Types.ObjectId(pid),
-          sell_price: 0,
-          mrp: 0,
-          stock: 0,
-        });
+      for (const variant of adminProduct.variants) {
+        const exists = storeStock.stock.find(
+          (s) =>
+            s.productId.toString() === pid.toString() &&
+            s.variantId.toString() === variant._id.toString()
+        );
+
+      if (!exists) {
+      storeStock.stock.push({
+            productId: pid,
+            variantId: variant._id,
+            quantity: 0,
+            price: variant.sell_price || 0,
+            mrp: variant.mrp || 0,
+          });
       }
     }
-
+  }
+await storeStock.save();
     return res.status(200).json({
       message: "Seller categories and products updated successfully",
     });
@@ -219,6 +219,19 @@ exports.addCategoryInSeller = async (req, res) => {
     return res.status(500).json({ message: "Internal Server Error" });
   }
 };
+
+exports.deleteSellerProduct = async (req, res) => {
+  try {
+    const { id } = req.params
+
+    const deleteProduct = await Products.findByIdAndDelete(id)
+    return res.status(200).json({ message: "Product Deleted", deleteProduct })
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ ResponseMsg: "An Error Occured" });
+  }
+}
+
 
 exports.getDetailsGst = async (req, res) => {
   try {
@@ -373,7 +386,7 @@ exports.getSellerProducts = async (req, res) => {
       return res.status(400).json({ success: false, message: "Missing sellerId" });
     }
 
-    const filter = { sellerId };
+    const filter = { storeId:sellerId };
 
     let productMatch = {};
     if (search) {
@@ -392,37 +405,30 @@ exports.getSellerProducts = async (req, res) => {
     // 🔁 Build a quick lookup map
     const stockMap = {};
     for (const item of stockEntries) {
-      const key = `${item.productId}_${item.variantId}`;
+      const key = `${item.productId.toString()}_${item.variantId.toString()}`;
       stockMap[key] = item.quantity;
     }
     // Count total seller products
     const total = await Products.countDocuments(filter);
-    console.log('stockData',stockData)
-    console.log('stockEntries',stockEntries)
-console.log('stockMap',stockMap)
-    // Fetch paginated seller products and populate from Product
-    const sellerProducts = await Products.find(filter)
-      .skip(skip)
-      .limit(parseInt(limit))
-      .populate({
-        path: "product_id",
-        model: "Product",
-        match: productMatch,
-        select: "productName mrp sell_price productThumbnailUrl category subCategory subSubCategory variants sku",
-        populate: [
-          {
-            path: "category",
-            model: "Category"
-          }
-        ]
-      })
-      .lean();
+
+     // remove nulls
+  
+
+    const productIds = stockEntries.map(s => s.productId).filter(Boolean).map(id => new mongoose.Types.ObjectId(id));
+    
+    const sellerProducts = await Product.find({
+  _id: { $in: productIds },
+  ...productMatch, // your search filter
+})  .skip(skip)
+    .limit(parseInt(limit))
+    .select("productName mrp sell_price productThumbnailUrl category subCategory subSubCategory variants sku")
+    .populate({ path: "category", model: "Category" })
+    .lean();
 
     const products = await Promise.all(
       sellerProducts
-        .filter(sp => sp.product_id)
         .map(async sp => {
-          const prod = sp.product_id;
+          const prod = sp;
 
           const subCategoryId = prod.subCategory?.[0]?._id?.toString();
           const subSubCategoryId = prod.subSubCategory?.[0]?._id?.toString();
@@ -452,16 +458,15 @@ console.log('stockMap',stockMap)
             }
           }
 const variantsWithStock = (prod.variants || []).map(variant => {
-            const key = `${sp._id}_${variant._id}`;
+            const key = `${prod._id.toString()}_${variant._id.toString()}`
               const stockEntry = stockMap[key] ? stockEntries.find(
     s => s.productId.toString() === prod._id.toString() &&
          s.variantId.toString() === variant._id.toString()
   ) : null;
   
-  console.log('stockMap[key]',stockMap[key])
             return {
               ...variant,
-              stock: stockMap[key] || 0,
+              stock: stockMap[key] ?? 0,
               mrp: stockEntry?.mrp || variant.mrp,
               sell_price: stockEntry?.price || variant.sell_price
             };
@@ -623,3 +628,67 @@ exports.getExistingProductList = async (req, res) => {
     return res.status(500).json({ success: false, message: "Internal server error" });
   }
 }
+
+exports.removeCategory = async (req,res) => {
+  try{
+    const { storeId,categoryId } = req.body;
+    const result = await Store.findByIdAndUpdate(
+      storeId,
+      {
+        $pull: {
+          sellerCategories: { categoryId: categoryId },
+        },
+      },
+      { new: true }
+    );
+
+    const stockDoc = await Stock.findOne({ storeId });
+
+    const productsInCategory = await Product.find({ "category._id": categoryId }).select("_id");
+    const productIdsToRemove = productsInCategory.map((p) => p._id.toString());
+
+    // 4️⃣ Filter stock array (remove all products in that category)
+    const filteredStock = stockDoc.stock.filter(
+      (item) => !productIdsToRemove.includes(item.productId.toString())
+    );
+
+    // 5️⃣ Save updated stock
+    stockDoc.stock = filteredStock;
+
+    const updatedStock = await stockDoc.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Categories removed successfully",
+      store: result,
+    });
+  }catch(error){
+    console.error("Search product error:", error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+}
+
+exports.removeProduct = async (req,res) => {
+  try{
+    const { storeId,productId } = req.body;
+    const result = await Stock.findOneAndUpdate(
+      {storeId:storeId},
+      {
+        $pull: {
+          stock: { productId: productId },
+        },
+      },
+      { new: true }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Product removed successfully",
+      store: result,
+    });
+  }catch(error){
+    console.error("Search product error:", error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+}
+

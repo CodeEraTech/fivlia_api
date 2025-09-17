@@ -26,6 +26,15 @@ const storeScheema = new mongoose.Schema({
     phoneNumberVerified: { type: Boolean, default: false },
     approveStatus: { type: String, enum: ['pending_verification', 'pending_admin_approval', 'approved', 'rejected'], default: 'pending_verification' },
     verificationToken: String,
+    pendingAddressUpdate: {
+    city: { _id: { type: mongoose.Schema.ObjectId, ref: 'Locations' }, name: String },
+    zone: [{ _id: { type: mongoose.Schema.ObjectId, ref: 'Locations' }, name: String, title: String, latitude: Number, longitude: Number, range: Number }],
+    Latitude:String,
+    Longitude:String,
+    requestedAt: { type: Date, default: Date.now },
+    status: { type: String, enum: ['pending', 'approved', 'rejected'] },
+  },
+    bankDetails:{bankName:String,accountHolder:String,accountNumber:Number,ifsc:String,branch:String},
     sellerCategories: [
         {
             categoryId: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' },

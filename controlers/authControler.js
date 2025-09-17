@@ -123,7 +123,7 @@ const authSettings = setting?.Auth?.[0] || {};
           return res.status(500).json({ message: 'Failed to send OTP via WhatsApp' });
         }
         await OtpModel.create({ mobileNumber, otp, expiresAt: Date.now() + 5 * 60 * 1000 });
-        return res.status(200).json({ message: 'OTP sent via WhatsApp', otp });
+        return res.status(200).json({ message: 'OTP sent via WhatsApp' });
       });
       return;
     } 

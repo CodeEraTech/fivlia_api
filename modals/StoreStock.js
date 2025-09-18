@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const StoreStockSchema = new mongoose.Schema({
  storeId:{type:mongoose.Schema.ObjectId,ref:'stores'},
- stock:[{productId:{type:mongoose.Schema.ObjectId,ref:'products'},variantId:{type:mongoose.Schema.ObjectId},quantity:Number,price:Number,mrp:Number}]
+ stock:[{productId:{type:mongoose.Schema.ObjectId,ref:'products'},variantId:{type:mongoose.Schema.ObjectId},quantity:Number,price:Number,mrp:Number,status:{type:Boolean,default:false}}]
 });
 
 module.exports = mongoose.model('Stock', StoreStockSchema);

@@ -105,11 +105,6 @@ async function getStoresWithinRadius(userLat, userLng) {
     store.zone.some(z => matchedZoneIds.includes(z._id.toString()))
   ) .map(store => ({
       ...store,
-      soldBy: {
-        storeId: store._id,
-        storeName: store.Authorized_Store ? "Fivlia" : store.storeName,
-        official:store.Authorized_Store ? 1 : 0
-      }
     }));
   
   return { zoneAvailable: true, matchedStores };

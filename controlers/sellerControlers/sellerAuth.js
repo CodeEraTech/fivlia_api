@@ -132,11 +132,15 @@ exports.sendOtp = async (req,res) => {
 
 exports.getSellerRequest = async (req,res) => {
     try{
-    const requests = await seller.find({approveStatus:"pending_admin_approval"})
-    const locationRequests = await seller.find({ "pendingAddressUpdate.status": "pending" });
-    const productRequest = await Products.find({sellerProductStatus:"pending_admin_approval"}) 
-    const BrandRequest = await Products.find({sellerProductStatus:"request_brand_approval"}) 
-    return res.status(200).json({message:"Seller Approval Requests",requests,locationRequests,productRequest,BrandRequest})
+
+    const [requests, locationRequests, productRequest, brandRequest] = await Promise.all([
+      seller.find({ approveStatus: "pending_admin_approval" }),
+      seller.find({ "pendingAddressUpdate.status": "pending" }),
+      Products.find({ sellerProductStatus: "pending_admin_approval" }),
+      Products.find({ sellerProductStatus: "submit_brand_approval" }),
+    ]);
+
+    return res.status(200).json({message:"Seller Approval Requests",requests,locationRequests,productRequest,brandRequest})
     }catch(error){
     console.error(error);
     return res.status(500).json({ResponseMsg: "An Error Occured"});
@@ -259,8 +263,52 @@ const skip = (page-1)*limit
 
 exports.acceptDeclineRequest = async(req,res)=>{
     try{
-     const {approval,id} = req.body
-     const application = await seller.findByIdAndUpdate(id,{approveStatus:approval})
+     const {approval,id,productId,isLocation,description} = req.body
+
+     if(productId){
+      const productApplication = await Products.findByIdAndUpdate(productId,{sellerProductStatus:approval,brandApprovelDescription:description || ""},{ new: true }) 
+     return res.status(200).json({message:`Product application ${approval}`,productApplication})
+     }
+
+     if (isLocation) {
+      let updatedData;
+      if (approval === "approved") {
+      const sellerDoc = await seller.findById(id);
+       await seller.findByIdAndUpdate(
+      id,
+      {
+        $set: {
+          city: sellerDoc.pendingAddressUpdate.city,
+          zone: sellerDoc.pendingAddressUpdate.zone,
+          location: sellerDoc.pendingAddressUpdate.location,
+        },
+      }
+    );
+
+    // ✅ Step 2: Remove pendingAddressUpdate completely
+    updatedData = await seller.findByIdAndUpdate(
+      id,
+      { $unset: { pendingAddressUpdate: "" } },
+      { new: true }
+    );
+      }else {
+        // Rejected: just set status to rejected (do not delete data, maybe admin wants to recheck later)
+        updatedData = await seller.findByIdAndUpdate(
+          id,
+          { "pendingAddressUpdate.status": "rejected" },
+          { new: true }
+        );
+      }
+
+      return res.status(200).json({
+        success: true,
+        type: "location",
+        message: `Location update ${approval}`,
+        data: updatedData,
+      });
+    }
+
+     const application = await seller.findByIdAndUpdate(id,{approveStatus:approval},{ new: true })
 
      return res.status(200).json({message:`Seller application ${approval}`,application})
 
@@ -398,6 +446,9 @@ exports.editSellerProfile = async (req, res) => {
     if (ownerName) updateFields.ownerName = ownerName;
     if (email) updateFields.email = email;
     if (req.files?.image?.[0]) {updateFields.image = `/${req.files.image?.[0].key}`;}
+    if (req.files?.MultipleImage?.length > 0) {
+    updateFields.advertisementImages = req.files.MultipleImage.map((file) => `/${file.key}`);
+    }
     if (PhoneNumber) updateFields.PhoneNumber = PhoneNumber;
     if (gstNumber) updateFields.gstNumber = gstNumber;
     if (fsiNumber) updateFields.fsiNumber = fsiNumber;

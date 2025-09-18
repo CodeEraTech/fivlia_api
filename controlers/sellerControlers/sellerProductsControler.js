@@ -485,6 +485,9 @@ exports.getSellerProducts = async (req, res) => {
             }
           }
         }
+         const firstStockEntry = stockEntries.find(
+      (s) => s.productId.toString() === prod._id.toString()
+    );
         const variantsWithStock = (prod.variants || []).map((variant) => {
           const key = `${prod._id.toString()}_${variant._id.toString()}`;
           const stockEntry = stockMap[key]
@@ -500,6 +503,7 @@ exports.getSellerProducts = async (req, res) => {
             stock: stockMap[key] ?? 0,
             mrp: stockEntry?.mrp || variant.mrp,
             sell_price: stockEntry?.price || variant.sell_price,
+            status: stockEntry?.status ?? false,
           };
         });
         return {
@@ -511,7 +515,7 @@ exports.getSellerProducts = async (req, res) => {
           mrp: sp.mrp == 0 ? prod.mrp : sp.mrp,
           sell_price: sp.sell_price == 0 ? prod.sell_price : sp.sell_price,
           variants: variantsWithStock,
-          status: sp.status ?? false,
+          status: firstStockEntry?.status ?? false,
           commission,
         };
       })
@@ -541,11 +545,11 @@ exports.updateSellerProducStatus = async (req, res) => {
 
     // find and update product for this seller
     const updated = await Products.findOneAndUpdate(
-      { product_id: productId, sellerId: id },
-      { $set: { status: status } },
+      { "stock.productId": productId, storeId: id },
+      { $set: { "stock.$.status": status } },
       { new: true }
     );
-
+console.log('updated',updated)
     if (!updated) {
       return res.status(404).json({ message: "Product not found" });
     }

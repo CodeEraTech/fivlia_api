@@ -37,7 +37,7 @@ console.log(store)
  await OtpModel.create({email, mobileNumber:PhoneNumber, otp, expiresAt: Date.now() + 30 * 60 * 1000 });
     if(email){
         await sendVerificationEmail(email,"Welcome to Fivlia verify otp for login",otpTemplate(otp));
-        return res.status(200).json({ message: 'OTP sent via to Email', otp });
+        return res.status(200).json({ message: 'OTP sent via to Email' });
     }
 
     if(PhoneNumber){

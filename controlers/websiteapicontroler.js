@@ -1214,7 +1214,6 @@ exports.getAllSellerProducts = async (req, res) => {
 
         return {
           ...prod,
-          category: categoryName,
           variants: variantsWithStock,
           inventory: inventoryWithStock,
           status: productStockEntries.some((s) => s.status) ?? false,

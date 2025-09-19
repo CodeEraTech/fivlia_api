@@ -7,6 +7,7 @@ const cartSchema = new mongoose.Schema({
    name:String,
    quantity:Number,
    productId:{type:mongoose.Schema.ObjectId,ref:'products'},
+   storeId:{type:mongoose.Schema.ObjectId,ref:'stores'},
    varientId:{type:mongoose.Schema.ObjectId},
    userId:{type:mongoose.Schema.ObjectId,ref:'Login'},
    paymentOption:{type:Boolean}

@@ -1,28 +1,46 @@
-const {Cart,Discount} = require('../modals/cart');
-const { ZoneData } = require('../modals/cityZone');
-const Address = require('../modals/Address')
-const Store = require('../modals/store')
-const User = require('../modals/User')
-const stock = require('../modals/StoreStock')
+const { Cart, Discount } = require("../modals/cart");
+const { ZoneData } = require("../modals/cityZone");
+const Address = require("../modals/Address");
+const Store = require("../modals/store");
+const User = require("../modals/User");
+const stock = require("../modals/StoreStock");
 const haversine = require("haversine-distance");
 
 exports.addCart = async (req, res) => {
   try {
-    const userId = req.user; 
-    const { name, quantity, price,mrp, productId, varientId,image } = req.body;
-    const user = await User.findOne(userId).lean()
+    const userId = req.user;
+    const {
+      name,
+      quantity,
+      price,
+      mrp,
+      productId,
+      storeId,
+      varientId,
+      image,
+      clearCart,
+    } = req.body;
+
+    if (clearCart === "true") {
+      await Cart.deleteMany({ userId });
+    }
+    const user = await User.findOne(userId).lean();
     const userLat = parseFloat(user?.location?.latitude);
     const userLng = parseFloat(user?.location?.longitude);
-console.log(image)
+
+    // Check if user location is available
     if (!userLat || !userLng) {
       return res.status(400).json({ message: "User location not available." });
     }
 
-    // ✅ Fetch all active zones
+    // Fetch all active zones
     const zoneDocs = await ZoneData.find({});
-    const activeZones = zoneDocs.flatMap(doc => doc.zones.filter(z => z.status === true));
+    const activeZones = zoneDocs.flatMap((doc) =>
+      doc.zones.filter((z) => z.status === true)
+    );
 
-    const matchedZone = activeZones.find(zone => {
+    // Match the zone based on user's location
+    const matchedZone = activeZones.find((zone) => {
       if (!zone.latitude || !zone.longitude || !zone.range) return false;
       const distance = haversine(
         { lat: userLat, lon: userLng },
@@ -32,19 +50,39 @@ console.log(image)
     });
 
     if (!matchedZone) {
-      return res.status(400).json({ message: "No active zone found for your location." });
+      return res
+        .status(400)
+        .json({ message: "No active zone found for your location." });
     }
 
-const paymentOption = matchedZone.cashOnDelivery === true;
-const checkCart = await Cart.findOne({ productId: productId, userId: req.user })
+    const paymentOption = matchedZone.cashOnDelivery === true;
 
-if (checkCart) {
-  await Cart.deleteOne({ _id: checkCart._id });
-  console.log("🗑️ Product removed from cart");
-} else {
-  console.log("⚠️ Product not found in cart");
-}
+    // Check if the cart already has products from a different store
+    const cartItems = await Cart.find({ userId: req.user }).lean();
 
+    if (cartItems.length > 0) {
+      // If cart is not empty, check if any item belongs to a different store
+      const cartStoreId = cartItems[0].storeId || null;
+      // If the storeId of the item trying to be added doesn't match the current storeId in cart
+      if (cartStoreId.toString() !== storeId) {
+        return res.status(200).json({
+          message: `You can only add products from one store at a time.`,
+          errorType: "multiple_stores_in_cart",
+        });
+      }
+    }
+
+    // Check if the product is already in the cart, if yes, remove it
+    const checkCart = await Cart.findOne({
+      productId: productId,
+      userId: req.user,
+    });
+
+    if (checkCart) {
+      await Cart.deleteOne({ _id: checkCart._id });
+    }
+
+    // Create the new cart item
     const cartItem = await Cart.create({
       image,
       name,
@@ -54,16 +92,20 @@ if (checkCart) {
       productId,
       varientId,
       userId,
-      paymentOption
+      storeId,
+      paymentOption,
     });
 
-    return res.status(200).json({ message: 'Item Added To Database', item: cartItem });
+    return res
+      .status(200)
+      .json({ message: "Item Added To Cart", item: cartItem });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: 'An error occurred!', error: error.message });
+    return res
+      .status(500)
+      .json({ message: "An error occurred!", error: error.message });
   }
 };
-
 
 exports.getCart = async (req, res) => {
   try {
@@ -76,10 +118,14 @@ exports.getCart = async (req, res) => {
     ]);
 
     if (!user) {
-      return res.status(404).json({ status: false, message: "User not found." });
+      return res
+        .status(404)
+        .json({ status: false, message: "User not found." });
     }
 
-    let userLat, userLng, usedFallback = false;
+    let userLat,
+      userLng,
+      usedFallback = false;
 
     if (address?.latitude && address?.longitude) {
       userLat = parseFloat(address.latitude);
@@ -91,7 +137,8 @@ exports.getCart = async (req, res) => {
     } else {
       return res.status(200).json({
         status: false,
-        message: "Please select a default address or set your location properly.",
+        message:
+          "Please select a default address or set your location properly.",
         items,
       });
     }
@@ -101,7 +148,13 @@ exports.getCart = async (req, res) => {
 
     for (const city of allCities) {
       for (const zone of city.zones) {
-        if (!zone?.latitude || !zone?.longitude || !zone?.range || zone.status !== true) continue;
+        if (
+          !zone?.latitude ||
+          !zone?.longitude ||
+          !zone?.range ||
+          zone.status !== true
+        )
+          continue;
         const distance = haversine(
           { lat: userLat, lon: userLng },
           { lat: zone.latitude, lon: zone.longitude }
@@ -114,11 +167,12 @@ exports.getCart = async (req, res) => {
       }
       if (matchedZone) break;
     }
-const paymentOption = matchedZone.cashOnDelivery === true;
+    const paymentOption = matchedZone.cashOnDelivery === true;
     if (!matchedZone) {
       return res.status(200).json({
         status: false,
-        message: "No service available in your zone please change your address.",
+        message:
+          "No service available in your zone please change your address.",
         items,
       });
     }
@@ -183,7 +237,6 @@ const paymentOption = matchedZone.cashOnDelivery === true;
       paymentOption,
       StoreID: store._id,
     });
-
   } catch (error) {
     console.error("❌ Error in getCart:", error);
     return res.status(500).json({
@@ -194,48 +247,59 @@ const paymentOption = matchedZone.cashOnDelivery === true;
   }
 };
 
-
-exports.discount=async (req,res) => {
+exports.discount = async (req, res) => {
   try {
- const{description,value,head}=req.body
-  const newDiscount=await Discount.create({description,value,head})
-   return res.status(200).json({ message: 'New Discount:', newDiscount });
+    const { description, value, head } = req.body;
+    const newDiscount = await Discount.create({ description, value, head });
+    return res.status(200).json({ message: "New Discount:", newDiscount });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "An error occured!", error: error.message });
+    return res
+      .status(500)
+      .json({ message: "An error occured!", error: error.message });
   }
-}
-exports.getDicount=async (req,res) => {
+};
+exports.getDicount = async (req, res) => {
   try {
-  const discount = await Discount.find()
-  return res.status(200).json({ message: 'New Discounts:', discount });
+    const discount = await Discount.find();
+    return res.status(200).json({ message: "New Discounts:", discount });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "An error occured!", error: error.message });
+    return res
+      .status(500)
+      .json({ message: "An error occured!", error: error.message });
   }
-}
-exports.quantity=async (req,res) => {
-    try {
-    const{id}=req.params
-    const {quantity}=req.body
+};
+exports.quantity = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { quantity } = req.body;
 
-const updated_cart=await Cart.findByIdAndUpdate(  id,{ quantity },{ new: true })
+    const updated_cart = await Cart.findByIdAndUpdate(
+      id,
+      { quantity },
+      { new: true }
+    );
 
-  return res.status(200).json({ message: 'New Quantity:', updated_cart });
-} catch (error) {
+    return res.status(200).json({ message: "New Quantity:", updated_cart });
+  } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "An error occured!", error: error.message });   
-    }
-}
+    return res
+      .status(500)
+      .json({ message: "An error occured!", error: error.message });
+  }
+};
 
-exports.deleteCart=async (req,res) => {
-    try {
-    const{id}=req.params
-    const cart = await Cart.findByIdAndDelete(id)
+exports.deleteCart = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const cart = await Cart.findByIdAndDelete(id);
 
-    return res.status(200).json({ message: 'Cart Item Removed:', cart });
-    } catch (error) {
+    return res.status(200).json({ message: "Cart Item Removed:", cart });
+  } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "An error occured!", error: error.message });   
-    }
-}
+    return res
+      .status(500)
+      .json({ message: "An error occured!", error: error.message });
+  }
+};

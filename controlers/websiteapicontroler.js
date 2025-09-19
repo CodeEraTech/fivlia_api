@@ -8,6 +8,7 @@ const {
 } = require("../config/google");
 const { addFiveMinutes } = require("../controlers/DeliveryControler");
 const User = require("../modals/User");
+const mongoose = require("mongoose");
 const Category = require("../modals/category");
 const contactUs = require("../modals/contactUs");
 const { CityData, ZoneData } = require("../modals/cityZone");
@@ -1142,18 +1143,16 @@ exports.contactUs = async (req, res) => {
 };
 
 exports.getAllSellerProducts = async (req, res) => {
-  const { id } = req.query;
-
+  const { id, page, limit} = req.query;
+  const skip = (page - 1) * limit;
   try {
     // 1. Fetch Stock data for the seller using sellerId
-    const stockData = await Stock.find({ storeId: id }).populate({
-      path: "stock.productId",
-      model: "Product",
-    });
+    const stockData = await Stock.find({ storeId: id }).lean();
 
     const seller = await Store.findOne({ _id: id }).select(
-      "storeName sellerCategories"
+      "storeName sellerCategories advertisementImages"
     );
+    const stockEntries = stockData.flatMap((doc) => doc.stock || []);
 
     if (!stockData || stockData.length === 0) {
       return res
@@ -1161,28 +1160,82 @@ exports.getAllSellerProducts = async (req, res) => {
         .json({ message: "No stock data found for this seller." });
     }
 
-    // 2. Collect all product IDs from the stock data
-    const productIds = stockData.flatMap((item) =>
-      item.stock.map((stockItem) => stockItem.productId)
-    );
+    let productIds = stockEntries.map((s) => s.productId).filter(Boolean);
+   if (productIds.length === 0) {
+      return res.status(404).json({ success: false, message: "No products found for this seller" });
+    }
 
-    // 3. Fetch products corresponding to the productIds
-    const products = await Products.find({ _id: { $in: productIds } }).populate(
-      [
+    const productFilter = { _id: { $in: productIds } };
+
+    const total = await Products.countDocuments(productFilter);
+
+    const sellerProducts = await Products.find(productFilter)
+      .skip(skip)
+      .limit(parseInt(limit))
+      .populate([
         { path: "category", select: "name" },
         { path: "brand_Name", select: "name" },
         { path: "unit", select: "name" },
-      ]
-    );
+      ]).lean()
 
+        const productsWithStock = await Promise.all(
+        sellerProducts.map(async (prod) => {
+        // Find all stock entries for this product
+        const productStockEntries = stockEntries.filter(
+          (s) => s.productId?.toString() === prod._id.toString()
+        );
+
+        // Prepare variants with stock
+        const variantsWithStock = (prod.variants || []).map((variant) => {
+          const stockEntry = productStockEntries.find(
+            (s) => s.variantId?.toString() === variant._id.toString()
+          );
+          return {
+            ...variant,
+            stock: stockEntry?.quantity ?? 0,
+            mrp: stockEntry?.mrp ?? variant.mrp,
+            sell_price: stockEntry?.price ?? variant.sell_price,
+            status: stockEntry?.status ?? false,
+          };
+        });
+
+        const inventoryWithStock = (prod.inventory || []).map((inv) => {
+        const stockEntry = productStockEntries.find(
+          (s) => s.variantId?.toString() === inv.variantId?.toString()
+        );
+        return {
+          ...inv,
+          quantity: stockEntry?.quantity ?? 0, // overwrite with live stock quantity
+        };
+      });
+
+        // Determine category name + commission if needed
+        const categoryName = prod.category?.name ?? "Uncategorized";
+
+        return {
+          ...prod,
+          category: categoryName,
+          variants: variantsWithStock,
+          inventory: inventoryWithStock,
+          status: productStockEntries.some((s) => s.status) ?? false,
+        };
+      })
+    );
     // get and set all categories
-    const categoryIds = seller.sellerCategories.map((c) => c.categoryId);
-    const categories = await Category.find({
-      _id: { $in: categoryIds },
-    }).lean();
+   const categoryIds = seller.sellerCategories.map((c) => c.categoryId);
+    const categories = await Category.find({ _id: { $in: categoryIds } }).lean();
+
     return res
       .status(200)
-      .json({ seller: seller, categories: categories, products: products });
+      .json({
+      sellerImage: seller.advertisementImages?.length? seller.advertisementImages: ["/MultipleImage/1758278596489-MultipleImage.jpg"],
+      seller:seller,
+      categories:categories,
+      products: productsWithStock,
+      total,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      totalPages: Math.ceil(total / limit), });
   } catch (error) {
     console.error("Error fetching seller products:", error);
     return res.status(500).json({ message: "Internal server error" });

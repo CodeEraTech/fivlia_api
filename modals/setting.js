@@ -25,7 +25,8 @@ Map_Api:[{google:{api_key:String,status:Boolean},apple:{api_key:String,status:Bo
 minPrice:Number,
 maxPrice:Number,
 minWithdrawal:Number,
-imageLink:String
+imageLink:String,
+freeDeliveryLimit:Number
 });
 
 module.exports ={

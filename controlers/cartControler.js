@@ -111,10 +111,10 @@ exports.getCart = async (req, res) => {
   try {
     const { id } = req.user;
 
-    const [items, user, address] = await Promise.all([
+    // Fetch cart items and user data
+    const [items, user] = await Promise.all([
       Cart.find({ userId: id }),
       User.findById(id),
-      Address.findOne({ userId: id, default: true }),
     ]);
 
     if (!user) {
@@ -123,86 +123,30 @@ exports.getCart = async (req, res) => {
         .json({ status: false, message: "User not found." });
     }
 
-    let userLat,
-      userLng,
-      usedFallback = false;
+    // Get the store ID from the first cart item
+    const storeId = items[0]?.storeId;
 
-    if (address?.latitude && address?.longitude) {
-      userLat = parseFloat(address.latitude);
-      userLng = parseFloat(address.longitude);
-    } else if (user?.location?.latitude && user?.location?.longitude) {
-      userLat = parseFloat(user.location.latitude);
-      userLng = parseFloat(user.location.longitude);
-      usedFallback = true;
-    } else {
+    // Fetch stock data for the store
+    const stockDoc = await stock.findOne({ storeId });
+    if (!stockDoc) {
       return res.status(200).json({
         status: false,
-        message:
-          "Please select a default address or set your location properly.",
+        message: "No stock data found for the store.",
         items,
       });
     }
 
-    const allCities = await ZoneData.find({});
-    let matchedZone = null;
-
-    for (const city of allCities) {
-      for (const zone of city.zones) {
-        if (
-          !zone?.latitude ||
-          !zone?.longitude ||
-          !zone?.range ||
-          zone.status !== true
-        )
-          continue;
-        const distance = haversine(
-          { lat: userLat, lon: userLng },
-          { lat: zone.latitude, lon: zone.longitude }
-        );
-
-        if (distance <= zone.range) {
-          matchedZone = zone;
-          break;
-        }
-      }
-      if (matchedZone) break;
-    }
-    const paymentOption = matchedZone.cashOnDelivery === true;
-    if (!matchedZone) {
-      return res.status(200).json({
-        status: false,
-        message:
-          "No service available in your zone please change your address.",
-        items,
-      });
-    }
-
-    const store = await Store.findOne({
-      status: true,
-      zone: { $elemMatch: { _id: matchedZone._id } },
-    });
-
-    if (!store) {
-      return res.status(200).json({
-        status: false,
-        message: "No store found for your location please change your address.",
-        items,
-      });
-    }
-
-    const stockDoc = await stock.findOne({ storeId: store._id });
+    // Map stock data for quick lookup
     const stockMap = new Map();
-    stockDoc?.stock?.forEach((s) => {
-      stockMap.set(`${s.productId}_${s.variantId}`, s.quantity);
+    stockDoc.stock.forEach((s) => {
+      const key = `${s.productId.toString()}_${s.variantId.toString()}`;
+      stockMap.set(key, s.quantity);
     });
 
-    let anyUnavailable = false;
-
+    // Add stock information to each cart item
     const updatedItems = items.map((cartItem) => {
       const key = `${cartItem.productId}_${cartItem.varientId}`;
       const availableQty = stockMap.get(key) || 0;
-
-      if (availableQty < cartItem.quantity) anyUnavailable = true;
 
       return {
         ...cartItem.toObject(),
@@ -210,38 +154,18 @@ exports.getCart = async (req, res) => {
       };
     });
 
-    if (anyUnavailable) {
-      return res.status(200).json({
-        status: false,
-        message: "Some items are out of stock or quantity is insufficient.",
-        items: updatedItems,
-        paymentOption,
-        StoreID: store._id,
-      });
-    }
-
-    if (usedFallback) {
-      return res.status(200).json({
-        status: false,
-        message: "Please select a default address to proceed with checkout.",
-        items: updatedItems,
-        paymentOption,
-        StoreID: store._id,
-      });
-    }
-
     return res.status(200).json({
       status: true,
-      message: "Cart items are available.",
+      message: "Cart items fetched successfully.",
       items: updatedItems,
-      paymentOption,
-      StoreID: store._id,
+      paymentOption: false,
+      StoreID: storeId,
     });
   } catch (error) {
-    console.error("❌ Error in getCart:", error);
+    //console.error("❌ Error in getCart:", error);
     return res.status(500).json({
       status: false,
-      message: "An error occurred!",
+      message: "An error occurred while fetching cart items.",
       error: error.message,
     });
   }

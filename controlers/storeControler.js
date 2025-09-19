@@ -23,7 +23,6 @@ exports.storeLogin = async (req, res) => {
        const store = await Store.findOne({ $or: [{ email },{ PhoneNumber }]});
        const setting = await SettingAdmin.findOne()
        const authSettings = setting?.Auth?.[0] || {};
-console.log(store)
     if (!store) {
       return res.status(404).json({ message: "Store not found" });
     }

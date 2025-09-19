@@ -424,13 +424,6 @@ exports.getSellerProducts = async (req, res) => {
 
     const stockData = await Stock.findOne({ storeId: sellerId }).lean();
     const stockEntries = stockData?.stock || [];
-
-    // 🔁 Build a quick lookup map
-    const stockMap = {};
-    for (const item of stockEntries) {
-      const key = `${item.productId.toString()}_${item.variantId.toString()}`;
-      stockMap[key] = item.quantity;
-    }
     // Count total seller products
     const total = await Products.countDocuments(filter);
 
@@ -488,19 +481,18 @@ exports.getSellerProducts = async (req, res) => {
          const firstStockEntry = stockEntries.find(
       (s) => s.productId.toString() === prod._id.toString()
     );
+    
         const variantsWithStock = (prod.variants || []).map((variant) => {
           const key = `${prod._id.toString()}_${variant._id.toString()}`;
-          const stockEntry = stockMap[key]
-            ? stockEntries.find(
+          const stockEntry = stockEntries.find(
                 (s) =>
                   s.productId.toString() === prod._id.toString() &&
                   s.variantId.toString() === variant._id.toString()
               )
-            : null;
-
+            || null
           return {
             ...variant,
-            stock: stockMap[key] ?? 0,
+            stock: stockEntry?.quantity ?? 0,
             mrp: stockEntry?.mrp || variant.mrp,
             sell_price: stockEntry?.price || variant.sell_price,
             status: stockEntry?.status ?? false,

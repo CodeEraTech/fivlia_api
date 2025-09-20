@@ -237,50 +237,55 @@ exports.recommedProduct = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    // 1️⃣ Fetch all cart items for the user
+    // 1️⃣ Get cart items
     const cartItems = await Cart.find({ userId }).lean();
-    if (!cartItems.length) return res.status(404).json({ message: "Cart is empty" });
+    if (!cartItems.length) {
+      return res.status(404).json({ message: "Cart is empty" });
+    }
 
-    // 2️⃣ Use the first cart item's store (or loop for multiple)
+    // 2️⃣ Get seller of first cart item
     const firstCartItem = cartItems[0];
     const seller = await Store.findById(firstCartItem.storeId).lean();
-    if (!seller) return res.status(404).json({ message: "Seller not found" });
+    if (!seller) {
+      return res.status(404).json({ message: "Seller not found" });
+    }
 
-    // 3️⃣ Extract allowed categories
-    let allowedSubCategoryIds = [];
-    let allowedSubSubCategoryIds = [];
-
+    // 3️⃣ Extract all allowed category IDs
+    let allowedCategoryIds = [];
     if (seller.sellerCategories?.length) {
-      allowedSubCategoryIds = seller.sellerCategories.flatMap(cat =>
-        cat.subCategories?.map(sub => sub.subCategoryId).filter(Boolean) || []
-      );
-
-      allowedSubSubCategoryIds = seller.sellerCategories.flatMap(cat =>
+      // Unofficial sellers: subCategories + subSubCategories
+      allowedCategoryIds = seller.sellerCategories.flatMap(cat =>
         cat.subCategories?.flatMap(sub =>
-          sub.subSubCategories?.map(subsub => subsub.subSubCategoryId).filter(Boolean) || []
+          [
+            ...(sub.subSubCategories?.map(ssc => ssc.subSubCategoryId) || []),
+            sub.subCategoryId
+          ].filter(Boolean)
         ) || []
       );
     } else if (seller.Category?.length) {
-      // Fallback for stores without sellerCategories
-      allowedSubCategoryIds = seller.Category.map(c => c);
+      // Official store: main categories
+      allowedCategoryIds = seller.Category;
     }
 
-    if (!allowedSubCategoryIds.length && !allowedSubSubCategoryIds.length) {
-      return res.status(200).json({ message: "No recommended products found", products: [] });
+    if (!allowedCategoryIds.length) {
+      return res.status(200).json({
+        message: "No recommended products found",
+        relatedProducts: []
+      });
     }
 
-    // 4️⃣ Build query to exclude products already in the cart
+    // 4️⃣ Build query to exclude products already in cart
     const matchQuery = {
       _id: { $nin: cartItems.map(c => c.productId) },
-      $or: []
+      $or: [
+        { "subSubCategory._id": { $in: allowedCategoryIds } },
+        { "subCategory._id": { $in: allowedCategoryIds } },
+        { "category._id": { $in: allowedCategoryIds } }
+      ]
     };
-    if (allowedSubSubCategoryIds.length) matchQuery.$or.push({ "subSubCategory._id": { $in: allowedSubSubCategoryIds } });
-    if (allowedSubCategoryIds.length) matchQuery.$or.push({ "subCategory._id": { $in: allowedSubCategoryIds } });
-    if (!allowedSubCategoryIds.length && !allowedSubSubCategoryIds.length && seller.Category?.length) {
-    matchQuery.$or.push({ "category._id": { $in: seller.Category } });
-   }
+
     // 5️⃣ Aggregate recommended products with stock info
-    const recommendedProducts = await Products.aggregate([
+   const recommendedProducts = await Products.aggregate([
   { $match: matchQuery },
   { $limit: 20 },
   {
@@ -293,32 +298,38 @@ exports.recommedProduct = async (req, res) => {
         {
           $match: {
             $expr: {
-              $in: ["$stock.variantId", { $map: { input: "$$variants", as: "v", in: "$$v._id" } }]
+              $or: [
+                // Variant match
+                { $in: ["$stock.variantId", { $ifNull: [{ $map: { input: "$$variants", as: "v", in: "$$v._id" } }, []] }] },
+                // Non-variant match
+                { $eq: ["$stock.productId", "$$productId"] }
+              ]
             }
           }
         },
-        { 
+        {
           $project: {
-            _id: 0,
-            productId: 1,
-            variantId: 1,
-            quantity: 1,
-            price: 1,
-            mrp: 1
+            _id: "$stock._id",
+            variantId: "$stock.variantId",
+            quantity: "$stock.quantity"
           }
         }
       ],
-      as: "stock"
+      as: "inventory"
     }
-  },
-  {
-    $addFields: {
-      storeId: seller._id,
-      storeName: seller.storeName,
-      maxQuantity: { $ifNull: [{ $max: "$stock.quantity" }, 0] } // 0 if no stock
-    }
-  },
-  { $sort: { maxQuantity: -1 } }
+  },{
+  $addFields: {
+    maxQuantity: { $ifNull: [{ $max: "$inventory.quantity" }, 0] },
+     storeId: seller._id,
+     storeName: seller.storeName,
+  }
+},
+{ $sort: { maxQuantity: -1 } },
+{
+  $project: {
+    maxQuantity: 0 // remove the temporary field after sorting
+  }
+}
 ]);
 
 
@@ -332,4 +343,3 @@ exports.recommedProduct = async (req, res) => {
     return res.status(500).json({ message: "An error occurred!", error: error.message });
   }
 };
-

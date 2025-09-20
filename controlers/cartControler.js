@@ -131,9 +131,17 @@ exports.getCart = async (req, res) => {
     // Get the store ID from the first cart item
     const storeId = items[0]?.storeId;
 
-    const storeZone = await Store.findById(storeId)
+    let storeZone = await Store.findById(storeId)
+console.log(storeZone)
+    storeZone = storeZone.zone[0]
+console.log(storeZone)
+    const zoneData = await ZoneData.findOne({"zones._id":storeZone._id})
 
-    // const zoneCod = await ZoneData.findById("storeZone.zone._id":zones._id)
+
+console.log(zoneData)
+    const zone = zoneData.zones.find(z => z._id.toString() === storeZone._id.toString());
+
+const cashOnDelivery = zone?.cashOnDelivery || false;
     // Fetch stock data for the store
     const stockDoc = await stock.findOne({ storeId });
     if (!stockDoc) {
@@ -143,7 +151,6 @@ exports.getCart = async (req, res) => {
         items,
       });
     }
-
     // Map stock data for quick lookup
     const stockMap = new Map();
     stockDoc.stock.forEach((s) => {
@@ -166,11 +173,11 @@ exports.getCart = async (req, res) => {
       status: true,
       message: "Cart items fetched successfully.",
       items: updatedItems,
-      paymentOption: zoneCod.cashOnDelivery,
+      paymentOption: cashOnDelivery,
       StoreID: storeId,
     });
   } catch (error) {
-    //console.error("❌ Error in getCart:", error);
+    console.error("❌ Error in getCart:", error);
     return res.status(500).json({
       status: false,
       message: "An error occurred while fetching cart items.",

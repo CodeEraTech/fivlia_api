@@ -32,7 +32,7 @@ const { addCart, getCart, getDicount, discount, quantity, deleteCart, recommedPr
 
 const { update, banner, getBanner, getAllBanner, updateBannerStatus, addCategory, getCategories, brand, getBrand, editCat, updateAt, editBrand, addFilter, editFilter, getFilter, deleteFilter, deleteFilterVal, addFiltersToCategory, addMainCategory, getMainCategory, editMainCategory, GetSubSubCategories, GetSubCategories, setCommison } = require('../controlers/categorycontroler');
 
-const { addProduct, addAtribute, getAttributes, getProduct, getFeatureProduct, searchProduct, bestSelling, editAttributes, unit, getUnit, getVarients, filter, bulkProductUpload, updateProduct, deleteProduct, getAttributesId, getRelatedProducts, updateStock, adminProducts, deleteAttribute, rating } = require('../controlers/ProductControler')
+const { addProduct, addAtribute, getAttributes, getProduct, getFeatureProduct, searchProduct, bestSelling, editAttributes, unit, getUnit, getVarients, filter, bulkProductUpload, updateProduct, deleteProduct, getAttributesId, getRelatedProducts, updateStock, adminProducts, deleteAttribute, rating, checkSimilarProduct} = require('../controlers/ProductControler')
 
 const cityZone = require('../modals/cityZone');
 const { addCity, updateCityStatus, getAviableCity, getCity, updateZoneStatus, getAllZone, getZone, updateLocation, addAddress, getAddress, EditAddress, deleteAddress, setDefault } = require('../controlers/areaControler');
@@ -102,11 +102,12 @@ router.get('/getUnapprovedProducts', getUnapprovedProducts)
 router.post('/saveBrandApprovelDocument', upload, saveBrandApprovelDocument)
 
 
+router.get('/checkSimilarProduct/:productId',verifyToken, checkSimilarProduct)
 router.get('/getSeller', getSeller)
 router.get('/getSellerRequest', getSellerRequest)
 router.get('/getCategoryProduct', getCategoryProduct)
 
-router.get('/recommedProduct/:cartId',verifyToken,recommedProduct)
+router.get('/recommedProduct',verifyToken,recommedProduct)
 router.get('/getSmsType', getSmsType)
 router.get('/getDashboardStats', getDashboardStats)
 router.get('/getWithdrawalRequest', getWithdrawalRequest)

@@ -235,63 +235,96 @@ exports.deleteCart = async (req, res) => {
 
 exports.recommedProduct = async (req, res) => {
   try {
-    const userId = req.user._id
+    const userId = req.user._id;
 
-    const cartItem = await Cart.find({userId}).lean();
+    // 1️⃣ Fetch all cart items for the user
+    const cartItems = await Cart.find({ userId }).lean();
+    if (!cartItems.length) return res.status(404).json({ message: "Cart is empty" });
 
-    if (!cartItem) return res.status(404).json({ message: "Cart item not found" });
-
-    // 2️⃣ Get the seller
-    const seller = await Store.findById(cartItem[0].storeId).lean();
+    // 2️⃣ Use the first cart item's store (or loop for multiple)
+    const firstCartItem = cartItems[0];
+    const seller = await Store.findById(firstCartItem.storeId).lean();
     if (!seller) return res.status(404).json({ message: "Seller not found" });
 
-    // 3️⃣ Extract allowed subCategories & subSubCategories
-    const allowedSubCategoryIds = seller.sellerCategories?.flatMap(cat =>
-      cat.subCategories?.map(sub => sub.subCategoryId).filter(Boolean) || []
-    ) || [];
+    // 3️⃣ Extract allowed categories
+    let allowedSubCategoryIds = [];
+    let allowedSubSubCategoryIds = [];
 
-    const allowedSubSubCategoryIds = seller.sellerCategories?.flatMap(cat =>
-      cat.subCategories?.flatMap(sub =>
-        sub.subSubCategories?.map(subsub => subsub.subSubCategoryId).filter(Boolean) || []
-      ) || []
-    ) || [];
+    if (seller.sellerCategories?.length) {
+      allowedSubCategoryIds = seller.sellerCategories.flatMap(cat =>
+        cat.subCategories?.map(sub => sub.subCategoryId).filter(Boolean) || []
+      );
+
+      allowedSubSubCategoryIds = seller.sellerCategories.flatMap(cat =>
+        cat.subCategories?.flatMap(sub =>
+          sub.subSubCategories?.map(subsub => subsub.subSubCategoryId).filter(Boolean) || []
+        ) || []
+      );
+    } else if (seller.Category?.length) {
+      // Fallback for stores without sellerCategories
+      allowedSubCategoryIds = seller.Category.map(c => c);
+    }
 
     if (!allowedSubCategoryIds.length && !allowedSubSubCategoryIds.length) {
       return res.status(200).json({ message: "No recommended products found", products: [] });
     }
 
-    // 4️⃣ Build query
+    // 4️⃣ Build query to exclude products already in the cart
     const matchQuery = {
-      _id: { $ne: cartItem.productId },
+      _id: { $nin: cartItems.map(c => c.productId) },
       $or: []
     };
     if (allowedSubSubCategoryIds.length) matchQuery.$or.push({ "subSubCategory._id": { $in: allowedSubSubCategoryIds } });
     if (allowedSubCategoryIds.length) matchQuery.$or.push({ "subCategory._id": { $in: allowedSubCategoryIds } });
-
-    // 5️⃣ Aggregate products with stock in a single query
+    if (!allowedSubCategoryIds.length && !allowedSubSubCategoryIds.length && seller.Category?.length) {
+    matchQuery.$or.push({ "category._id": { $in: seller.Category } });
+   }
+    // 5️⃣ Aggregate recommended products with stock info
     const recommendedProducts = await Products.aggregate([
-      { $match: matchQuery },
-      { $limit: 20 },
-      {
-        $lookup: {
-          from: "stocks",
-          let: { productId: "$_id",variants: "$variants"  },
-          pipeline: [
-            { $match: { storeId: seller._id } },
-            { $unwind: "$stock" },
-            { $match: { $expr: { $in: ["$stock.variantId", { $map: { input: "$$variants", as: "v", in: "$$v._id" } }]} } },
-            { $replaceRoot: { newRoot: "$stock" } }
-          ],
-          as: "inventory"
+  { $match: matchQuery },
+  { $limit: 20 },
+  {
+    $lookup: {
+      from: "stocks",
+      let: { productId: "$_id", variants: "$variants" },
+      pipeline: [
+        { $match: { storeId: seller._id } },
+        { $unwind: "$stock" },
+        {
+          $match: {
+            $expr: {
+              $in: ["$stock.variantId", { $map: { input: "$$variants", as: "v", in: "$$v._id" } }]
+            }
+          }
+        },
+        { 
+          $project: {
+            _id: 0,
+            productId: 1,
+            variantId: 1,
+            quantity: 1,
+            price: 1,
+            mrp: 1
+          }
         }
-      },
-      { $addFields: { storeId: seller._id, storeName: seller.storeName } },
-      { $sort: { "inventory.quantity": -1 } } // optional, sorts by max quantity first
-    ]);
+      ],
+      as: "stock"
+    }
+  },
+  {
+    $addFields: {
+      storeId: seller._id,
+      storeName: seller.storeName,
+      maxQuantity: { $ifNull: [{ $max: "$stock.quantity" }, 0] } // 0 if no stock
+    }
+  },
+  { $sort: { maxQuantity: -1 } }
+]);
+
 
     return res.status(200).json({
       message: "Recommended products fetched successfully",
-      relatedProducts:recommendedProducts
+      relatedProducts: recommendedProducts
     });
 
   } catch (error) {
@@ -299,3 +332,4 @@ exports.recommedProduct = async (req, res) => {
     return res.status(500).json({ message: "An error occurred!", error: error.message });
   }
 };
+

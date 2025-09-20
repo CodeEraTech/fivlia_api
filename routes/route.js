@@ -28,7 +28,7 @@ const { intro, getIntro } = require('../controlers/controlers')
 
 const { placeOrder, getOrders, orderStatus, test, driver, getDriver, editDriver, verifyPayment, getOrderDetails, deliveryStatus, updatedeliveryStatus, getdeliveryStatus, notification, editNotification, deleteNotification, getNotification } = require('../controlers/orderControler')
 
-const { addCart, getCart, getDicount, discount, quantity, deleteCart } = require('../controlers/cartControler')
+const { addCart, getCart, getDicount, discount, quantity, deleteCart, recommedProduct} = require('../controlers/cartControler')
 
 const { update, banner, getBanner, getAllBanner, updateBannerStatus, addCategory, getCategories, brand, getBrand, editCat, updateAt, editBrand, addFilter, editFilter, getFilter, deleteFilter, deleteFilterVal, addFiltersToCategory, addMainCategory, getMainCategory, editMainCategory, GetSubSubCategories, GetSubCategories, setCommison } = require('../controlers/categorycontroler');
 
@@ -106,6 +106,7 @@ router.get('/getSeller', getSeller)
 router.get('/getSellerRequest', getSellerRequest)
 router.get('/getCategoryProduct', getCategoryProduct)
 
+router.get('/recommedProduct/:cartId',verifyToken,recommedProduct)
 router.get('/getSmsType', getSmsType)
 router.get('/getDashboardStats', getDashboardStats)
 router.get('/getWithdrawalRequest', getWithdrawalRequest)

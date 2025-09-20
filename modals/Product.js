@@ -1,7 +1,6 @@
 // models/Product.js
 const mongoose = require("mongoose");
 const { required } = require("zod/v4-mini");
-const { quantity } = require("../controlers/cartControler");
 
 const locationSchema = new mongoose.Schema({
   city: [

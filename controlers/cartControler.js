@@ -1,9 +1,11 @@
 const { Cart, Discount } = require("../modals/cart");
 const { ZoneData } = require("../modals/cityZone");
 const Address = require("../modals/Address");
+const Products = require("../modals/Product");
 const Store = require("../modals/store");
 const User = require("../modals/User");
 const stock = require("../modals/StoreStock");
+const mongoose = require('mongoose');
 const haversine = require("haversine-distance");
 
 exports.addCart = async (req, res) => {
@@ -23,6 +25,9 @@ exports.addCart = async (req, res) => {
 
     if (clearCart === "true") {
       await Cart.deleteMany({ userId });
+    }
+    if(!storeId){
+      return res.status(400).json({ message: "storeId Not found." });
     }
     const user = await User.findOne(userId).lean();
     const userLat = parseFloat(user?.location?.latitude);
@@ -62,7 +67,7 @@ exports.addCart = async (req, res) => {
 
     if (cartItems.length > 0) {
       // If cart is not empty, check if any item belongs to a different store
-      const cartStoreId = cartItems[0].storeId || null;
+      const cartStoreId = cartItems[0].storeId || {};
       // If the storeId of the item trying to be added doesn't match the current storeId in cart
       if (cartStoreId.toString() !== storeId) {
         return res.status(200).json({
@@ -225,5 +230,72 @@ exports.deleteCart = async (req, res) => {
     return res
       .status(500)
       .json({ message: "An error occured!", error: error.message });
+  }
+};
+
+exports.recommedProduct = async (req, res) => {
+  try {
+    const userId = req.user._id
+
+    const cartItem = await Cart.find({userId}).lean();
+
+    if (!cartItem) return res.status(404).json({ message: "Cart item not found" });
+
+    // 2️⃣ Get the seller
+    const seller = await Store.findById(cartItem[0].storeId).lean();
+    if (!seller) return res.status(404).json({ message: "Seller not found" });
+
+    // 3️⃣ Extract allowed subCategories & subSubCategories
+    const allowedSubCategoryIds = seller.sellerCategories?.flatMap(cat =>
+      cat.subCategories?.map(sub => sub.subCategoryId).filter(Boolean) || []
+    ) || [];
+
+    const allowedSubSubCategoryIds = seller.sellerCategories?.flatMap(cat =>
+      cat.subCategories?.flatMap(sub =>
+        sub.subSubCategories?.map(subsub => subsub.subSubCategoryId).filter(Boolean) || []
+      ) || []
+    ) || [];
+
+    if (!allowedSubCategoryIds.length && !allowedSubSubCategoryIds.length) {
+      return res.status(200).json({ message: "No recommended products found", products: [] });
+    }
+
+    // 4️⃣ Build query
+    const matchQuery = {
+      _id: { $ne: cartItem.productId },
+      $or: []
+    };
+    if (allowedSubSubCategoryIds.length) matchQuery.$or.push({ "subSubCategory._id": { $in: allowedSubSubCategoryIds } });
+    if (allowedSubCategoryIds.length) matchQuery.$or.push({ "subCategory._id": { $in: allowedSubCategoryIds } });
+
+    // 5️⃣ Aggregate products with stock in a single query
+    const recommendedProducts = await Products.aggregate([
+      { $match: matchQuery },
+      { $limit: 20 },
+      {
+        $lookup: {
+          from: "stocks",
+          let: { productId: "$_id",variants: "$variants"  },
+          pipeline: [
+            { $match: { storeId: seller._id } },
+            { $unwind: "$stock" },
+            { $match: { $expr: { $in: ["$stock.variantId", { $map: { input: "$$variants", as: "v", in: "$$v._id" } }]} } },
+            { $replaceRoot: { newRoot: "$stock" } }
+          ],
+          as: "inventory"
+        }
+      },
+      { $addFields: { storeId: seller._id, storeName: seller.storeName } },
+      { $sort: { "inventory.quantity": -1 } } // optional, sorts by max quantity first
+    ]);
+
+    return res.status(200).json({
+      message: "Recommended products fetched successfully",
+      relatedProducts:recommendedProducts
+    });
+
+  } catch (error) {
+    console.error("❌ Error in recommedProduct:", error);
+    return res.status(500).json({ message: "An error occurred!", error: error.message });
   }
 };

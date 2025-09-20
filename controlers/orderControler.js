@@ -400,6 +400,7 @@ exports.getOrderDetails = async (req, res) => {
           storeId:order.storeId,
           productId:item.productId,
           varientId: item.varientId,
+          createdAt:order.createdAt,
           productDetails: {
             title: product?.title,
             description: product?.description,

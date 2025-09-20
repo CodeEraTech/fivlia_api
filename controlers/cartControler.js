@@ -131,6 +131,9 @@ exports.getCart = async (req, res) => {
     // Get the store ID from the first cart item
     const storeId = items[0]?.storeId;
 
+    const storeZone = await Store.findById(storeId)
+
+    // const zoneCod = await ZoneData.findById("storeZone.zone._id":zones._id)
     // Fetch stock data for the store
     const stockDoc = await stock.findOne({ storeId });
     if (!stockDoc) {
@@ -163,7 +166,7 @@ exports.getCart = async (req, res) => {
       status: true,
       message: "Cart items fetched successfully.",
       items: updatedItems,
-      paymentOption: false,
+      paymentOption: zoneCod.cashOnDelivery,
       StoreID: storeId,
     });
   } catch (error) {

@@ -62,7 +62,7 @@ router.post('/address', verifyToken, addAddress);
 router.post('/updateStock/:productId', updateStock);
 router.post('/driver', upload, driver);
 router.post('/deliveryStatus', upload, deliveryStatus);
-router.post('/rating', verifyToken, rating);
+router.put('/rating', verifyToken, rating);
 router.post('/withdrawalRequest', withdrawalRequest);
 
 router.post('/addMainCategory', upload, addMainCategory)

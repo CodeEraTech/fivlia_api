@@ -397,6 +397,8 @@ exports.getOrderDetails = async (req, res) => {
           price: item.price,
           image: item.image,
           gst: item.gst,
+          storeId:order.storeId,
+          productId:item.productId,
           varientId: item.varientId,
           productDetails: {
             title: product?.title,

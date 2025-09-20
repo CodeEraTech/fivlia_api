@@ -2179,20 +2179,36 @@ exports.adminProducts = async (req, res) => {
 
 exports.rating = async (req, res) => {
   try {
-    const userId = req.user;
-    const { rating, Note, order_id } = req.body;
-    const userData = await User.findById(userId);
-    console.log(userData);
+    const userId = req.user._id; // logged-in user
+    const { ratingRequest } = req.body;
 
-    const newRating = await Rating.create({
-      rating,
-      Note,
-      order_id,
-      userInfo: { userId: userId, userName: userData.name },
+    if (!Array.isArray(ratingRequest) || ratingRequest.length === 0) {
+      return res.status(400).json({ message: "No rating data provided" });
+    }
+
+    // Prepare bulk operations
+    const bulkOps = ratingRequest.map((r) => ({
+      updateOne: {
+        filter: {
+          userId: r.userId || userId,
+          productId: r.productId,
+          storeId: r.storeId,
+        },
+        update: {
+          $set: {
+            rating: r.rating,
+          },
+        },
+        upsert: true, // create if not exists
+      },
+    }));
+
+    const result = await Rating.bulkWrite(bulkOps);
+
+    return res.status(200).json({
+      message: "Ratings merged/updated successfully",
+      result,
     });
-    return res
-      .status(200)
-      .json({ message: "Rating Created Successfully", newRating });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Server Error" });

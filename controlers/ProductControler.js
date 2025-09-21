@@ -2207,7 +2207,6 @@ exports.rating = async (req, res) => {
 
     return res.status(200).json({
       message: "Ratings merged/updated successfully",
-      result,
     });
   } catch (error) {
     console.error(error);

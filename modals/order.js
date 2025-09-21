@@ -16,6 +16,7 @@ items: [
  orderStatus:{type:String,default:'Pending'},
  platformFee:Number,
  invoiceUrl: { type: String },
+ storeInvoiceId:{type: String},
  thermalInvoice: { type: String }, // For thermal printer invoice content
  transactionId:String,
  driver:{driverId:String,name:String,mobileNumber:String}

@@ -55,7 +55,7 @@ exports.placeOrder = async (req, res) => {
     for (const item of cartItems) {
       const product = await Products.findById(item.productId)
       if (!product) {
-        //console.error(`Product not found: ${item.productId}`);
+        console.error(`Product not found: ${item.productId}`);
         return res.status(400).json({
           message: `Product not found for ID: ${item.productId}`,
         });
@@ -182,42 +182,7 @@ exports.verifyPayment = async (req, res) => {
       }
 
       await Cart.deleteMany({ _id: { $in: tempOrder.cartIds } });
-
-      const updatedWallet = await admin_transaction.findByIdAndUpdate(
-        '6899c9b7eeb3a6cd3a142237',
-        { $inc: { wallet: tempOrder.totalPrice } },
-        { new: true }
-      );
-      const lastAmount = updatedWallet.wallet - tempOrder.totalPrice;
-
-      await admin_transaction.create({
-        currentAmount: updatedWallet.wallet,
-        lastAmount: lastAmount,
-        type: 'Credit',
-        amount: tempOrder.totalPrice,
-        orderId: tempOrder.orderId,
-        description: 'Item Price Added',
-      })
-
     }
-
-    const storeBefore = await Store.findById(tempOrder.storeId).lean();
-    const storeData = await Store.findByIdAndUpdate(
-      tempOrder.storeId,
-      { $inc: { wallet: tempOrder.totalPrice } },
-      { new: true }
-    );
-
-    await store_transaction.create({
-      currentAmount: storeData.wallet,
-      lastAmount: storeBefore.wallet,
-      type: 'Credit',
-      amount: tempOrder.totalPrice,
-      orderId: tempOrder.orderId,
-      storeId: tempOrder.storeId,
-      description: 'Item Price Added'
-    })
-
     // 5. Delete the temp order
     await TempOrder.findByIdAndDelete(tempOrderId);
 
@@ -442,8 +407,6 @@ exports.orderStatus = async (req, res) => {
       });
     }
 
-
-    // 2. Get user & status info
     const user = await User.findById(updatedOrder.userId).lean();
     const statusInfo = await Status.findOne({ statusTitle: status });
 

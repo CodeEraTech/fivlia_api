@@ -434,6 +434,7 @@ exports.editSellerProfile = async (req, res) => {
       fsiNumber,
       PhoneNumber,
       email,
+      invoicePrefix,
       password,
       bankDetails, // {bankName, accountHolder, accountNumber, ifsc, branch}
     } = req.body;
@@ -445,6 +446,22 @@ exports.editSellerProfile = async (req, res) => {
     if (storeName) updateFields.storeName = storeName;
     if (ownerName) updateFields.ownerName = ownerName;
     if (email) updateFields.email = email;
+    
+    if (invoicePrefix) {
+  // Check if the prefix is already used by another seller
+  const existingPrefix = await seller.findOne({ 
+    invoicePrefix, 
+    _id: { $ne: sellerId } // exclude current seller
+  });
+  if (existingPrefix) {
+    return res.status(400).json({ 
+      success: false, 
+      message: "Invoice prefix already in use. Please choose a unique prefix." 
+    });
+  }
+  updateFields.invoicePrefix = invoicePrefix;
+}
+
     if (req.files?.image?.[0]) {updateFields.image = `/${req.files.image?.[0].key}`;}
     if (req.files?.MultipleImage?.length > 0) {
     updateFields.advertisementImages = req.files.MultipleImage.map((file) => `/${file.key}`);

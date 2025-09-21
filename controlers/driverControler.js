@@ -1,4 +1,5 @@
 const driver = require('../modals/driver')
+const Store = require('../modals/store')
 const User = require('../modals/User');
 const Assign = require('../modals/driverModals/assignments')
 const {Order} = require('../modals/order')
@@ -7,7 +8,9 @@ const request = require('request');
 const {getAgenda} = require("../config/agenda");
 const Address = require('../modals/Address')
 const OtpModel = require("../modals/otp")
-const { generateAndSendThermalInvoice } = require('../config/invoice');
+const admin_transaction = require('../modals/adminTranaction')
+const store_transaction = require('../modals/storeTransaction')
+const { generateAndSendThermalInvoice, generateStoreInvoiceId} = require('../config/invoice');
 const Transaction = require('../modals/driverModals/transaction')
 require('dotenv').config()
 const jwt = require('jsonwebtoken');
@@ -134,17 +137,52 @@ exports.driverOrderStatus = async (req, res) => {
       if (otpRecord.expiresAt < Date.now()) {
         return res.status(400).json({ message: 'OTP expired' });
       }
+      
+    const order = await Order.findOne({ orderId });
 
-      const statusUpdate = await Order.findOneAndUpdate(
+         const storeBefore = await Store.findById(order.storeId).lean();
+            const storeData = await Store.findByIdAndUpdate(
+              order.storeId,
+              { $inc: { wallet: order.totalPrice } },
+              { new: true }
+            );
+            const lastAmount = await admin_transaction.findById('6899c9b7eeb3a6cd3a142237').lean()
+      
+            const updatedWallet = await admin_transaction.findByIdAndUpdate(
+              '6899c9b7eeb3a6cd3a142237',
+              { $inc: { wallet: order.totalPrice } },
+              { new: true },
+            );
+      
+            await admin_transaction.create({
+              currentAmount: updatedWallet.wallet,
+              lastAmount: lastAmount.wallet,
+              type: 'Credit',
+              amount: order.totalPrice,
+              orderId: order.orderId,
+              description: 'Item Price Added'
+            })
+            await store_transaction.create({
+              currentAmount: storeData.wallet,
+              lastAmount: storeBefore.wallet,
+              type: 'Credit',
+              amount: order.totalPrice,
+              orderId: order.orderId,
+              storeId: order.storeId,
+              description: 'Item Price Added'
+            })
+
+            const storeInvoiceId = await generateStoreInvoiceId(order.storeId);
+
+  const statusUpdate = await Order.findOneAndUpdate(
         { orderId },
-        { orderStatus },
+        { orderStatus,storeInvoiceId },
         { new: true }
       );
 
       await OtpModel.deleteOne({ _id: otpRecord._id });
       await Assign.deleteOne({ orderId: orderId ,orderStatus:'Accepted'});
-      
-      // Generate and send thermal invoice when order is delivered
+
       try {
         await generateAndSendThermalInvoice(orderId);
       } catch (error) {

@@ -105,37 +105,7 @@ exports.placeOrder = async (req, res) => {
         );
         await Cart.deleteMany({ _id: { $in: cartIds } });
       }
-      const storeBefore = await Store.findById(storeId).lean();
-      const storeData = await Store.findByIdAndUpdate(
-        storeId,
-        { $inc: { wallet: totalPrice } },
-        { new: true }
-      );
-      const lastAmount = await admin_transaction.findById('6899c9b7eeb3a6cd3a142237').lean()
-
-      const updatedWallet = await admin_transaction.findByIdAndUpdate(
-        '6899c9b7eeb3a6cd3a142237',
-        { $inc: { wallet: totalPrice } },
-        { new: true },
-      );
-
-      await admin_transaction.create({
-        currentAmount: updatedWallet.wallet,
-        lastAmount: lastAmount.wallet,
-        type: 'Credit',
-        amount: totalPrice,
-        orderId: nextOrderId,
-        description: 'Item Price Added'
-      })
-      await store_transaction.create({
-        currentAmount: storeData.wallet,
-        lastAmount: storeBefore.wallet,
-        type: 'Credit',
-        amount: totalPrice,
-        orderId: nextOrderId,
-        storeId: storeId,
-        description: 'Item Price Added'
-      })
+   
       return res.status(200).json({ message: "Order placed successfully", order: newOrder, });
     } else {
       const tempOrder = await TempOrder.create({

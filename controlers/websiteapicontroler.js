@@ -325,7 +325,9 @@ exports.forwebgetProduct = async (req, res) => {
     };
 
     if (id) {
-      const stringIdsSet = new Set([...allCategoryIds].map(id => id.toString()));
+      const stringIdsSet = new Set(
+        [...allCategoryIds].map((id) => id.toString())
+      );
       if (!stringIdsSet.has(id)) {
         return res.status(200).json({
           message: "No matching products found for your location.",
@@ -1126,16 +1128,16 @@ exports.updatePageStatus = async (req, res) => {
 exports.contactUs = async (req, res) => {
   try {
     const { firstName, lastName, email, phone, message } = req.body;
-    const info = await contactUs.create({
+    await contactUs.create({
       firstName,
       lastName,
       email,
       phone,
       message,
     });
-    return res.status(200).json({ message: "Request Submitted", info });
+    return res.status(200).json({ message: "Request Submitted" });
   } catch (error) {
-    console.error("Error updating status:", error);
+    //console.error("Error updating status:", error);
     return res
       .status(500)
       .json({ message: "Server error", error: error.message });
@@ -1143,7 +1145,7 @@ exports.contactUs = async (req, res) => {
 };
 
 exports.getAllSellerProducts = async (req, res) => {
-  const { id, page, limit} = req.query;
+  const { id, page, limit } = req.query;
   const skip = (page - 1) * limit;
   try {
     // 1. Fetch Stock data for the seller using sellerId
@@ -1161,8 +1163,10 @@ exports.getAllSellerProducts = async (req, res) => {
     }
 
     let productIds = stockEntries.map((s) => s.productId).filter(Boolean);
-   if (productIds.length === 0) {
-      return res.status(404).json({ success: false, message: "No products found for this seller" });
+    if (productIds.length === 0) {
+      return res
+        .status(404)
+        .json({ success: false, message: "No products found for this seller" });
     }
 
     const productFilter = { _id: { $in: productIds } };
@@ -1176,10 +1180,11 @@ exports.getAllSellerProducts = async (req, res) => {
         { path: "category", select: "name" },
         { path: "brand_Name", select: "name" },
         { path: "unit", select: "name" },
-      ]).lean()
+      ])
+      .lean();
 
-        const productsWithStock = await Promise.all(
-        sellerProducts.map(async (prod) => {
+    const productsWithStock = await Promise.all(
+      sellerProducts.map(async (prod) => {
         // Find all stock entries for this product
         const productStockEntries = stockEntries.filter(
           (s) => s.productId?.toString() === prod._id.toString()
@@ -1200,14 +1205,14 @@ exports.getAllSellerProducts = async (req, res) => {
         });
 
         const inventoryWithStock = (prod.inventory || []).map((inv) => {
-        const stockEntry = productStockEntries.find(
-          (s) => s.variantId?.toString() === inv.variantId?.toString()
-        );
-        return {
-          ...inv,
-          quantity: stockEntry?.quantity ?? 0, // overwrite with live stock quantity
-        };
-      });
+          const stockEntry = productStockEntries.find(
+            (s) => s.variantId?.toString() === inv.variantId?.toString()
+          );
+          return {
+            ...inv,
+            quantity: stockEntry?.quantity ?? 0, // overwrite with live stock quantity
+          };
+        });
 
         // Determine category name + commission if needed
         const categoryName = prod.category?.name ?? "Uncategorized";
@@ -1221,20 +1226,23 @@ exports.getAllSellerProducts = async (req, res) => {
       })
     );
     // get and set all categories
-   const categoryIds = seller.sellerCategories.map((c) => c.categoryId);
-    const categories = await Category.find({ _id: { $in: categoryIds } }).lean();
+    const categoryIds = seller.sellerCategories.map((c) => c.categoryId);
+    const categories = await Category.find({
+      _id: { $in: categoryIds },
+    }).lean();
 
-    return res
-      .status(200)
-      .json({
-      sellerImage: seller.advertisementImages?.length? seller.advertisementImages: ["/MultipleImage/1758278596489-MultipleImage.jpg"],
-      seller:seller,
-      categories:categories,
+    return res.status(200).json({
+      sellerImage: seller.advertisementImages?.length
+        ? seller.advertisementImages
+        : ["/MultipleImage/1758278596489-MultipleImage.jpg"],
+      seller: seller,
+      categories: categories,
       products: productsWithStock,
       total,
       page: parseInt(page),
       limit: parseInt(limit),
-      totalPages: Math.ceil(total / limit), });
+      totalPages: Math.ceil(total / limit),
+    });
   } catch (error) {
     console.error("Error fetching seller products:", error);
     return res.status(500).json({ message: "Internal server error" });

@@ -429,7 +429,7 @@ exports.getSellerProducts = async (req, res) => {
       .map((id) => new mongoose.Types.ObjectId(id));
 
     // Count total seller products
-    const total = await Products.countDocuments({ _id: { $in: productIds } });
+    const total = await Product.countDocuments({ _id: { $in: productIds } });
 
     const sellerProducts = await Product.find({
       _id: { $in: productIds },

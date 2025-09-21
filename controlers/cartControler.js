@@ -122,23 +122,23 @@ exports.getCart = async (req, res) => {
       User.findById(id),
     ]);
 
+    if(!items || items.length === 0){
+      return res.status(404).json({ status: false, message: "Cart Is Empty." });
+    }
     if (!user) {
       return res
         .status(404)
         .json({ status: false, message: "User not found." });
     }
 
-    // Get the store ID from the first cart item
     const storeId = items[0]?.storeId;
 
     let storeZone = await Store.findById(storeId)
-console.log(storeZone)
+
     storeZone = storeZone.zone[0]
-console.log(storeZone)
+
     const zoneData = await ZoneData.findOne({"zones._id":storeZone._id})
 
-
-console.log(zoneData)
     const zone = zoneData.zones.find(z => z._id.toString() === storeZone._id.toString());
 
 const cashOnDelivery = zone?.cashOnDelivery || false;

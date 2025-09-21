@@ -409,8 +409,6 @@ exports.getSellerProducts = async (req, res) => {
         .json({ success: false, message: "Missing sellerId" });
     }
 
-    const filter = { storeId: sellerId };
-
     let productMatch = {};
     if (search) {
       productMatch.productName = { $regex: search, $options: "i" };
@@ -424,15 +422,14 @@ exports.getSellerProducts = async (req, res) => {
 
     const stockData = await Stock.findOne({ storeId: sellerId }).lean();
     const stockEntries = stockData?.stock || [];
-    // Count total seller products
-    const total = await Products.countDocuments(filter);
-
-    // remove nulls
 
     const productIds = stockEntries
       .map((s) => s.productId)
       .filter(Boolean)
       .map((id) => new mongoose.Types.ObjectId(id));
+
+    // Count total seller products
+    const total = await Products.countDocuments({ _id: { $in: productIds } });
 
     const sellerProducts = await Product.find({
       _id: { $in: productIds },
@@ -478,18 +475,18 @@ exports.getSellerProducts = async (req, res) => {
             }
           }
         }
-         const firstStockEntry = stockEntries.find(
-      (s) => s.productId.toString() === prod._id.toString()
-    );
-    
+        const firstStockEntry = stockEntries.find(
+          (s) => s.productId.toString() === prod._id.toString()
+        );
+
         const variantsWithStock = (prod.variants || []).map((variant) => {
           const key = `${prod._id.toString()}_${variant._id.toString()}`;
-          const stockEntry = stockEntries.find(
-                (s) =>
-                  s.productId.toString() === prod._id.toString() &&
-                  s.variantId.toString() === variant._id.toString()
-              )
-            || null
+          const stockEntry =
+            stockEntries.find(
+              (s) =>
+                s.productId.toString() === prod._id.toString() &&
+                s.variantId.toString() === variant._id.toString()
+            ) || null;
           return {
             ...variant,
             stock: stockEntry?.quantity ?? 0,
@@ -541,7 +538,7 @@ exports.updateSellerProducStatus = async (req, res) => {
       { $set: { "stock.$.status": status } },
       { new: true }
     );
-console.log('updated',updated)
+    console.log("updated", updated);
     if (!updated) {
       return res.status(404).json({ message: "Product not found" });
     }

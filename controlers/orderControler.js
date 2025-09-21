@@ -370,7 +370,6 @@ exports.getOrderDetails = async (req, res) => {
           storeId:order.storeId,
           productId:item.productId,
           varientId: item.varientId,
-          createdAt:order.createdAt,
           productDetails: {
             title: product?.title,
             description: product?.description,
@@ -391,7 +390,8 @@ exports.getOrderDetails = async (req, res) => {
         transactionId: order.transactionId || '',
         items: itemsWithDetails,
         address,
-        driver: driverInfo, // 🟢 Include driver data
+        driver: driverInfo,
+        createdAt:order.createdAt,
       });
     }
 

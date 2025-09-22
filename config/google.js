@@ -19,7 +19,7 @@ const calculateDeliveryTime = async (
     const response = await fetch(url);
     const data = await response.json();
 
-    console.log("📦 Full API response:", JSON.stringify(data, null, 2));
+    // console.log("📦 Full API response:", JSON.stringify(data, null, 2));
 
     if (data.status !== "OK") throw new Error("Google API Error");
 
@@ -36,7 +36,7 @@ const calculateDeliveryTime = async (
         trafficDurationValue: 0,
       };
     }
-    console.log(storeLat, storeLng, userLat, userLng);
+    // console.log(storeLat, storeLng, userLat, userLng);
     return {
       distanceText: element.distance.text,
       durationText: element.duration.text,
@@ -60,7 +60,7 @@ const reverseGeocode = async (lat, lng) => {
     const res = await fetch(url);
     const data = await res.json();
 
-    console.log("🧭 Geocode API response:", JSON.stringify(data, null, 2));
+    // console.log("🧭 Geocode API response:", JSON.stringify(data, null, 2));
 
     if (data.status !== "OK") throw new Error("Reverse geocoding failed");
 
@@ -87,7 +87,7 @@ function isWithinZone(userLat, userLng, zone) {
   const zoneLocation = { lat: zone.latitude, lon: zone.longitude };
 
   const distance = haversine(userLocation, zoneLocation);
-  console.log(distance, zone.range);
+  // console.log(distance, zone.range);
   return distance <= zone.range;
 }
 
@@ -133,9 +133,9 @@ function isWithinBanner(userLat, userLng, zone) {
   const zoneLocation = { lat: zone.latitude, lon: zone.longitude };
 
   const distance = haversine(userLocation, zoneLocation);
-  console.log(
-    `🛰️ Banner zone check | Distance: ${distance} | Range: ${zone.range}`
-  );
+  // console.log(
+  //   `🛰️ Banner zone check | Distance: ${distance} | Range: ${zone.range}`
+  // );
   return distance <= zone.range;
 }
 

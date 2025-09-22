@@ -8,5 +8,6 @@ const storeSchema = new mongoose.Schema({
    orderId:String,
    storeId:{type:mongoose.Schema.ObjectId,ref:'stores'},
    description:String,
+   status:String,
 },{timestamps:true})
 module.exports=mongoose.model('store_transaction',storeSchema)

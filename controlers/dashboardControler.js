@@ -7,6 +7,7 @@ const Product = require("../modals/Product");
 const User = require("../modals/User");
 const Driver = require("../modals/driver");
 const admin_transaction = require('../modals/adminTranaction')
+const store_transaction = require('../modals/storeTransaction')
 const Transaction = require('../modals/driverModals/transaction')
 
 exports.getDashboardStats = async (req, res) => {
@@ -204,6 +205,11 @@ return res.status(200).json({message:"Tranaction history",Tranaction})
 
 exports.getWithdrawalRequest = async (req,res) => {
   try {
+    const {sellerId} = req.query
+     if(sellerId){
+        const requests = await store_transaction.find({storeId:sellerId,type:'debit'})
+        return res.status(200).json({ message: 'Withdrawal requests', requests});  
+     }
     const requests = await Transaction.find({type:'debit'})
     return res.status(200).json({ message: 'Withdrawal requests', requests});  
   } catch (error) {

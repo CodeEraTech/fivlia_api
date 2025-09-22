@@ -37,12 +37,12 @@ const autoAssignDriver = async (orderId) => {
   continue;
 }
       const driverData = driverSnapshot.data();
-console.log('driverData',driverData)
+// console.log('driverData',driverData)
       const driverLat = driverData.latitude;
       const driverLng = driverData.longitude;
 
       const distance = findAvailableDriversNearUser(userLat, userLng, driverLat, driverLng);
-console.log('distance',distance)
+// console.log('distance',distance)
       if (distance <= 5000) {
         availableDrivers.push({ driverz: d, distance });
       }

@@ -12,11 +12,11 @@ const assignWithSocketLoop = async (order, drivers) => {
     if (orderAssigned) return;
 
     if (index >= drivers.length) {
-      console.log(`No driver accepted order ${order.orderId}. Retrying in 10 Seconds...`);
+      // console.log(`No driver accepted order ${order.orderId}. Retrying in 10 Seconds...`);
       setTimeout(() => {
       const autoAssignDriver = require('./AutoAssignDriver');
       autoAssignDriver(order._id);
-      }, 10000);
+      }, 15000);
       return;
     }
 
@@ -31,7 +31,7 @@ const assignWithSocketLoop = async (order, drivers) => {
     const timeLimit = 50000;
     const totalSeconds = timeLimit / 1000;
 
-    console.log(`Sending order ${order.orderId} to driver ${driver._id} (${driver.driverName})`);
+    // console.log(`Sending order ${order.orderId} to driver ${driver._id} (${driver.driverName})`);
     socket.emit('newOrder', { order, driverId: driver._id, timeLeft: totalSeconds });
 
     if (driver.fcmToken) {
@@ -60,7 +60,7 @@ const assignWithSocketLoop = async (order, drivers) => {
 
     const timeout = setTimeout(() => {
       if (!orderAssigned) {
-        console.log(`Driver ${driver._id} did not respond to order ${order.orderId} in time.`);
+        // console.log(`Driver ${driver._id} did not respond to order ${order.orderId} in time.`);
         cleanup();
         index++;
         tryAssign();
@@ -75,7 +75,7 @@ const assignWithSocketLoop = async (order, drivers) => {
 
     const handleAccept = async ({ driverId, orderId }) => {
       if (driverId === driver._id.toString() && orderId === order.orderId){
-      console.log("✅ Driver and order match — proceeding with acceptance...");
+      // console.log("✅ Driver and order match — proceeding with acceptance...");
 
     orderAssigned = true;
 
@@ -98,7 +98,7 @@ const assignWithSocketLoop = async (order, drivers) => {
 );
 
 
-        console.log(`Order ${orderId} accepted by driver ${driverId}. Stopping loop.`);
+        // console.log(`Order ${orderId} accepted by driver ${driverId}. Stopping loop.`);
       }
     };
 
@@ -106,7 +106,7 @@ const assignWithSocketLoop = async (order, drivers) => {
       if (driverId === driver._id.toString() && orderId === order.orderId) {
         cleanup();
         await Assign.create({ driverId, orderId, orderStatus: 'Rejected' });
- console.log(`Order ${orderId} Rejected by driver ${driverId}`);
+//  console.log(`Order ${orderId} Rejected by driver ${driverId}`);
 
 
         index++;

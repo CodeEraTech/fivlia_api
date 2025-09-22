@@ -128,72 +128,99 @@ exports.driverOrderStatus = async (req, res) => {
       return;
     }
 
-    if (orderStatus === 'Delivered') {
-      const otpRecord = await OtpModel.findOne({ orderId, otp });
-      if (!otpRecord) {
-        return res.status(400).json({ message: 'Invalid OTP' });
-      }
+if (orderStatus === 'Delivered') {
+  const otpRecord = await OtpModel.findOne({ orderId, otp });
+  if (!otpRecord) {
+    return res.status(400).json({ message: 'Invalid OTP' });
+  }
+  if (otpRecord.expiresAt < Date.now()) {
+    return res.status(400).json({ message: 'OTP expired' });
+  }
 
-      if (otpRecord.expiresAt < Date.now()) {
-        return res.status(400).json({ message: 'OTP expired' });
-      }
-      
-    const order = await Order.findOne({ orderId });
+  const order = await Order.findOne({ orderId }).lean();
+  if (!order) return res.status(404).json({ message: 'Order not found' });
 
-         const storeBefore = await Store.findById(order.storeId).lean();
-            const storeData = await Store.findByIdAndUpdate(
-              order.storeId,
-              { $inc: { wallet: order.totalPrice } },
-              { new: true }
-            );
-            const lastAmount = await admin_transaction.findById('6899c9b7eeb3a6cd3a142237').lean()
-      
-            const updatedWallet = await admin_transaction.findByIdAndUpdate(
-              '6899c9b7eeb3a6cd3a142237',
-              { $inc: { wallet: order.totalPrice } },
-              { new: true },
-            );
-      
-            await admin_transaction.create({
-              currentAmount: updatedWallet.wallet,
-              lastAmount: lastAmount.wallet,
-              type: 'Credit',
-              amount: order.totalPrice,
-              orderId: order.orderId,
-              description: 'Item Price Added'
-            })
-            await store_transaction.create({
-              currentAmount: storeData.wallet,
-              lastAmount: storeBefore.wallet,
-              type: 'Credit',
-              amount: order.totalPrice,
-              orderId: order.orderId,
-              storeId: order.storeId,
-              description: 'Item Price Added'
-            })
+  const storeBefore = await Store.findById(order.storeId).lean();
+  const store = storeBefore; // just renaming for clarity
 
-            const storeInvoiceId = await generateStoreInvoiceId(order.storeId);
+  // 🧮 Calculate total commission from order.items
+ // 🧮 Calculate total commission as percentage
+const totalCommission = order.items.reduce((sum, item) => {
+  const itemTotal = item.price * item.quantity;
+  const commissionAmount = (item.commision || 0) / 100 * itemTotal;
+  return sum + commissionAmount;
+}, 0);
+
+
+  let creditToStore = order.totalPrice;
+  if (!store.Authorized_Store) {
+    creditToStore = order.totalPrice - totalCommission; // deduct commission
+  }
+
+  // ===> Update Store Wallet
+  const storeData = await Store.findByIdAndUpdate(
+    order.storeId,
+    { $inc: { wallet: creditToStore } },
+    { new: true }
+  );
+
+  // ===> Update Store Transaction
+  const data = await store_transaction.create({
+    currentAmount: storeData.wallet,
+    lastAmount: storeBefore.wallet,
+    type: 'Credit',
+    amount: creditToStore,
+    orderId: order.orderId,
+    storeId: order.storeId,
+    description: store.Authorized_Store
+      ? 'Full amount credited (Authorized Store)'
+      : `Credited after commission cut (${totalCommission} deducted)`
+  });
+console.log(data)
+  // ===> Update Admin Wallet only if commission > 0
+  if (!store.Authorized_Store && totalCommission > 0) {
+    const lastAmount = await admin_transaction.findById('6899c9b7eeb3a6cd3a142237').lean();
+    const updatedWallet = await admin_transaction.findByIdAndUpdate(
+      '6899c9b7eeb3a6cd3a142237',
+      { $inc: { wallet: totalCommission } },
+      { new: true }
+    );
+
+    await admin_transaction.create({
+      currentAmount: updatedWallet.wallet,
+      lastAmount: lastAmount.wallet,
+      type: 'Credit',
+      amount: totalCommission,
+      orderId: order.orderId,
+      description: 'Commission credited to Admin wallet'
+    });
+  }
+
+  // ===> Generate Store Invoice ID
+  const storeInvoiceId = await generateStoreInvoiceId(order.storeId);
 
   const statusUpdate = await Order.findOneAndUpdate(
-        { orderId },
-        { orderStatus,storeInvoiceId },
-        { new: true }
-      );
+    { orderId },
+    { orderStatus, storeInvoiceId },
+    { new: true }
+  );
 
-      await OtpModel.deleteOne({ _id: otpRecord._id });
-      await Assign.deleteOne({ orderId: orderId ,orderStatus:'Accepted'});
+  // ✅ Clean up OTP and Assignments
+  await OtpModel.deleteOne({ _id: otpRecord._id });
+  await Assign.deleteOne({ orderId: orderId, orderStatus: 'Accepted' });
 
-      try {
-        await generateAndSendThermalInvoice(orderId);
-      } catch (error) {
-        console.error('Error generating thermal invoice:', error);
-      }
+  // ✅ Generate Thermal Invoice
+  try {
+    await generateAndSendThermalInvoice(orderId);
+  } catch (error) {
+    console.error('Error generating thermal invoice:', error);
+  }
 
-      return res.status(200).json({
-        message: 'Order Delivered Successfully',
-        statusUpdate,
-      });
-    }
+  return res.status(200).json({
+    message: 'Order Delivered Successfully',
+    statusUpdate,
+  });
+}
 
     // ===> Other status update (fallback)
     const statusUpdate = await Order.findOneAndUpdate(

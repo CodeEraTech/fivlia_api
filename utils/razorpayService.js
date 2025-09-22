@@ -27,46 +27,45 @@ async function createRazorpayOrder(amount, currency = "INR", receipt = null, not
     }
 }
 
-exports.getCommison = async (req, res) => {
-  try {
-    const { productId } = req.query; // assuming productId is passed as query param
-    if (!productId) return res.status(400).json({ message: 'ProductId is required' });
+const getCommison = async (productId) => {
+  if (!productId) throw new Error("ProductId is required");
 
-    const product = await Product.findById(productId).lean();
-    if (!product) return res.status(404).json({ message: 'Product not found' });
+  const product = await Product.findById(productId).lean();
+  if (!product) throw new Error("Product not found");
 
-    let commission = 0;
+  let commission = 0;
 
-    // 1️⃣ Check subSubCategory commission first
-    if (product.subSubCategory && product.subSubCategory.length > 0) {
-      const subSubCatId = product.subSubCategory[0]._id; // pick the first one
-      // Find subSubCat in category tree
-      const subcat = product.subCategory?.[0]; // first subCategory
-      if (subcat) {
-        const subSubCat = subcat.subsubcat?.find(s => String(s._id) === String(subSubCatId));
-        if (subSubCat && typeof subSubCat.commison === 'number') {
-          commission = subSubCat.commison;
-        }
+  const categoryId = product.category?.[0]?._id;
+  if (!categoryId) return 0;
+
+  const category = await Category.findById(categoryId).lean();
+  if (!category) return 0;
+
+  const subCatId = product.subCategory?.[0]?._id;
+  const subSubCatId = product.subSubCategory?.[0]?._id;
+
+  if (subCatId) {
+    const subcat = category.subcat?.find(
+      (s) => String(s._id) === String(subCatId)
+    );
+    if (subcat) {
+      if (subSubCatId && subcat.subsubcat?.length) {
+        const subsub = subcat.subsubcat.find(
+          (s) => String(s._id) === String(subSubCatId)
+        );
+        if (subsub?.commison) commission = subsub.commison; // sub-sub priority
+      }
+      if (!commission && subcat?.commison) {
+        commission = subcat.commison; // fallback to sub
       }
     }
-
-    // 2️⃣ Fallback to subCategory commission if no subSubCategory commission
-    if (commission === 0 && product.subCategory && product.subCategory.length > 0) {
-      const subcat = product.subCategory[0];
-      if (typeof subcat.commison === 'number') {
-        commission = subcat.commison;
-      }
-    }
-
-    return res.status(200).json({ productId, commission });
-
-  } catch (error) {
-    console.error("❌ Get Commission Error:", error);
-    return res.status(500).json({ message: 'An error occurred', error: error.message });
   }
+
+  return commission || 0; // default 0 if nothing found
 };
 
 
 module.exports = {
     createRazorpayOrder,
+    getCommison
 };

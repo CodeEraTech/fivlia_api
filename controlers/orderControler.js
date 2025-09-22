@@ -16,7 +16,7 @@ const sendNotification = require("../firebase/pushnotification");
 const Store = require("../modals/store");
 const deliveryStatus = require("../modals/deliveryStatus");
 const { getNextOrderId } = require("../config/counter");
-const { createRazorpayOrder } = require("../utils/razorpayService");
+const { createRazorpayOrder, getCommison} = require("../utils/razorpayService");
 
 const MAX_DISTANCE_METERS = 5000;
 
@@ -71,12 +71,16 @@ exports.placeOrder = async (req, res) => {
         });
       }
       const gst = product.tax;
+
+            const commision = await getCommison(product._id)
+
       orderItems.push({
         productId: item.productId,
         varientId: item.varientId,
         name: item.name,
         quantity: item.quantity,
         price: Number(item.price),
+        commision,
         image: item.image,
         gst,
       });
@@ -127,7 +131,7 @@ exports.placeOrder = async (req, res) => {
         totalPrice,
         storeId,
         paymentStatus: "Pending",
-        cashOnDelivery,
+        cashOnDelivery,        
         cartIds,
         deliveryCharges: chargesData.Delivery_Charges,
         platformFee: chargesData.Platform_Fee,

@@ -123,7 +123,7 @@ exports.getCart = async (req, res) => {
     ]);
 
     if(!items || items.length === 0){
-      return res.status(200).json({ status: false, message: "Cart Is Empty." });
+      return res.status(204).json({ status: false, message: "Cart Is Empty." });
     }
     if (!user) {
       return res

@@ -49,22 +49,9 @@ exports.getDashboardStats = async (req, res) => {
     ).length;
 
     // Total Earning
-    const totalEarning = await Order.aggregate([
-      { $match: { orderStatus: { $in: ["Delivered", "Completed"] },createdAt: {
-        $gte: startOfMonth,
-        $lte: endOfMonth,
-      }, }},
-      {
-        $group: {
-          _id: null,
-          total: { $sum: "$totalPrice" },
-        },
-      },
-    ]);
+    const adminWallet = await admin_transaction.findById('6899c9b7eeb3a6cd3a142237');
+    const totalRevenue = adminWallet?.wallet || 0;
 
-    const totalRevenue = totalEarning[0]?.total || 0;
-
-    // Recent Orders
     const recentOrders = await Order.find()
       .sort({ createdAt: -1 })
       .limit(10)
@@ -175,7 +162,8 @@ exports.walletAdmin = async (req, res) => {
 
     const orders = await Order.find({}, { storeId: 1, totalPrice: 1 });
 
-    const totalCash = orders.reduce((sum, order) => sum + (order.totalPrice || 0), 0);
+    const adminWallet = await admin_transaction.findById('6899c9b7eeb3a6cd3a142237');
+    const totalCash = adminWallet?.wallet || 0;
 
     const storeTotals = {};
     stores.forEach(store => {

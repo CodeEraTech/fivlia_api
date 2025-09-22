@@ -14,6 +14,7 @@ const Notification = require("../modals/Notification");
 const Assign = require("../modals/driverModals/assignments");
 const sendNotification = require("../firebase/pushnotification");
 const Store = require("../modals/store");
+const { generateAndSendThermalInvoice, generateStoreInvoiceId} = require('../config/invoice');
 const deliveryStatus = require("../modals/deliveryStatus");
 const { getNextOrderId } = require("../config/counter");
 const { createRazorpayOrder, getCommison} = require("../utils/razorpayService");
@@ -24,7 +25,7 @@ exports.placeOrder = async (req, res) => {
   try {
     const { cartIds, addressId, storeId, paymentMode } = req.body;
 
-    const nextOrderId = await getNextOrderId();
+    let nextOrderId = await getNextOrderId(false); 
 
     const chargesData = await SettingAdmin.findOne();
     const cartItems = await Cart.find({ _id: { $in: cartIds } });
@@ -86,7 +87,8 @@ exports.placeOrder = async (req, res) => {
       });
     }
 
-    if (paymentMode === true) {
+    if (paymentMode === true) {      
+      let nextOrderId = await getNextOrderId(true);
       const newOrder = await Order.create({
         orderId: nextOrderId,
         items: orderItems,
@@ -166,9 +168,19 @@ exports.verifyPayment = async (req, res) => {
     if (!tempOrder)
       return res.status(404).json({ message: "Temp order not found" });
 
-    // 2. Prepare order data
+    if (paymentStatus === false) {
+      // ❌ Payment failed -> just delete temp order and return
+      await TempOrder.findByIdAndDelete(tempOrderId);
+
+      return res.status(200).json({
+        status: false,
+        message: "Payment failed or cancelled. Order saved with status Cancelled.",
+      });
+    }
+
+    const nextOrderId = await getNextOrderId(true);
     const orderData = {
-      orderId: tempOrder.orderId,
+      orderId: nextOrderId,
       items: tempOrder.items,
       addressId: tempOrder.addressId,
       userId: tempOrder.userId,
@@ -179,13 +191,12 @@ exports.verifyPayment = async (req, res) => {
       gst: tempOrder.gst || "",
       storeId: tempOrder.storeId,
       transactionId: transactionId || "",
-      paymentStatus: paymentStatus ? "Successful" : "Cancelled",
-      orderStatus: paymentStatus ? "Pending" : "Cancelled",
+      paymentStatus: "Successful",
+      orderStatus: "Pending",
     };
 
     const finalOrder = await Order.create(orderData);
 
-    if (paymentStatus === true) {
       for (const item of tempOrder.items) {
         await stock.updateOne(
           {
@@ -204,15 +215,12 @@ exports.verifyPayment = async (req, res) => {
       }
 
       await Cart.deleteMany({ _id: { $in: tempOrder.cartIds } });
-    }
     // 5. Delete the temp order
     await TempOrder.findByIdAndDelete(tempOrderId);
 
     return res.status(200).json({
       status: paymentStatus ? true : false,
-      message: paymentStatus
-        ? "Payment verified. Order placed successfully."
-        : "Payment failed or cancelled. Order saved with status Cancelled.",
+      message: "Payment verified. Order placed successfully.",
       order: finalOrder,
     });
   } catch (error) {
@@ -435,12 +443,78 @@ exports.orderStatus = async (req, res) => {
       });
     }
 
-    if (status === "Delivered" && updatedOrder.driver?.driverId) {
-      const data = await Assign.findOneAndDelete({
+   if (status === "Delivered" && updatedOrder.driver?.driverId) {
+      await Assign.findOneAndDelete({
         driverId: updatedOrder.driver.driverId,
-        orderId: updatedOrder.orderId, // or updatedOrder.orderId depending on what you save
+        orderId: updatedOrder.orderId,
         orderStatus: "Accepted",
       });
+
+      // 🧮 Commission + Wallet Update Logic (SAME AS driverOrderStatus)
+      const storeBefore = await Store.findById(updatedOrder.storeId).lean();
+      const store = storeBefore;
+
+      // 🧮 Calculate Commission from Items
+      const totalCommission = updatedOrder.items.reduce((sum, item) => {
+        const itemTotal = item.price * item.quantity;
+        const commissionAmount = ((item.commision || 0) / 100) * itemTotal;
+        return sum + commissionAmount;
+      }, 0);
+
+      // 🏦 Credit Store Wallet
+      let creditToStore = updatedOrder.totalPrice;
+      if (!store.Authorized_Store) {
+        creditToStore = updatedOrder.totalPrice - totalCommission;
+      }
+
+      const storeData = await Store.findByIdAndUpdate(
+        updatedOrder.storeId,
+        { $inc: { wallet: creditToStore } },
+        { new: true }
+      );
+
+      // ➕ Create Store Transaction
+      await store_transaction.create({
+        currentAmount: storeData.wallet,
+        lastAmount: storeBefore.wallet,
+        type: "Credit",
+        amount: creditToStore,
+        orderId: updatedOrder.orderId,
+        storeId: updatedOrder.storeId,
+        description: store.Authorized_Store
+          ? "Full amount credited (Authorized Store)"
+          : `Credited after commission cut (${totalCommission.toFixed(2)} deducted)`,
+      });
+
+      // 🏛️ Credit Admin Wallet (only if commission exists)
+      if (!store.Authorized_Store && totalCommission > 0) {
+        const lastAmount = await admin_transaction.findById("6899c9b7eeb3a6cd3a142237").lean();
+        const updatedWallet = await admin_transaction.findByIdAndUpdate(
+          "6899c9b7eeb3a6cd3a142237",
+          { $inc: { wallet: totalCommission } },
+          { new: true }
+        );
+
+        await admin_transaction.create({
+          currentAmount: updatedWallet.wallet,
+          lastAmount: lastAmount.wallet,
+          type: "Credit",
+          amount: totalCommission,
+          orderId: updatedOrder.orderId,
+          description: "Commission credited to Admin wallet",
+        });
+      }
+
+      // 🧾 Generate Store Invoice ID
+      const storeInvoiceId = await generateStoreInvoiceId(updatedOrder.storeId);
+      await Order.findByIdAndUpdate(updatedOrder._id, { storeInvoiceId });
+
+      // 🧾 Generate and send Thermal Invoice
+      try {
+        await generateAndSendThermalInvoice(updatedOrder.orderId);
+      } catch (err) {
+        console.error("Error generating thermal invoice:", err);
+      }
     }
 
     const user = await User.findById(updatedOrder.userId).lean();

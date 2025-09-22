@@ -208,7 +208,7 @@ async function generatePDFInvoice(order, user, store, subtotal, gstTotal) {
       }, 0);
       
       if (commissionAmount > 0) {
-        const commissionLine = 'Commission:'.padEnd(30) + commissionAmount.toFixed(2).padStart(15);
+        const commissionLine = 'Commission:'.padEnd(25) + commissionAmount.toFixed(2).padStart(15);
         doc.text(commissionLine);
       }
 
@@ -225,7 +225,7 @@ async function generatePDFInvoice(order, user, store, subtotal, gstTotal) {
 
 const storePayout = order.totalPrice - commissionAmount;
 
-      const totalLine = 'TOTAL:'.padEnd(30) + order.storePayout.toFixed(2).padStart(9);
+      const totalLine = 'TOTAL:'.padEnd(30) + storePayout.toFixed(2).padStart(9);
       doc.fontSize(9).font('Helvetica-Bold').text(totalLine);
       
       doc.moveDown(0.3);

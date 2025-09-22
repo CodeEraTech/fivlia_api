@@ -678,7 +678,7 @@ exports.forwebsearchProduct = async (req, res) => {
     if (name) {
       searchFilter.productName = { $regex: name, $options: "i" };
     }
-    const categoryIds = new Set();
+    const allCategoryIds = new Set();
     const storeCategoryIds = allowedStores.flatMap((store) =>
       Array.isArray(store.Category)
         ? store.Category.map((id) => id?.toString())
@@ -686,22 +686,37 @@ exports.forwebsearchProduct = async (req, res) => {
         ? [store.Category.toString()]
         : []
     );
-    const uniqueCategoryIds = [...new Set(storeCategoryIds)];
-    if (uniqueCategoryIds.length > 0) {
+
+    // Fallback to sellerCategories if no Category found
+    if (storeCategoryIds.length < 1) {
+      allowedStores.forEach((store) => {
+        store.sellerCategories?.forEach((category) => {
+          if (category?.categoryId) allCategoryIds.add(category.categoryId);
+          category.subCategories?.forEach((sub) => {
+            if (sub?.subCategoryId) allCategoryIds.add(sub.subCategoryId);
+            sub.subSubCategories?.forEach((subsub) => {
+              if (subsub?.subSubCategoryId)
+                allCategoryIds.add(subsub.subSubCategoryId);
+            });
+          });
+        });
+      });
+    } else {
+      const uniqueCategoryIds = [...new Set(storeCategoryIds)];
       const categories = await Category.find({
         _id: { $in: uniqueCategoryIds },
       }).lean();
       for (const cat of categories) {
-        categoryIds.add(cat._id.toString());
+        allCategoryIds.add(cat._id.toString());
         (cat.subcat || []).forEach((sub) => {
-          if (sub?._id) categoryIds.add(sub._id.toString());
+          if (sub?._id) allCategoryIds.add(sub._id.toString());
           (sub.subsubcat || []).forEach((subsub) => {
-            if (subsub?._id) categoryIds.add(subsub._id.toString());
+            if (subsub?._id) allCategoryIds.add(subsub._id.toString());
           });
         });
       }
     }
-    const categoryArray = [...categoryIds];
+    const categoryArray = [...allCategoryIds];
     const products = await Products.find({
       ...searchFilter,
       $or: [

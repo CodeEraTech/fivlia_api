@@ -17,7 +17,7 @@ const { getDeliveryEstimate } = require('../controlers/DeliveryControler')
 const { addSellerProduct, editSellerProduct, updateSellerStock, deleteSellerProduct, addCategoryInSeller, getDetailsGst, getCategoryProduct, getSellerCategoryMapping, getSellerCategories, getSellerProducts, updateSellerProducStatus, getSellerCategoryList, getExistingProductList, removeCategory, removeProduct, getUnapprovedProducts, saveBrandApprovelDocument} = require('../controlers/sellerControlers/sellerProductsControler')
 
 //seller auth
-const { addSeller, getSeller, getSellerRequest, sendOtp, acceptDeclineRequest, verifyOtpSeller, editSellerProfile} = require('../controlers/sellerControlers/sellerAuth')
+const { addSeller, getSeller, getSellerRequest, sendOtp, acceptDeclineRequest, verifyOtpSeller, editSellerProfile, sellerWithdrawalRequest} = require('../controlers/sellerControlers/sellerAuth')
 
 const { createStore, storeLogin, verifyEmail, getStore, addCategoryInStore, removeCategoryInStore, storeEdit, getStoreTransaction, getStoreCategory } = require('../controlers/storeControler');
 
@@ -83,6 +83,7 @@ router.post('/sendOtp', sendOtp)
 //sellerProducts
 // router.post('/addSellerProduct/:id', upload, addSellerProduct)
 router.post('/seller/verifyOtp', verifyOtpSeller)
+router.post('/seller/withdrawalRequest', sellerWithdrawalRequest)
 // router.put('/editSellerProduct/:id', upload, editSellerProduct)
 // router.put('/updateSellerStock/:id', updateSellerStock)
 router.put('/acceptDeclineRequest', acceptDeclineRequest)

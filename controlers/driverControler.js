@@ -22,11 +22,11 @@ const {mobileNumber, password, fcmToken} = req.body
 
 const exist = await driver.findOne({
       "address.mobileNo": mobileNumber});
-console.log(exist)
+// console.log(exist)
 if(!exist){
     return res.status(400).json({message:"User Not Found"})
 }
-console.log(exist.password)
+// console.log(exist.password)
 if(exist.password !== password){
     return res.status(400).json({message:"Invalid Credentials"})
 }
@@ -176,7 +176,7 @@ const totalCommission = order.items.reduce((sum, item) => {
       ? 'Full amount credited (Authorized Store)'
       : `Credited after commission cut (${totalCommission} deducted)`
   });
-console.log(data)
+// console.log(data)
   // ===> Update Admin Wallet only if commission > 0
   if (!store.Authorized_Store && totalCommission > 0) {
     const lastAmount = await admin_transaction.findById('6899c9b7eeb3a6cd3a142237').lean();
@@ -390,7 +390,7 @@ const updateData = {};
       updateData.image = pathOnly;
     }
     const Profile = await driver.findByIdAndUpdate(id,updateData,{ new: true } )
-    console.log(Profile)
+    // console.log(Profile)
     return res.status(200).json({message:"Profile Updated"})
   } catch (error) {
    console.error(error);

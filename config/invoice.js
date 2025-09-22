@@ -200,17 +200,6 @@ async function generatePDFInvoice(order, user, store, subtotal, gstTotal) {
         const deliveryLine = 'Delivery:'.padEnd(30) + order.deliveryCharges.toFixed(2).padStart(15);
         doc.text(deliveryLine);
       }
-      
-      const commissionAmount = order.items.reduce((sum, item) => {
-      const itemTotal = item.price * item.quantity;
-      const itemCommission = ((item.commision || 0) / 100) * itemTotal;
-      return sum + itemCommission;
-      }, 0);
-      
-      if (commissionAmount > 0) {
-        const commissionLine = 'Commission:'.padEnd(25) + commissionAmount.toFixed(2).padStart(15);
-        doc.text(commissionLine);
-      }
 
       if (order.platformFee > 0) {
         const platformLine = 'Platform Fee:'.padEnd(30) + order.platformFee.toFixed(2).padStart(11);
@@ -223,9 +212,7 @@ async function generatePDFInvoice(order, user, store, subtotal, gstTotal) {
       doc.moveTo(10, doc.y + 1).lineTo(216, doc.y + 1).stroke();
       doc.moveDown(0.3);
 
-const storePayout = order.totalPrice - commissionAmount;
-
-      const totalLine = 'TOTAL:'.padEnd(30) + storePayout.toFixed(2).padStart(9);
+      const totalLine = 'TOTAL:'.padEnd(30) + order.totalPrice.toFixed(2).padStart(9);
       doc.fontSize(9).font('Helvetica-Bold').text(totalLine);
       
       doc.moveDown(0.3);

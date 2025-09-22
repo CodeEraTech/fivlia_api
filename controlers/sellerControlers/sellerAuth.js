@@ -11,6 +11,7 @@ const CategoryModel = require('../../modals/category');
 const Stock = require('../../modals/StoreStock')
 const jwt = require('jsonwebtoken');
 const sellerProduct = require('../../modals/sellerModals/sellerProduct');
+const store_transaction = require('../../modals/storeTransaction')
 const {whatsappOtp} = require('../../config/whatsappsender')
 
 exports.addSeller = async (req,res) => {
@@ -552,7 +553,63 @@ exports.editSellerProfile = async (req, res) => {
   }
 };
 
+exports.sellerWithdrawalRequest = async(req, res) =>{
+  try {
+      const { storeId, amount } = req.body;
+  
+      const storeData = await seller.findById(storeId);
+      if (!storeData) return res.status(204).json({ message: "Seller not found" });
+  
+      const settings = await SettingAdmin.findOne();
+      const minWithdrawal = settings?.minWithdrawal || 0;
 
+      if (amount < minWithdrawal) {
+      return res.status(400).json({ message: `Minimum withdrawal amount is ₹${minWithdrawal}` });
+      }
+
+      const pendingWithdrawals = await store_transaction.aggregate([
+        { $match: { storeId: storeData._id, status: "Pending", type: "debit" } },
+        { $group: { _id: null, totalPending: { $sum: "$amount" } } }
+      ]);
+  
+      const totalPending = pendingWithdrawals[0]?.totalPending || 0;
+  
+      // Check if requested amount + pending exceeds wallet
+      if (amount + totalPending > storeData.wallet) {
+        return res.status(400).json({ message: "Insufficient wallet balance considering pending withdrawals" });
+      }
+  
+      // Check if a pending withdrawal already exists
+      let withdrawal = await store_transaction.findOne({ storeId: storeData._id, status: "Pending", type: "debit" });
+  
+      if (withdrawal) {
+        // Update existing pending request
+        withdrawal.amount += amount;
+        withdrawal.description = `Withdrawal request of ₹${withdrawal.amount} by seller`;
+        await withdrawal.save();
+      } else {
+        // Create new withdrawal request
+        withdrawal = await store_transaction.create({
+          storeId: storeData._id,
+          amount,
+          type: "debit",
+          description: `Withdrawal request of ₹${amount} by seller`,
+          status: "Pending"
+        });
+      }
+  
+      return res.status(200).json({
+        message: "Withdrawal request submitted successfully",
+        wallet: storeData.wallet,
+        pendingWithdrawal: withdrawal
+      });
+  
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ message: "Server error", error: error.message });
+    }
+  };
+  
 
 
 // https://api.fivlia.in/getSellerProducts?categories=683eeb6ff6f5264ba0295760%683ed131f6f5264ba0295759&subCategories=683ef865f6f5264ba0295774%683ed131f6f5264ba0295755&subsubCategories=683ef865f6f5264ba0295724%683ed131f6f5264ba0295715

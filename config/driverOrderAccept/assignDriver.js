@@ -44,14 +44,8 @@ const assignWithSocketLoop = async (order, drivers) => {
     const timeLimit = 50000;
     const totalSeconds = timeLimit / 1000;
 
-    console.log(
-      `Sending order ${order.orderId} to driver ${driver._id} (${driver.driverName})`
-    );
-    socket.emit("newOrder", {
-      order,
-      driverId: driver._id,
-      timeLeft: totalSeconds,
-    });
+    // console.log(`Sending order ${order.orderId} to driver ${driver._id} (${driver.driverName})`);
+    socket.emit('newOrder', { order, driverId: driver._id, timeLeft: totalSeconds });
 
     if (driver.fcmToken) {
       admin
@@ -82,9 +76,7 @@ const assignWithSocketLoop = async (order, drivers) => {
 
     const timeout = setTimeout(() => {
       if (!orderAssigned) {
-        console.log(
-          `Driver ${driver._id} did not respond to order ${order.orderId} in time.`
-        );
+        // console.log(`Driver ${driver._id} did not respond to order ${order.orderId} in time.`);
         cleanup();
         index++;
         tryAssign();
@@ -98,10 +90,8 @@ const assignWithSocketLoop = async (order, drivers) => {
     };
 
     const handleAccept = async ({ driverId, orderId }) => {
-      if (driverId === driver._id.toString() && orderId === order.orderId) {
-        console.log(
-          "✅ Driver and order match — proceeding with acceptance..."
-        );
+      if (driverId === driver._id.toString() && orderId === order.orderId){
+      // console.log("✅ Driver and order match — proceeding with acceptance...");
 
         orderAssigned = true;
 
@@ -123,17 +113,17 @@ const assignWithSocketLoop = async (order, drivers) => {
           { upsert: true } // create if it doesn’t exist
         );
 
-        console.log(
-          `Order ${orderId} accepted by driver ${driverId}. Stopping loop.`
-        );
+
+        // console.log(`Order ${orderId} accepted by driver ${driverId}. Stopping loop.`);
       }
     };
 
     const handleReject = async ({ driverId, orderId }) => {
       if (driverId === driver._id.toString() && orderId === order.orderId) {
         cleanup();
-        await Assign.create({ driverId, orderId, orderStatus: "Rejected" });
-        console.log(`Order ${orderId} Rejected by driver ${driverId}`);
+        await Assign.create({ driverId, orderId, orderStatus: 'Rejected' });
+//  console.log(`Order ${orderId} Rejected by driver ${driverId}`);
+
 
         index++;
         tryAssign();

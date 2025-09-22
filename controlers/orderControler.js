@@ -113,7 +113,7 @@ exports.placeOrder = async (req, res) => {
             $inc: { "stock.$.quantity": -item.quantity },
           }
         );
-        console.log("dataStock", dataStock);
+        // console.log("dataStock", dataStock);
         await Products.updateOne(
           { _id: item.productId },
           { $inc: { purchases: item.quantity } }
@@ -764,7 +764,7 @@ exports.notification = async (req, res) => {
     const { title, description, city } = req.body;
     const rawImagePath = req.files?.image?.[0]?.key || "";
     const image = rawImagePath ? `/${rawImagePath}` : "";
-    console.log(image);
+    // console.log(image);
     const newNotification = await Notification.create({
       title,
       description,

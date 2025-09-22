@@ -91,7 +91,7 @@ exports.updateLocation = async (req, res) => {
       },
       { new: true }
     );
-console.log(updatedUser);
+// console.log(updatedUser);
 
     if (!updatedUser) {
       return res.status(404).json({ message: "User not found" });
@@ -235,7 +235,7 @@ exports.updateZoneStatus = async (req, res) => {
 exports.addAddress = async (req, res) => {
   try {
     const { id } = req.user;
-    console.log(id);
+    // console.log(id);
     
     const {
       fullName,

@@ -1,77 +1,136 @@
-exports.getAllSellerProducts = async (req, res) => {
-  const { id } = req.query;
-
-  try {
-    // 1. Fetch Stock data for the seller using sellerId
-    const stockData = await Stock.find({ storeId: id }).populate({
-      path: "stock.productId",
-      model: "Product",
-    });
-
-    const seller = await Store.findOne({ _id: id }).select(
-      "storeName sellerCategories advertisementImages"
-    );
-
-    if (!stockData || stockData.length === 0) {
-      return res
-        .status(404)
-        .json({ message: "No stock data found for this seller." });
+const { driverSocketMap } = require('../../utils/driverSocketMap');
+const Assign = require('../../modals/driverModals/assignments');
+const { Order } = require('../../modals/order');
+const admin = require('../../firebase/firebase');
+const driver = require('../../modals/driver');
+ 
+// Track drivers who already have active orders
+const activeDrivers = new Set();
+ 
+const assignWithSocketLoop = async (order, drivers) => {
+  let index = 0;
+  let orderAssigned = false; // shared flag
+ 
+  const tryAssign = async () => {
+    if (orderAssigned) return;
+ 
+    if (index >= drivers.length) {
+      console.log(`No driver accepted order ${order.orderId}. Retrying in 10 seconds...`);
+      setTimeout(() => {
+        const autoAssignDriver = require('./AutoAssignDriver');
+        autoAssignDriver(order._id);
+      }, 10000);
+      return;
     }
-
-    // 2. Collect all product IDs from the stock data
-    const productIds = stockData.flatMap((item) =>
-      item.stock.map((stockItem) => stockItem.productId)
-    );
-
-    // 3. Fetch products corresponding to the productIds
-    const products = await Products.find({ _id: { $in: productIds } }).populate(
-      [
-        { path: "category", select: "name" },
-        { path: "brand_Name", select: "name" },
-        { path: "unit", select: "name" },
-      ]
-    );
-
-    // get and set all categories
-    const categoryIds = seller.sellerCategories.map((c) => c.categoryId);
-    const categories = await Category.find({
-      _id: { $in: categoryIds },
-    }).lean();
-    return res
-      .status(200)
-      .json({sellerImage:seller.advertisementImages, seller: seller, categories: categories, products: products });
-  } catch (error) {
-    console.error("Error fetching seller products:", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
+ 
+    const driver = drivers[index];
+ 
+    // Skip the driver if they already have an active order
+    if (activeDrivers.has(driver._id.toString())) {
+      index++;
+      return tryAssign(); // Try the next driver
+    }
+ 
+    const socket = driverSocketMap.get(driver._id.toString());
+    if (!socket) {
+      index++;
+      return tryAssign(); // Skip to next driver if no socket
+    }
+ 
+    const timeLimit = 50000; // 50 seconds
+    const totalSeconds = timeLimit / 1000;
+ 
+    console.log(`Sending order ${order.orderId} to driver ${driver._id} (${driver.driverName})`);
+    socket.emit('newOrder', { order, driverId: driver._id, timeLeft: totalSeconds });
+ 
+    // Send push notification if FCM token is available
+    if (driver.fcmToken) {
+      admin.messaging().send({
+        token: driver.fcmToken,
+        notification: {
+          title: 'New Order Request',
+          body: `Order ${order.orderId} is waiting for your response`
+        },
+        android: {
+          notification: {
+            channelId: "custom_sound_channel",
+            sound: "custom_sound"
+          }
+        },
+        data: {
+          orderId: order.orderId.toString(),
+          timeLeft: totalSeconds.toString(),
+          screen: "TodayOrderScreen"
+        }
+      }).then(res => console.log('Push sent:', res))
+        .catch(err => console.error('Push error:', err));
+    } else {
+      console.warn(`Driver ${driver._id} does not have an FCM token.`);
+    }
+ 
+    const timeout = setTimeout(() => {
+      if (!orderAssigned) {
+        console.log(`Driver ${driver._id} did not respond to order ${order.orderId} in time.`);
+        cleanup();
+        index++;
+        tryAssign(); // Try next driver
+      }
+    }, timeLimit);
+ 
+    const cleanup = () => {
+      socket.off('acceptOrder', handleAccept);
+      socket.off('rejectOrder', handleReject);
+      clearTimeout(timeout);
+    };
+ 
+    const handleAccept = async ({ driverId, orderId }) => {
+      if (driverId === driver._id.toString() && orderId === order.orderId) {
+        console.log("✅ Driver and order match — proceeding with acceptance...");
+ 
+        orderAssigned = true;
+        activeDrivers.add(driver._id.toString()); // Mark the driver as having an active order
+        cleanup();
+ 
+        await Order.findOneAndUpdate(
+          { orderId },
+          {
+            driver: {
+              driverId,
+              name: driver.driverName,
+              mobileNumber: driver.address?.mobileNo
+            },
+            orderStatus: "Going to Pickup"
+          }
+        );
+ 
+        await Assign.updateOne(
+          { driverId, orderId },
+          { $set: { orderStatus: 'Accepted' } },
+          { upsert: true }
+        );
+ 
+        console.log(`Order ${orderId} accepted by driver ${driverId}. Stopping loop.`);
+      }
+    };
+ 
+    const handleReject = async ({ driverId, orderId }) => {
+      if (driverId === driver._id.toString() && orderId === order.orderId) {
+        console.log(`Order ${orderId} rejected by driver ${driverId}.`);
+ 
+        cleanup();
+        await Assign.create({ driverId, orderId, orderStatus: 'Rejected' });
+ 
+        activeDrivers.delete(driver._id.toString()); // Remove driver from active orders
+        index++;
+        tryAssign(); // Try assigning the order to the next available driver
+      }
+    };
+ 
+    socket.once('acceptOrder', handleAccept);
+    socket.once('rejectOrder', handleReject);
+  };
+ 
+  tryAssign();
 };
-
-
-
-const nodemailer = require("nodemailer");
-
-const transporter = nodemailer.createTransport({
-  host: "mail.fivlia.in", // Or use the server IP if given: 172.93.223.239
-  port: 465,              // Use 465 for SSL (recommended)
-  secure: true,           // true for port 465, false for 587
-  auth: {
-    user: "no-reply@fivlia.in",   // Your no-reply email
-    pass: "gx4dBAaGRJ", 
-  },
-  tls: {
-    rejectUnauthorized: false, // ⚠️ Only for testing
-  },
-
-});
-
-const sendVerificationEmail = async (to, subject, html) => {
-
-  await transporter.sendMail({
-    from: "Fivlia <no-reply@fivlia.in>",
-    to,
-    subject,
-    html,
-  });
-};
-
-module.exports = sendVerificationEmail;
+ 
+module.exports = assignWithSocketLoop;

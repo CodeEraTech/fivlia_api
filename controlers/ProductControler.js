@@ -420,9 +420,7 @@ exports.getProduct = async (req, res) => {
     const userLng = user.location.longitude;
 
     // ✅ Fetch active cities, zones & nearby stores
-    const [activeCities, zoneDocs, stores, cartDocs] = await Promise.all([
-      CityData.find({ status: true }, "city").lean(),
-      ZoneData.find({ status: true }, "zones").lean(),
+    const [stores, cartDocs] = await Promise.all([
       getStoresWithinRadius(userLat, userLng),
       Cart.find({ userId }).lean(),
     ]);
@@ -654,7 +652,7 @@ exports.getProduct = async (req, res) => {
 exports.bestSelling = async (req, res) => {
   try {
     const userId = req.user._id;
-    console.log("🔐 Authenticated User ID:", userId);
+    // console.log("🔐 Authenticated User ID:", userId);
 
     // ✅ Get user location from DB
     const user = await User.findById(userId).lean();
@@ -1448,10 +1446,10 @@ exports.updateProduct = async (req, res) => {
     if (!existingProduct) {
       return res.status(404).json({ message: "Product not found" });
     }
-    console.log(
-      "🧾 Existing product variants:",
-      JSON.stringify(existingProduct.variants, null, 2)
-    );
+    // console.log(
+    //   "🧾 Existing product variants:",
+    //   JSON.stringify(existingProduct.variants, null, 2)
+    // );
 
     const variantImageMap = {};
 
@@ -1464,7 +1462,7 @@ exports.updateProduct = async (req, res) => {
           console.warn(`❗ No file path found for ${key}`);
           continue;
         }
-        console.log("⛳ Uploading variant key:", key, "| Path:", file.path);
+        // console.log("⛳ Uploading variant key:", key, "| Path:", file.path);
         try {
           const uploaded = await cloudinary.uploader.upload(file.path, {
             folder: "products/variants",
@@ -1472,7 +1470,7 @@ exports.updateProduct = async (req, res) => {
 
           if (uploaded?.secure_url) {
             variantImageMap[key] = uploaded.secure_url;
-            console.log(`✅ Uploaded ${key}: ${uploaded.secure_url}`);
+            // console.log(`✅ Uploaded ${key}: ${uploaded.secure_url}`);
           } else {
             console.warn(`❗ Cloudinary didn't return secure_url for ${key}`);
           }
@@ -1530,10 +1528,10 @@ exports.updateProduct = async (req, res) => {
           continue;
         }
 
-        console.log(
-          `🧾 Filter doc for _id ${item._id}:`,
-          JSON.stringify(filterDoc.Filter, null, 2)
-        );
+        // console.log(
+        //   `🧾 Filter doc for _id ${item._id}:`,
+        //   JSON.stringify(filterDoc.Filter, null, 2)
+        // );
 
         let selectedArray = [];
         const selectedIds = Array.isArray(item.selected)
@@ -1568,10 +1566,10 @@ exports.updateProduct = async (req, res) => {
           });
         }
       }
-      console.log(
-        "🧾 Final filter array:",
-        JSON.stringify(finalFilterArray, null, 2)
-      );
+      // console.log(
+      //   "🧾 Final filter array:",
+      //   JSON.stringify(finalFilterArray, null, 2)
+      // );
     }
 
     const productLocation = [];
@@ -1620,7 +1618,7 @@ exports.updateProduct = async (req, res) => {
         try {
           const cityData = await ZoneData.findOne({ city: loc.city });
           if (!cityData) {
-            console.log(`No city data found for city: ${loc.city}`);
+            // console.log(`No city data found for city: ${loc.city}`);
             continue;
           }
 
@@ -1635,7 +1633,7 @@ exports.updateProduct = async (req, res) => {
           );
 
           if (matchedZones.length === 0) {
-            console.log(`No matched zones found for city: ${loc.city}`);
+            // console.log(`No matched zones found for city: ${loc.city}`);
             continue;
           }
 
@@ -1734,10 +1732,10 @@ exports.updateProduct = async (req, res) => {
         } else {
           console.warn("❗ No file provided for returnProduct image");
         }
-        console.log(
-          "🧾 Final returnProductData:",
-          JSON.stringify(returnProductData, null, 2)
-        );
+        // console.log(
+        //   "🧾 Final returnProductData:",
+        //   JSON.stringify(returnProductData, null, 2)
+        // );
       } catch (err) {
         console.warn("❗ Failed to parse returnProduct:", err.message);
       }
@@ -1766,15 +1764,15 @@ exports.updateProduct = async (req, res) => {
       quantity: 0,
     }));
 
-    console.log(
-      "🧾 Final inventory:",
-      JSON.stringify(finalInventoryArray, null, 2)
-    );
-    console.log("🧾 variantImageMap keys:", Object.keys(variantImageMap));
-    console.log(
-      "🧾 parsedVariantsWithIds:",
-      parsedVariantsWithIds.map((v) => v.imageKey)
-    );
+    // console.log(
+    //   "🧾 Final inventory:",
+    //   JSON.stringify(finalInventoryArray, null, 2)
+    // );
+    // console.log("🧾 variantImageMap keys:", Object.keys(variantImageMap));
+    // console.log(
+    //   "🧾 parsedVariantsWithIds:",
+    //   parsedVariantsWithIds.map((v) => v.imageKey)
+    // );
 
     // 👇 This replaces old logic: overwrite entire variants list based on what you send
     const finalVariants = parsedVariantsWithIds.map((variant) => {
@@ -1833,7 +1831,7 @@ exports.updateProduct = async (req, res) => {
       ...(sell_price && { sell_price }),
     };
 
-    console.log("🧾 Update data:", JSON.stringify(updateData, null, 2));
+    // console.log("🧾 Update data:", JSON.stringify(updateData, null, 2));
 
     const updatedProduct = await Products.findByIdAndUpdate(id, updateData, {
       new: true,

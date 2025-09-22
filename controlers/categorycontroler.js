@@ -25,13 +25,13 @@ exports.update = async (req, res) => {
       if (req.files?.file?.[0]?.path) {
       updateData.file = req.files.file[0].path;
       }
-console.log("req.files:", req.files);
+// console.log("req.files:", req.files);
     const updatedCategory = await Category.findByIdAndUpdate(req.params.id, updateData, { new: true });
 
     if (!updatedCategory) {
       return res.status(404).json({ message: 'Category not found' });
     }
-console.log("updateData:", updatedCategory);
+// console.log("updateData:", updatedCategory);
 
     return res.json(updatedCategory);
 
@@ -64,7 +64,7 @@ exports.banner = async (req,res) => {
     }
     
       const cityDoc = await ZoneData.findOne({_id:city});
-      console.log(cityDoc);
+      // console.log(cityDoc);
     
       let foundCategory = null;
     let foundSubCategory = null;
@@ -125,7 +125,7 @@ exports.getBanner = async (req, res) => {
 
     const user = await User.findById(userId).lean();
     if (!user || !user.location?.latitude || !user.location?.longitude) {
-      console.log("❌ User location missing or incomplete");
+      // console.log("❌ User location missing or incomplete");
       return res.status(400).json({ message: "User location not found" });
     }
 
@@ -146,7 +146,7 @@ exports.getBanner = async (req, res) => {
         }
       });
     });
-    console.log("📍 Active Zone IDs:", activeZoneIds);
+    // console.log("📍 Active Zone IDs:", activeZoneIds);
 
     // 🔎 Apply base filters
     const filters = { status: true };
@@ -160,8 +160,8 @@ exports.getBanner = async (req, res) => {
 
     const allBanners = await Banner.find(filters).lean();
     const matchedBanners =await getBannersWithinRadius(userLat, userLng, allBanners);
-    console.log(matchedBanners)
-    console.log("🎯 All banners fetched:", allBanners.length);
+    // console.log(matchedBanners)
+    // console.log("🎯 All banners fetched:", allBanners.length);
 
     if (!matchedBanners.length) {
       return res.status(200).json({
@@ -568,7 +568,7 @@ exports.brand = async (req,res) => {
     const image = rawImagePath ? `/${rawImagePath}` : "";
 
     if (!image) {
-      console.log(image);
+      // console.log(image);
       
       return res.status(400).json({ message: "Image is required" });
     }

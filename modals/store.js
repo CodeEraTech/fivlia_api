@@ -20,6 +20,7 @@ const storeScheema = new mongoose.Schema({
     panCard: [String],
     sellFood:{type:Boolean},
     fsiNumber:String,
+    invoicePrefix:{type:String},
     fullAddress:String,
     gstNumber: String,
     emailVerified: { type: Boolean, default: false },

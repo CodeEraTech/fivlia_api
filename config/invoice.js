@@ -4,6 +4,7 @@ const path = require('path');
 const s3 = require('./aws'); // AWS S3 setup
 const { v4: uuidv4 } = require('uuid');
 const {SettingAdmin} = require('../modals/setting')
+const Store = require('../modals/store')
 const {Order} = require('../modals/order');
 const User = require("../modals/User");
 const Product = require("../modals/Product"); // Add this line
@@ -57,6 +58,36 @@ exports.generateThermalInvoice = async (orderId) => {
   }
 };
 
+exports.generateStoreInvoiceId = async(storeId) => {
+  const store = await Store.findById(storeId);
+  if (!store) throw new Error('Store not found');
+
+  let prefix = '';
+  if (store.Authorized_Store) {      // field from store document
+    prefix = 'FIV';
+  } else {
+    prefix = store.invoicePrefix;
+  }
+
+  
+  // Find the last order for this store
+  const lastOrder = await Order.find({ storeId })
+    .sort({ createdAt: -1 })
+    .limit(1);
+
+  let lastNumber = 0;
+  if (lastOrder.length > 0 && lastOrder[0].storeInvoiceId) {
+    const match = lastOrder[0].storeInvoiceId.match(/\d+$/);
+    if (match) lastNumber = parseInt(match[0]);
+  }
+
+  const newNumber = lastNumber + 1;
+  // Pad with leading zeros, e.g., 001, 002, ...
+  const numberPadded = String(newNumber).padStart(3, '0');
+
+  return `${prefix}${numberPadded}`;
+}
+
 // Generate PDF invoice
 async function generatePDFInvoice(order, user, store, subtotal, gstTotal) {
   const setting = await SettingAdmin.find()
@@ -92,6 +123,7 @@ async function generatePDFInvoice(order, user, store, subtotal, gstTotal) {
       doc.fontSize(8).font('Helvetica');
       if (store) {
         doc.text(`Sold By: ${store.storeName || 'FIVLIA'}`);
+        doc.text(`Inovoice Id: ${order.storeInvoiceId}`);
         doc.text(`GST ID: ${setting[0]?.GST_Number || 'N/A'}`);
         doc.text(`Address: ${store.fullAddress||store.city.name || 'N/A'}`);
       } else {
@@ -169,6 +201,17 @@ async function generatePDFInvoice(order, user, store, subtotal, gstTotal) {
         doc.text(deliveryLine);
       }
       
+      const commissionAmount = order.items.reduce((sum, item) => {
+      const itemTotal = item.price * item.quantity;
+      const itemCommission = ((item.commision || 0) / 100) * itemTotal;
+      return sum + itemCommission;
+      }, 0);
+      
+      if (commissionAmount > 0) {
+        const commissionLine = 'Commission:'.padEnd(30) + commissionAmount.toFixed(2).padStart(15);
+        doc.text(commissionLine);
+      }
+
       if (order.platformFee > 0) {
         const platformLine = 'Platform Fee:'.padEnd(30) + order.platformFee.toFixed(2).padStart(11);
         doc.text(platformLine);
@@ -180,7 +223,9 @@ async function generatePDFInvoice(order, user, store, subtotal, gstTotal) {
       doc.moveTo(10, doc.y + 1).lineTo(216, doc.y + 1).stroke();
       doc.moveDown(0.3);
 
-      const totalLine = 'TOTAL:'.padEnd(30) + order.totalPrice.toFixed(2).padStart(9);
+const storePayout = order.totalPrice - commissionAmount;
+
+      const totalLine = 'TOTAL:'.padEnd(30) + order.storePayout.toFixed(2).padStart(9);
       doc.fontSize(9).font('Helvetica-Bold').text(totalLine);
       
       doc.moveDown(0.3);

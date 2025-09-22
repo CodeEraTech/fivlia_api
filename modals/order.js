@@ -9,13 +9,14 @@ const orderSchema = new mongoose.Schema({
 items: [
   {productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
   varientId: { type: mongoose.Schema.Types.ObjectId },
-  name: String,quantity: Number,price: Number,image: String,gst:String  }],
+  name: String,quantity: Number,price: Number,commision:Number,image: String,gst:String  }],
  totalPrice: Number,
  deliveryCharges:Number,
  storeId:{type:mongoose.Schema.ObjectId,ref:'Store'},
  orderStatus:{type:String,default:'Pending'},
  platformFee:Number,
  invoiceUrl: { type: String },
+ storeInvoiceId:{type: String},
  thermalInvoice: { type: String }, // For thermal printer invoice content
  transactionId:String,
  driver:{driverId:String,name:String,mobileNumber:String}

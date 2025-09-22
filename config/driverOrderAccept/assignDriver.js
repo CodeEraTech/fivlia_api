@@ -1,9 +1,9 @@
-const { driverSocketMap } = require('../../utils/driverSocketMap');
-const Assign = require('../../modals/driverModals/assignments');
-const {Order} = require('../../modals/order');
-const admin = require('../../firebase/firebase');
+const { driverSocketMap } = require("../../utils/driverSocketMap");
+const Assign = require("../../modals/driverModals/assignments");
+const { Order } = require("../../modals/order");
+const admin = require("../../firebase/firebase");
+const activeDrivers = new Set();
 
-const driver = require('../../modals/driver');
 const assignWithSocketLoop = async (order, drivers) => {
   let index = 0;
   let orderAssigned = false; // shared flag
@@ -12,15 +12,28 @@ const assignWithSocketLoop = async (order, drivers) => {
     if (orderAssigned) return;
 
     if (index >= drivers.length) {
-      console.log(`No driver accepted order ${order.orderId}. Retrying in 10 Seconds...`);
+      console.log(
+        `No driver accepted order ${order.orderId}. Retrying in 10 Seconds...`
+      );
       setTimeout(() => {
-      const autoAssignDriver = require('./AutoAssignDriver');
-      autoAssignDriver(order._id);
+        const autoAssignDriver = require("./AutoAssignDriver");
+        autoAssignDriver(order._id);
       }, 10000);
       return;
     }
 
     const driver = drivers[index];
+
+    if (activeDrivers.has(driver._id.toString())) {
+      index++;
+      return tryAssign(); // Try the next driver
+    } else {
+      activeDrivers.add(driver._id.toString());
+      setTimeout(() => {
+        activeDrivers.delete(driver._id.toString()); // Remove from active drivers
+      }, 30000);
+    }
+
     const socket = driverSocketMap.get(driver._id.toString());
 
     if (!socket) {
@@ -31,36 +44,47 @@ const assignWithSocketLoop = async (order, drivers) => {
     const timeLimit = 50000;
     const totalSeconds = timeLimit / 1000;
 
-    console.log(`Sending order ${order.orderId} to driver ${driver._id} (${driver.driverName})`);
-    socket.emit('newOrder', { order, driverId: driver._id, timeLeft: totalSeconds });
+    console.log(
+      `Sending order ${order.orderId} to driver ${driver._id} (${driver.driverName})`
+    );
+    socket.emit("newOrder", {
+      order,
+      driverId: driver._id,
+      timeLeft: totalSeconds,
+    });
 
     if (driver.fcmToken) {
-      admin.messaging().send({
-        token: driver.fcmToken,
-        notification: {
-          title: 'New Order Request',
-          body: `Order ${order.orderId} is waiting for your response`
-        },
-        android: {
+      admin
+        .messaging()
+        .send({
+          token: driver.fcmToken,
           notification: {
-            channelId: "custom_sound_channel",
-            sound: "custom_sound"
-          }
-        },
-        data: {
-          orderId: order.orderId.toString(),
-          timeLeft: totalSeconds.toString(),
-          screen: "TodayOrderScreen"
-        }
-      }).then(res => console.log('Push sent:', res))
-        .catch(err => console.error('Push error:', err));
+            title: "New Order Request",
+            body: `Order ${order.orderId} is waiting for your response`,
+          },
+          android: {
+            notification: {
+              channelId: "custom_sound_channel",
+              sound: "custom_sound",
+            },
+          },
+          data: {
+            orderId: order.orderId.toString(),
+            timeLeft: totalSeconds.toString(),
+            screen: "TodayOrderScreen",
+          },
+        })
+        .then((res) => console.log("Push sent:", res))
+        .catch((err) => console.error("Push error:", err));
     } else {
       console.warn(`Driver ${driver._id} does not have an FCM token.`);
     }
 
     const timeout = setTimeout(() => {
       if (!orderAssigned) {
-        console.log(`Driver ${driver._id} did not respond to order ${order.orderId} in time.`);
+        console.log(
+          `Driver ${driver._id} did not respond to order ${order.orderId} in time.`
+        );
         cleanup();
         index++;
         tryAssign();
@@ -68,58 +92,59 @@ const assignWithSocketLoop = async (order, drivers) => {
     }, timeLimit);
 
     const cleanup = () => {
-      socket.off('acceptOrder', handleAccept);
-      socket.off('rejectOrder', handleReject);
+      socket.off("acceptOrder", handleAccept);
+      socket.off("rejectOrder", handleReject);
       clearTimeout(timeout);
     };
 
     const handleAccept = async ({ driverId, orderId }) => {
-      if (driverId === driver._id.toString() && orderId === order.orderId){
-      console.log("✅ Driver and order match — proceeding with acceptance...");
+      if (driverId === driver._id.toString() && orderId === order.orderId) {
+        console.log(
+          "✅ Driver and order match — proceeding with acceptance..."
+        );
 
-    orderAssigned = true;
+        orderAssigned = true;
 
-    cleanup();
+        cleanup();
         await Order.findOneAndUpdate(
           { orderId },
           {
             driver: {
               driverId,
               name: driver.driverName,
-              mobileNumber: driver.address?.mobileNo
+              mobileNumber: driver.address?.mobileNo,
             },
-            orderStatus: "Going to Pickup"
+            orderStatus: "Going to Pickup",
           }
         );
         await Assign.updateOne(
-  { driverId, orderId },           // query to check if assignment exists
-  { $set: { orderStatus: 'Accepted' } }, // what to set if it exists or create
-  { upsert: true }                 // create if it doesn’t exist
-);
+          { driverId, orderId }, // query to check if assignment exists
+          { $set: { orderStatus: "Accepted" } }, // what to set if it exists or create
+          { upsert: true } // create if it doesn’t exist
+        );
 
-
-        console.log(`Order ${orderId} accepted by driver ${driverId}. Stopping loop.`);
+        console.log(
+          `Order ${orderId} accepted by driver ${driverId}. Stopping loop.`
+        );
       }
     };
 
     const handleReject = async ({ driverId, orderId }) => {
       if (driverId === driver._id.toString() && orderId === order.orderId) {
         cleanup();
-        await Assign.create({ driverId, orderId, orderStatus: 'Rejected' });
- console.log(`Order ${orderId} Rejected by driver ${driverId}`);
-
+        await Assign.create({ driverId, orderId, orderStatus: "Rejected" });
+        console.log(`Order ${orderId} Rejected by driver ${driverId}`);
 
         index++;
         tryAssign();
       }
     };
 
-    socket.once('acceptOrder', handleAccept);
-    socket.once('rejectOrder', handleReject);
+    socket.once("acceptOrder", handleAccept);
+    socket.once("rejectOrder", handleReject);
   };
 
   tryAssign();
 };
-
 
 module.exports = assignWithSocketLoop;

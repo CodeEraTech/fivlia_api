@@ -653,7 +653,7 @@ exports.forwebgetFeatureProduct = async (req, res) => {
       count: enrichedFeatureProducts.length,
     });
   } catch (error) {
-    console.error("❌ forwebgetFeatureProduct error:", error);
+    //console.error("❌ forwebgetFeatureProduct error:", error);
     return res.status(500).json({
       message: "An error occurred!",
       error: error.message,
@@ -667,6 +667,8 @@ exports.forwebsearchProduct = async (req, res) => {
     const { name, lat, lng } = req.query;
     const userLat = lat;
     const userLng = lng;
+
+    // Fetch stores within the given radius
     const [stores] = await Promise.all([
       getStoresWithinRadius(userLat, userLng),
     ]);
@@ -674,10 +676,14 @@ exports.forwebsearchProduct = async (req, res) => {
       ? stores.matchedStores
       : [];
     const allowedStoreIds = allowedStores.map((s) => s._id.toString());
+
+    // Initialize search filter
     const searchFilter = {};
     if (name) {
       searchFilter.productName = { $regex: name, $options: "i" };
     }
+
+    // Collect all category IDs based on the allowed stores
     const allCategoryIds = new Set();
     const storeCategoryIds = allowedStores.flatMap((store) =>
       Array.isArray(store.Category)
@@ -716,7 +722,10 @@ exports.forwebsearchProduct = async (req, res) => {
         });
       }
     }
+
     const categoryArray = [...allCategoryIds];
+
+    // Fetch the products based on search filter and category
     const products = await Products.find({
       ...searchFilter,
       $or: [
@@ -725,39 +734,79 @@ exports.forwebsearchProduct = async (req, res) => {
         { subSubCategoryId: { $in: categoryArray } },
       ],
     }).lean();
+
+    // Fetch stock data for the allowed stores
     const stockDocs = await Stock.find({
       storeId: { $in: allowedStoreIds },
     }).lean();
+
     const stockMap = {};
     const stockDetailMap = {};
+
+    // Map stock data for quick lookup
     for (const doc of stockDocs) {
       for (const item of doc.stock || []) {
-        const key = `${item.productId}_${item.variantId}`;
+        const key = `${item.productId}_${item.variantId}_${doc.storeId}`;
         stockMap[key] = item.quantity;
-        stockDetailMap[key] = item;
+        stockDetailMap[key] = item; // Store full stock info
       }
     }
+
+    const storeMap = {};
+    allowedStores.forEach((store) => {
+      storeMap[store._id.toString()] = store;
+    });
+
+    // Enrich products with store details and stock information
     for (const product of products) {
+      let bestStore = null; // We'll store the best store for the product
       product.inventory = [];
+
       for (const variant of product.variants || []) {
-        const key = `${product._id}_${variant._id}`;
-        const quantity = stockMap[key] || 0;
-        const stockEntry = stockDetailMap[key];
-        if (stockEntry?.price != null) variant.sell_price = stockEntry.price;
-        if (stockEntry?.mrp != null) variant.mrp = stockEntry.mrp;
-        product.inventory.push({ variantId: variant._id, quantity });
+        allowedStoreIds.forEach((storeId) => {
+          const key = `${product._id}_${variant._id}_${storeId}`;
+          const stockEntry = stockDetailMap[key];
+          const store = storeMap[storeId];
+
+          if (store && stockEntry) {
+            variant.price = stockEntry.price ?? variant.sell_price ?? 0;
+            variant.mrp = stockEntry.mrp ?? variant.mrp ?? 0;
+            variant.quantity = stockEntry.quantity;
+
+            product.inventory.push({
+              variantId: variant._id,
+              quantity: stockEntry.quantity,
+            });
+
+            // If no bestStore is selected or current store is better, update
+            if (
+              !bestStore ||
+              (store.soldBy?.official && !bestStore.soldBy?.official)
+            ) {
+              bestStore = store;
+            }
+          }
+        });
+      }
+
+      // Add best store to product (if found)
+      if (bestStore) {
+        product.storeId = bestStore._id;
+        product.soldBy = bestStore.soldBy?.storeName || bestStore.storeName;
       }
     }
+
     return res.status(200).json({
       message: "Search results fetched successfully.",
       products,
       count: products.length,
     });
   } catch (error) {
-    console.error("Server error:", error);
-    return res
-      .status(500)
-      .json({ message: "An error occurred!", error: error.message });
+    //console.error("Server error:", error);
+    return res.status(500).json({
+      message: "An error occurred!",
+      error: error.message,
+    });
   }
 };
 

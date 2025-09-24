@@ -437,7 +437,11 @@ exports.editSellerProfile = async (req, res) => {
       email,
       invoicePrefix,
       password,
-      bankDetails, // {bankName, accountHolder, accountNumber, ifsc, branch}
+      bankDetails,
+      openTime,
+      status,
+      closeTime
+      // {bankName, accountHolder, accountNumber, ifsc, branch}
     } = req.body;
 
     const sellerId =req.params.id;
@@ -471,7 +475,9 @@ exports.editSellerProfile = async (req, res) => {
     if (gstNumber) updateFields.gstNumber = gstNumber;
     if (fsiNumber) updateFields.fsiNumber = fsiNumber;
     if (password) updateFields.password = password;
-   
+    if (openTime) updateFields.openTime = openTime;
+    if (closeTime) updateFields.closeTime = closeTime;   
+    if (status) updateFields.status = status;   
     if (bankDetails) {
   // Parse bankDetails if it comes as JSON string (from form-data)
   let parsedBankDetails = bankDetails;

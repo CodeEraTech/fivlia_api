@@ -341,8 +341,10 @@ exports.getOrderDetails = async (req, res) => {
   try {
     const userId = req.user;
 
-    const userOrders = await Order.find({ userId }).lean();
+    const userOrders = await Order.find({ userId }).sort({createdAt:-1}).lean();
     const results = [];
+ 
+    const settings = await SettingAdmin.findOne()
 
     for (const order of userOrders) {
       // 1. Fetch address
@@ -362,9 +364,13 @@ exports.getOrderDetails = async (req, res) => {
         };
       }
 
-      // 3. Get product details for each item
+       if (settings && order.totalPrice > settings.freeDeliveryLimit) {
+        order.deliveryCharges = 0;
+      }
+
       const itemsWithDetails = await Promise.all(
         order.items.map(async (item) => {
+
           const product = await Products.findById(item.productId).lean();
           return {
             name: item.name,

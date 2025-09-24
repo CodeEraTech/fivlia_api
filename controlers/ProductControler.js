@@ -868,7 +868,7 @@ exports.searchProduct = async (req, res) => {
     const { name } = req.query;
     const userId = req.user._id || req.user;
 
-    // 1. Get user location
+    // 1️⃣ Get user location
     const user = await User.findById(userId).lean();
     if (!user || !user.location?.latitude || !user.location?.longitude) {
       return res.status(400).json({ message: "User location not found" });
@@ -877,25 +877,23 @@ exports.searchProduct = async (req, res) => {
     const userLat = user.location.latitude;
     const userLng = user.location.longitude;
 
-    // 2. Get nearby stores and user cart
+    // 2️⃣ Get nearby stores and user cart
     const [stores, cartDocs] = await Promise.all([
       getStoresWithinRadius(userLat, userLng),
       Cart.find({ userId }).lean(),
     ]);
 
-    const allowedStores = Array.isArray(stores?.matchedStores)
-      ? stores.matchedStores
-      : [];
+    const allowedStores = Array.isArray(stores?.matchedStores) ? stores.matchedStores : [];
     const allowedStoreIds = allowedStores.map((s) => s._id.toString());
 
-    // 3. Build search filter
+    // 3️⃣ Build search filter
     const searchFilter = {};
     if (name) {
       searchFilter.productName = { $regex: name, $options: "i" };
     }
 
-    // 4. Collect allowed category/subcategory/subsub from stores
-    const categoryIds = new Set();
+    // 4️⃣ Collect all allowed category IDs
+    const allCategoryIds = new Set();
     const storeCategoryIds = allowedStores.flatMap((store) =>
       Array.isArray(store.Category)
         ? store.Category.map((id) => id?.toString())
@@ -904,26 +902,36 @@ exports.searchProduct = async (req, res) => {
         : []
     );
 
-    const uniqueCategoryIds = [...new Set(storeCategoryIds)];
-
-    if (uniqueCategoryIds.length > 0) {
-      const categories = await Category.find({
-        _id: { $in: uniqueCategoryIds },
-      }).lean();
+    if (storeCategoryIds.length < 1) {
+      // fallback to sellerCategories
+      allowedStores.forEach((store) => {
+        store.sellerCategories?.forEach((category) => {
+          if (category?.categoryId) allCategoryIds.add(category.categoryId);
+          category.subCategories?.forEach((sub) => {
+            if (sub?.subCategoryId) allCategoryIds.add(sub.subCategoryId);
+            sub.subSubCategories?.forEach((subsub) => {
+              if (subsub?.subSubCategoryId) allCategoryIds.add(subsub.subSubCategoryId);
+            });
+          });
+        });
+      });
+    } else {
+      const uniqueCategoryIds = [...new Set(storeCategoryIds)];
+      const categories = await Category.find({ _id: { $in: uniqueCategoryIds } }).lean();
       for (const cat of categories) {
-        categoryIds.add(cat._id.toString());
+        allCategoryIds.add(cat._id.toString());
         (cat.subcat || []).forEach((sub) => {
-          if (sub?._id) categoryIds.add(sub._id.toString());
+          if (sub?._id) allCategoryIds.add(sub._id.toString());
           (sub.subsubcat || []).forEach((subsub) => {
-            if (subsub?._id) categoryIds.add(subsub._id.toString());
+            if (subsub?._id) allCategoryIds.add(subsub._id.toString());
           });
         });
       }
     }
 
-    const categoryArray = [...categoryIds];
+    const categoryArray = [...allCategoryIds];
 
-    // 5. Get filtered products
+    // 5️⃣ Get products matching filter & category
     const products = await Products.find({
       ...searchFilter,
       $or: [
@@ -933,76 +941,70 @@ exports.searchProduct = async (req, res) => {
       ],
     }).lean();
 
-    // 6. Get stock from nearby stores
-    const stockDocs = await Stock.find({
-      storeId: { $in: allowedStoreIds },
-    }).lean();
-
-    const stockMap = {};
+    // 6️⃣ Fetch stock from allowed stores
+    const stockDocs = await Stock.find({ storeId: { $in: allowedStoreIds } }).lean();
     const stockDetailMap = {};
-    for (const doc of stockDocs) {
-      for (const item of doc.stock || []) {
-        const key = `${item.productId}_${item.variantId}`;
-        stockMap[key] = item.quantity;
-        stockDetailMap[key] = {
-          quantity: item.quantity,
-          price: item.price,
-          mrp: item.mrp,
-          storeId: doc.storeId, // ✅ attach storeId here
-        };
-      }
-    }
 
-    // 7. Create cart map
+    stockDocs.forEach((doc) => {
+      (doc.stock || []).forEach((item) => {
+        const key = `${item.productId}_${item.variantId}_${doc.storeId}`;
+        stockDetailMap[key] = item;
+      });
+    });
+
+    // 7️⃣ Map stores for quick access
+    const storeMap = {};
+    allowedStores.forEach((store) => {
+      storeMap[store._id.toString()] = store;
+    });
+
+    // 8️⃣ Map cart for user
     const cartMap = {};
-    for (const item of cartDocs) {
+    cartDocs.forEach((item) => {
       const key = `${item.productId}_${item.varientId}`;
       cartMap[key] = item.quantity;
-    }
+    });
 
-    // 8. Append inventory, price, mrp, cart data
+    // 9️⃣ Enrich products with inventory, price, mrp, stock, best store, cart
     for (const product of products) {
       product.inventory = [];
       product.inCart = { status: false, qty: 0, variantIds: [] };
-      product.soldBy = {};
-      let hasStock = false;
+      let bestStore = null;
+
       for (const variant of product.variants || []) {
-        const key = `${product._id}_${variant._id}`;
-        const quantity = stockMap[key] || 0;
-        const cartQty = cartMap[key] || 0;
+        allowedStoreIds.forEach((storeId) => {
+          const key = `${product._id}_${variant._id}_${storeId}`;
+          const stockEntry = stockDetailMap[key];
+          const store = storeMap[storeId];
 
-        // Override price and mrp from stock entry
-        const stockEntry = stockDetailMap[key];
-        if (stockEntry?.price != null) {
-          variant.sell_price = stockEntry.price;
-        }
-        if (stockEntry?.mrp != null) {
-          variant.mrp = stockEntry.mrp;
-        }
+          if (store && stockEntry) {
+            // Update variant prices
+            variant.sell_price = stockEntry.price ?? variant.sell_price ?? 0;
+            variant.mrp = stockEntry.mrp ?? variant.mrp ?? 0;
+            variant.quantity = stockEntry.quantity;
 
-        product.inventory.push({ variantId: variant._id, quantity });
+            product.inventory.push({ variantId: variant._id, quantity: stockEntry.quantity });
 
-        if (quantity > 0) {
-          hasStock = true; // ✅ mark product as in stock
-        }
+            // Determine best store
+            if (!bestStore || (store.soldBy?.official && !bestStore.soldBy?.official)) {
+              bestStore = store;
+            }
 
-        if (cartQty > 0) {
-          product.inCart.status = true;
-          product.inCart.qty += cartQty;
-          product.inCart.variantIds.push(variant._id);
-        }
-        if (hasStock && stockEntry?.storeId) {
-          const store = allowedStores.find(
-            (s) => s._id.toString() === stockEntry.storeId.toString()
-          );
-          if (store) {
-            product.soldBy = store.soldBy;
+            // Cart info
+            const cartKey = `${product._id}_${variant._id}`;
+            if (cartMap[cartKey] > 0) {
+              product.inCart.status = true;
+              product.inCart.qty += cartMap[cartKey];
+              product.inCart.variantIds.push(variant._id);
+            }
           }
-        }
+        });
       }
 
-      // ✅ If product had no stock at all → keep empty {}
-      if (!hasStock) {
+      if (bestStore) {
+        product.storeId = bestStore._id;
+        product.soldBy = bestStore.soldBy?.storeName || bestStore.storeName;
+      } else {
         product.soldBy = {};
       }
     }
@@ -1014,9 +1016,7 @@ exports.searchProduct = async (req, res) => {
     });
   } catch (error) {
     console.error("Server error:", error);
-    return res
-      .status(500)
-      .json({ message: "An error occurred!", error: error.message });
+    return res.status(500).json({ message: "An error occurred!", error: error.message });
   }
 };
 

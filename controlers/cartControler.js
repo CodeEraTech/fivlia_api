@@ -297,51 +297,63 @@ exports.recommedProduct = async (req, res) => {
     // 5️⃣ Aggregate recommended products with stock info
    const recommendedProducts = await Products.aggregate([
   { $match: matchQuery },
-  { $limit: 20 },
+  { $limit: 50 },
   {
-    $lookup: {
-      from: "stocks",
-      let: { productId: "$_id", variants: "$variants" },
-      pipeline: [
-        { $match: { storeId: seller._id } },
-        { $unwind: "$stock" },
-        {
-          $match: {
-            $expr: {
-              $or: [
-                // Variant match
-                { $in: ["$stock.variantId", { $ifNull: [{ $map: { input: "$$variants", as: "v", in: "$$v._id" } }, []] }] },
-                // Non-variant match
-                { $eq: ["$stock.productId", "$$productId"] }
-              ]
+   $lookup: {
+          from: "stocks",
+          let: { productId: "$_id", variants: "$variants" },
+          pipeline: [
+            { $match: { storeId: seller._id } },
+            { $unwind: "$stock" },
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $gt: ["$stock.quantity", 0] }, // only include stock > 0
+                    {
+                      $or: [
+                        {
+                          $in: [
+                            "$stock.variantId",
+                            {
+                              $ifNull: [
+                                { $map: { input: "$$variants", as: "v", in: "$$v._id" } },
+                                []
+                              ]
+                            }
+                          ]
+                        },
+                        { $eq: ["$stock.productId", "$$productId"] }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              $project: {
+                _id: "$stock._id",
+                variantId: "$stock.variantId",
+                quantity: "$stock.quantity",
+                price: "$stock.price",
+                mrp: "$stock.mrp"
+              }
             }
-          }
-        },
-        {
-          $project: {
-            _id: "$stock._id",
-            variantId: "$stock.variantId",
-            quantity: "$stock.quantity"
-          }
+          ],
+          as: "inventory"
         }
-      ],
-      as: "inventory"
-    }
-  },{
-  $addFields: {
-    maxQuantity: { $ifNull: [{ $max: "$inventory.quantity" }, 0] },
-     storeId: seller._id,
-     storeName: seller.storeName,
-  }
-},
-{ $sort: { maxQuantity: -1 } },
-{
-  $project: {
-    maxQuantity: 0 // remove the temporary field after sorting
-  }
-}
-]);
-
+      },
+      {
+        $addFields: {
+          maxQuantity: { $ifNull: [{ $max: "$inventory.quantity" }, 0] },
+          storeId: seller._id,
+          storeName: seller.storeName
+        }
+      },
+      { $match: { maxQuantity: { $gt: 0 } } }, // filter products with no stock
+      { $sort: { maxQuantity: -1 } },
+      { $project: { maxQuantity: 0 } } // remove temporary field
+    ]);
 
     return res.status(200).json({
       message: "Recommended products fetched successfully",

@@ -721,6 +721,31 @@ exports.forwebsearchProduct = async (req, res) => {
       (id) => new mongoose.Types.ObjectId(id)
     );
 
+    // Fetch stock data
+    const stockDocs = await Stock.find({
+      storeId: { $in: allowedStoreIds },
+    }).lean();
+
+    const stockDetailMap = {};
+    for (const doc of stockDocs) {
+      for (const item of doc.stock || []) {
+        const key = `${item.productId}_${item.variantId}_${doc.storeId}`;
+        stockDetailMap[key] = item;
+      }
+    }
+
+    const storeMap = {};
+    allowedStores.forEach((store) => {
+      storeMap[store._id.toString()] = store;
+    });
+
+    // Only include products that have at least one entry in stock
+    const stockProductIds = new Set(
+      stockDocs.flatMap((doc) =>
+        (doc.stock || []).map((item) => item.productId.toString())
+      )
+    );
+
     // Build aggregation pipeline using Atlas Search
     const pipeline = [];
 
@@ -774,6 +799,11 @@ exports.forwebsearchProduct = async (req, res) => {
     pipeline.push({
       $match: {
         online_visible: true,
+        _id: {
+          $in: Array.from(stockProductIds).map(
+            (id) => new mongoose.Types.ObjectId(id)
+          ),
+        },
         $or: [
           { "category._id": { $in: categoryArray } },
           { "subCategory._id": { $in: categoryArray } },
@@ -785,26 +815,21 @@ exports.forwebsearchProduct = async (req, res) => {
     // Optionally, limit number of results to keep response fast
     pipeline.push({ $limit: 100 });
 
+    const best = await Products.find({
+      $and: [
+        { _id: { $in: Array.from(stockProductIds) } },
+        {
+          $or: [
+            { "category._id": { $in: categoryArray } },
+            { "subCategory._id": { $in: categoryArray } },
+            { "subSubCategory._id": { $in: categoryArray } },
+          ],
+        },
+      ],
+    });
+
     // Execute aggregation
     const products = await Products.aggregate(pipeline);
-
-    // Fetch stock data
-    const stockDocs = await Stock.find({
-      storeId: { $in: allowedStoreIds },
-    }).lean();
-
-    const stockDetailMap = {};
-    for (const doc of stockDocs) {
-      for (const item of doc.stock || []) {
-        const key = `${item.productId}_${item.variantId}_${doc.storeId}`;
-        stockDetailMap[key] = item;
-      }
-    }
-
-    const storeMap = {};
-    allowedStores.forEach((store) => {
-      storeMap[store._id.toString()] = store;
-    });
 
     // Enrich product objects with inventory, price, best store etc.
     for (const product of products) {

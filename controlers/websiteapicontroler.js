@@ -668,7 +668,7 @@ exports.forwebsearchProduct = async (req, res) => {
     const userLat = lat;
     const userLng = lng;
 
-    // Fetch stores within the given radius
+    // Fetch stores within radius
     const [stores] = await Promise.all([
       getStoresWithinRadius(userLat, userLng),
     ]);
@@ -677,13 +677,7 @@ exports.forwebsearchProduct = async (req, res) => {
       : [];
     const allowedStoreIds = allowedStores.map((s) => s._id.toString());
 
-    // Initialize search filter
-    const searchFilter = {};
-    if (name) {
-      searchFilter.productName = { $regex: name, $options: "i" };
-    }
-
-    // Collect all category IDs based on the allowed stores
+    // Derive categories from allowed stores
     const allCategoryIds = new Set();
     const storeCategoryIds = allowedStores.flatMap((store) =>
       Array.isArray(store.Category)
@@ -693,8 +687,8 @@ exports.forwebsearchProduct = async (req, res) => {
         : []
     );
 
-    // Fallback to sellerCategories if no Category found
     if (storeCategoryIds.length < 1) {
+      // fallback to sellerCategories
       allowedStores.forEach((store) => {
         store.sellerCategories?.forEach((category) => {
           if (category?.categoryId) allCategoryIds.add(category.categoryId);
@@ -723,32 +717,87 @@ exports.forwebsearchProduct = async (req, res) => {
       }
     }
 
-    const categoryArray = [...allCategoryIds];
+    const categoryArray = [...allCategoryIds].map(
+      (id) => new mongoose.Types.ObjectId(id)
+    );
 
-    // Fetch the products based on search filter and category
-    const products = await Products.find({
-      ...searchFilter,
-      $or: [
-        { "category._id": { $in: categoryArray } },
-        { subCategoryId: { $in: categoryArray } },
-        { subSubCategoryId: { $in: categoryArray } },
-      ],
-    }).lean();
+    // Build aggregation pipeline using Atlas Search
+    const pipeline = [];
 
-    // Fetch stock data for the allowed stores
+    // If name exists, use $search stage
+    if (name) {
+      pipeline.push({
+        $search: {
+          index: "product_search",
+          compound: {
+            should: [
+              {
+                autocomplete: {
+                  query: name,
+                  path: "productName",
+                  fuzzy: {
+                    maxEdits: 1,
+                    prefixLength: 2,
+                    maxExpansions: 50,
+                  },
+                },
+              },
+              {
+                autocomplete: {
+                  query: name,
+                  path: "brand_Name.name",
+                  fuzzy: {
+                    maxEdits: 1,
+                    prefixLength: 2,
+                    maxExpansions: 50,
+                  },
+                },
+              },
+              {
+                autocomplete: {
+                  query: name,
+                  path: "description",
+                  fuzzy: {
+                    maxEdits: 1,
+                    prefixLength: 2,
+                    maxExpansions: 50,
+                  },
+                },
+              },
+            ],
+          },
+        },
+      });
+    }
+
+    // Match stage: filter by category & visibility
+    pipeline.push({
+      $match: {
+        online_visible: true,
+        $or: [
+          { "category._id": { $in: categoryArray } },
+          { "subCategory._id": { $in: categoryArray } },
+          { "subSubCategory._id": { $in: categoryArray } },
+        ],
+      },
+    });
+
+    // Optionally, limit number of results to keep response fast
+    pipeline.push({ $limit: 100 });
+
+    // Execute aggregation
+    const products = await Products.aggregate(pipeline);
+
+    // Fetch stock data
     const stockDocs = await Stock.find({
       storeId: { $in: allowedStoreIds },
     }).lean();
 
-    const stockMap = {};
     const stockDetailMap = {};
-
-    // Map stock data for quick lookup
     for (const doc of stockDocs) {
       for (const item of doc.stock || []) {
         const key = `${item.productId}_${item.variantId}_${doc.storeId}`;
-        stockMap[key] = item.quantity;
-        stockDetailMap[key] = item; // Store full stock info
+        stockDetailMap[key] = item;
       }
     }
 
@@ -757,9 +806,9 @@ exports.forwebsearchProduct = async (req, res) => {
       storeMap[store._id.toString()] = store;
     });
 
-    // Enrich products with store details and stock information
+    // Enrich product objects with inventory, price, best store etc.
     for (const product of products) {
-      let bestStore = null; // We'll store the best store for the product
+      let bestStore = null;
       product.inventory = [];
 
       for (const variant of product.variants || []) {
@@ -769,6 +818,7 @@ exports.forwebsearchProduct = async (req, res) => {
           const store = storeMap[storeId];
 
           if (store && stockEntry) {
+            // Set variant pricing & quantity
             variant.price = stockEntry.price ?? variant.sell_price ?? 0;
             variant.mrp = stockEntry.mrp ?? variant.mrp ?? 0;
             variant.quantity = stockEntry.quantity;
@@ -778,7 +828,7 @@ exports.forwebsearchProduct = async (req, res) => {
               quantity: stockEntry.quantity,
             });
 
-            // If no bestStore is selected or current store is better, update
+            // Evaluate best store logic
             if (
               !bestStore ||
               (store.soldBy?.official && !bestStore.soldBy?.official)
@@ -789,20 +839,20 @@ exports.forwebsearchProduct = async (req, res) => {
         });
       }
 
-      // Add best store to product (if found)
       if (bestStore) {
         product.storeId = bestStore._id;
         product.soldBy = bestStore.soldBy?.storeName || bestStore.storeName;
       }
     }
 
+    // Return with same structure (keys/values) as before
     return res.status(200).json({
       message: "Search results fetched successfully.",
       products,
       count: products.length,
     });
   } catch (error) {
-    //console.error("Server error:", error);
+    console.error("Search API error:", error);
     return res.status(500).json({
       message: "An error occurred!",
       error: error.message,

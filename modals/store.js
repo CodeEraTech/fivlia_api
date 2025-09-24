@@ -35,6 +35,8 @@ const storeScheema = new mongoose.Schema({
     requestedAt: { type: Date, default: Date.now },
     status: { type: String, enum: ['pending', 'approved', 'rejected'] },
   },
+    openTime:{type:String},
+    closeTime:{type:String},
     bankDetails:{bankName:String,accountHolder:String,accountNumber:Number,ifsc:String,branch:String},
     advertisementImages:[{type:String}],
     sellerCategories: [

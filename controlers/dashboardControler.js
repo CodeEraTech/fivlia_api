@@ -86,23 +86,6 @@ exports.getStoreDashboardStats = async (req, res) => {
     const now = new Date();
     const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
     const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    const totalEarningResult = await Order.aggregate([
-      {
-        $match: {
-          storeId:  new mongoose.Types.ObjectId(storeId),
-          orderStatus: { $in: ["Delivered", "Completed"] },
-          createdAt: { $gte: firstDay, $lte: lastDay },
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: "$totalPrice" },
-        },
-      },
-    ]);
-    const totalEarning = totalEarningResult[0]?.total || 0;
-
     // Total Orders (Monthly)
     const totalMonthlyOrders = await Order.countDocuments({
       storeId:storeId,
@@ -126,6 +109,8 @@ exports.getStoreDashboardStats = async (req, res) => {
     const store = await Store.findById(storeId).lean();
     if (!store) return res.status(404).json({ message: "Store not found" });
 
+    const totalEarning = store.wallet || 0;
+
     const categoryIds = store.Category || [];
 
     const totalCategories = categoryIds.length;
@@ -134,7 +119,7 @@ exports.getStoreDashboardStats = async (req, res) => {
     "category._id": { $in: categoryIds },
     });
 
-
+    const storeStatus = store.status
     // Recent Orders (20)
     const recentOrders = await Order.find({ storeId: storeId })
       .sort({ createdAt: -1 })
@@ -149,6 +134,7 @@ exports.getStoreDashboardStats = async (req, res) => {
       pendingMonthlyOrders,
       totalCategories,
       totalProducts,
+      storeStatus,
       recentOrders,
     });
   } catch (err) {
@@ -205,9 +191,9 @@ return res.status(200).json({message:"Tranaction history",Tranaction})
 
 exports.getWithdrawalRequest = async (req,res) => {
   try {
-    const {sellerId} = req.query
-     if(sellerId){
-        const requests = await store_transaction.find({storeId:sellerId,type:'debit'})
+    const {type} = req.query
+     if(type==="seller"){
+        const requests = await store_transaction.find({type:'debit'})
         return res.status(200).json({ message: 'Withdrawal requests', requests});  
      }
     const requests = await Transaction.find({type:'debit'})

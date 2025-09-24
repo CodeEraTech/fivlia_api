@@ -21,3 +21,13 @@ exports.getIntro=async (req,res) => {
         return res.status(500).json({message:'An Error Occured'})
     }
 }
+
+exports.getEvent = async (req, res) =>{
+    try{
+    const {lat,long} = req.body
+    return res.status(200).json({eventStatus:true,eventDetails:{fontColor:"0xFF575454",eventTitle:"Happy Navratri",eventImage:"/image/1758628917707-image.jpg"}})
+    }catch(error){
+        console.error(error);
+        return res.status(500).json({message:'An Error Occured'})
+    }
+}

@@ -2,6 +2,7 @@ require("dotenv").config();
 const Store = require("../modals/store");
 const haversine = require("haversine-distance");
 const { ZoneData } = require("../modals/cityZone");
+const moment = require("moment");
 const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
@@ -92,9 +93,20 @@ function isWithinZone(userLat, userLng, zone) {
 }
 
 async function getStoresWithinRadius(userLat, userLng) {
-  const allStores = await Store.find({
-    status: true,
-  }).lean();
+  let allStores = await Store.find({ status: true }).lean();
+  const currentTime = moment();
+  allStores = allStores.filter((store) => {
+    const { openTime, closeTime } = store;
+    // If openTime and closeTime exist, check time range
+    if (openTime && closeTime) {
+      const open = moment(openTime, "HH:mm");
+      const close = moment(closeTime, "HH:mm");
+      // Check if current time is between open and close
+      return currentTime.isBetween(open, close);
+    }
+    // If no time info, just check status (already true from query)
+    return true;
+  });
 
   const cityZoneDocs = await ZoneData.find({});
   const activeZones = cityZoneDocs.flatMap((doc) =>

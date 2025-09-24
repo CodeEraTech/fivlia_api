@@ -170,11 +170,18 @@ exports.forwebbestselling = async (req, res) => {
 
       if (!variantOptions.length) continue;
 
-      // Sort variants: official -> rating -> price -> distance
       variantOptions.sort((a, b) => {
+        // 1. Stock availability: prioritize in-stock items
+        const aInStock = a.quantity > 0 ? 1 : 0;
+        const bInStock = b.quantity > 0 ? 1 : 0;
+        if (aInStock !== bInStock) return bInStock - aInStock;
+        // 2. Official store
         if (a.official !== b.official) return b.official - a.official;
+        // 3. Rating
         if (a.rating !== b.rating) return b.rating - a.rating;
+        // 4. Price (lowest first)
         if (a.price !== b.price) return a.price - b.price;
+        // 5. Distance (nearest first)
         return a.distance - b.distance;
       });
 
@@ -387,9 +394,17 @@ exports.forwebgetProduct = async (req, res) => {
       if (!variantOptions.length) continue;
 
       variantOptions.sort((a, b) => {
+        // 1. Stock availability: prioritize in-stock items
+        const aInStock = a.quantity > 0 ? 1 : 0;
+        const bInStock = b.quantity > 0 ? 1 : 0;
+        if (aInStock !== bInStock) return bInStock - aInStock;
+        // 2. Official store
         if (a.official !== b.official) return b.official - a.official;
+        // 3. Rating
         if (a.rating !== b.rating) return b.rating - a.rating;
+        // 4. Price (lowest first)
         if (a.price !== b.price) return a.price - b.price;
+        // 5. Distance (nearest first)
         return a.distance - b.distance;
       });
 
@@ -611,9 +626,17 @@ exports.forwebgetFeatureProduct = async (req, res) => {
       if (!variantOptions.length) continue;
 
       variantOptions.sort((a, b) => {
+        // 1. Stock availability: prioritize in-stock items
+        const aInStock = a.quantity > 0 ? 1 : 0;
+        const bInStock = b.quantity > 0 ? 1 : 0;
+        if (aInStock !== bInStock) return bInStock - aInStock;
+        // 2. Official store
         if (a.official !== b.official) return b.official - a.official;
+        // 3. Rating
         if (a.rating !== b.rating) return b.rating - a.rating;
+        // 4. Price (lowest first)
         if (a.price !== b.price) return a.price - b.price;
+        // 5. Distance (nearest first)
         return a.distance - b.distance;
       });
 

@@ -5,7 +5,7 @@ const Products = require("../modals/Product");
 const Store = require("../modals/store");
 const User = require("../modals/User");
 const stock = require("../modals/StoreStock");
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 const haversine = require("haversine-distance");
 
 exports.addCart = async (req, res) => {
@@ -23,17 +23,26 @@ exports.addCart = async (req, res) => {
       clearCart,
     } = req.body;
 
+    if (!storeId) {
+      return res.status(400).json({ message: "storeId not found." });
+    }
+
+    if (!productId || !varientId || !quantity) {
+      return res
+        .status(400)
+        .json({ message: "Missing product or variant info." });
+    }
+
+    // Clear cart if requested
     if (clearCart === "true") {
       await Cart.deleteMany({ userId });
     }
-    if(!storeId){
-      return res.status(400).json({ message: "storeId Not found." });
-    }
+
+    // Get user location
     const user = await User.findOne(userId).lean();
     const userLat = parseFloat(user?.location?.latitude);
     const userLng = parseFloat(user?.location?.longitude);
 
-    // Check if user location is available
     if (!userLat || !userLng) {
       return res.status(400).json({ message: "User location not available." });
     }
@@ -44,7 +53,7 @@ exports.addCart = async (req, res) => {
       doc.zones.filter((z) => z.status === true)
     );
 
-    // Match the zone based on user's location
+    // Match user to a delivery zone
     const matchedZone = activeZones.find((zone) => {
       if (!zone.latitude || !zone.longitude || !zone.range) return false;
       const distance = haversine(
@@ -62,14 +71,11 @@ exports.addCart = async (req, res) => {
 
     const paymentOption = matchedZone.cashOnDelivery === true;
 
-    // Check if the cart already has products from a different store
-    const cartItems = await Cart.find({ userId: req.user }).lean();
-
+    // Validate single-store cart policy
+    const cartItems = await Cart.find({ userId }).lean();
     if (cartItems.length > 0) {
-      // If cart is not empty, check if any item belongs to a different store
-      const cartStoreId = cartItems[0].storeId || {};
-      // If the storeId of the item trying to be added doesn't match the current storeId in cart
-      if (cartStoreId.toString() !== storeId) {
+      const existingStoreId = cartItems[0].storeId?.toString();
+      if (existingStoreId !== storeId) {
         return res.status(200).json({
           message: `You can only add products from one store at a time.`,
           errorType: "multiple_stores_in_cart",
@@ -77,17 +83,38 @@ exports.addCart = async (req, res) => {
       }
     }
 
-    // Check if the product is already in the cart, if yes, remove it
-    const checkCart = await Cart.findOne({
-      productId: productId,
-      userId: req.user,
-    });
+    // Check stock availability for this product variant in the given store
+    const stockDoc = await stock
+      .findOne({
+        storeId,
+        "stock.productId": productId,
+        "stock.variantId": varientId,
+      })
+      .lean();
 
-    if (checkCart) {
-      await Cart.deleteOne({ _id: checkCart._id });
+    let stockEntry;
+    if (stockDoc?.stock?.length) {
+      stockEntry = stockDoc.stock.find(
+        (s) =>
+          s.productId.toString() === productId.toString() &&
+          s.variantId.toString() === varientId.toString()
+      );
     }
 
-    // Create the new cart item
+    if (!stockEntry || stockEntry.quantity < quantity) {
+      return res.status(400).json({
+        message:
+          "Product variant is out of stock or requested quantity is unavailable.",
+      });
+    }
+
+    // Remove existing cart entry for same product (if any)
+    await Cart.deleteOne({
+      userId,
+      productId,
+    });
+
+    // Add new item to cart
     const cartItem = await Cart.create({
       image,
       name,
@@ -101,14 +128,16 @@ exports.addCart = async (req, res) => {
       paymentOption,
     });
 
-    return res
-      .status(200)
-      .json({ message: "Item Added To Cart", item: cartItem });
+    return res.status(200).json({
+      message: "Item added to cart.",
+      item: cartItem,
+    });
   } catch (error) {
-    console.error(error);
-    return res
-      .status(500)
-      .json({ message: "An error occurred!", error: error.message });
+    //console.error("❌ addCart error:", error);
+    return res.status(500).json({
+      message: "An error occurred!",
+      error: error.message,
+    });
   }
 };
 
@@ -122,7 +151,7 @@ exports.getCart = async (req, res) => {
       User.findById(id),
     ]);
 
-    if(!items || items.length === 0){
+    if (!items || items.length === 0) {
       return res.status(204).json({ status: false, message: "Cart Is Empty." });
     }
     if (!user) {
@@ -133,15 +162,17 @@ exports.getCart = async (req, res) => {
 
     const storeId = items[0]?.storeId;
 
-    let storeZone = await Store.findById(storeId)
+    let storeZone = await Store.findById(storeId);
 
-    storeZone = storeZone.zone[0]
+    storeZone = storeZone.zone[0];
 
-    const zoneData = await ZoneData.findOne({"zones._id":storeZone._id})
+    const zoneData = await ZoneData.findOne({ "zones._id": storeZone._id });
 
-    const zone = zoneData.zones.find(z => z._id.toString() === storeZone._id.toString());
+    const zone = zoneData.zones.find(
+      (z) => z._id.toString() === storeZone._id.toString()
+    );
 
-const cashOnDelivery = zone?.cashOnDelivery || false;
+    const cashOnDelivery = zone?.cashOnDelivery || false;
     // Fetch stock data for the store
     const stockDoc = await stock.findOne({ storeId });
     if (!stockDoc) {
@@ -264,13 +295,15 @@ exports.recommedProduct = async (req, res) => {
     let allowedCategoryIds = [];
     if (seller.sellerCategories?.length) {
       // Unofficial sellers: subCategories + subSubCategories
-      allowedCategoryIds = seller.sellerCategories.flatMap(cat =>
-        cat.subCategories?.flatMap(sub =>
-          [
-            ...(sub.subSubCategories?.map(ssc => ssc.subSubCategoryId) || []),
-            sub.subCategoryId
-          ].filter(Boolean)
-        ) || []
+      allowedCategoryIds = seller.sellerCategories.flatMap(
+        (cat) =>
+          cat.subCategories?.flatMap((sub) =>
+            [
+              ...(sub.subSubCategories?.map((ssc) => ssc.subSubCategoryId) ||
+                []),
+              sub.subCategoryId,
+            ].filter(Boolean)
+          ) || []
       );
     } else if (seller.Category?.length) {
       // Official store: main categories
@@ -280,26 +313,26 @@ exports.recommedProduct = async (req, res) => {
     if (!allowedCategoryIds.length) {
       return res.status(200).json({
         message: "No recommended products found",
-        relatedProducts: []
+        relatedProducts: [],
       });
     }
 
     // 4️⃣ Build query to exclude products already in cart
     const matchQuery = {
-      _id: { $nin: cartItems.map(c => c.productId) },
+      _id: { $nin: cartItems.map((c) => c.productId) },
       $or: [
         { "subSubCategory._id": { $in: allowedCategoryIds } },
         { "subCategory._id": { $in: allowedCategoryIds } },
-        { "category._id": { $in: allowedCategoryIds } }
-      ]
+        { "category._id": { $in: allowedCategoryIds } },
+      ],
     };
 
     // 5️⃣ Aggregate recommended products with stock info
-   const recommendedProducts = await Products.aggregate([
-  { $match: matchQuery },
-  { $limit: 50 },
-  {
-   $lookup: {
+    const recommendedProducts = await Products.aggregate([
+      { $match: matchQuery },
+      { $limit: 50 },
+      {
+        $lookup: {
           from: "stocks",
           let: { productId: "$_id", variants: "$variants" },
           pipeline: [
@@ -317,18 +350,24 @@ exports.recommedProduct = async (req, res) => {
                             "$stock.variantId",
                             {
                               $ifNull: [
-                                { $map: { input: "$$variants", as: "v", in: "$$v._id" } },
-                                []
-                              ]
-                            }
-                          ]
+                                {
+                                  $map: {
+                                    input: "$$variants",
+                                    as: "v",
+                                    in: "$$v._id",
+                                  },
+                                },
+                                [],
+                              ],
+                            },
+                          ],
                         },
-                        { $eq: ["$stock.productId", "$$productId"] }
-                      ]
-                    }
-                  ]
-                }
-              }
+                        { $eq: ["$stock.productId", "$$productId"] },
+                      ],
+                    },
+                  ],
+                },
+              },
             },
             {
               $project: {
@@ -336,32 +375,33 @@ exports.recommedProduct = async (req, res) => {
                 variantId: "$stock.variantId",
                 quantity: "$stock.quantity",
                 price: "$stock.price",
-                mrp: "$stock.mrp"
-              }
-            }
+                mrp: "$stock.mrp",
+              },
+            },
           ],
-          as: "inventory"
-        }
+          as: "inventory",
+        },
       },
       {
         $addFields: {
           maxQuantity: { $ifNull: [{ $max: "$inventory.quantity" }, 0] },
           storeId: seller._id,
-          storeName: seller.storeName
-        }
+          storeName: seller.storeName,
+        },
       },
       { $match: { maxQuantity: { $gt: 0 } } }, // filter products with no stock
       { $sort: { maxQuantity: -1 } },
-      { $project: { maxQuantity: 0 } } // remove temporary field
+      { $project: { maxQuantity: 0 } }, // remove temporary field
     ]);
 
     return res.status(200).json({
       message: "Recommended products fetched successfully",
-      relatedProducts: recommendedProducts
+      relatedProducts: recommendedProducts,
     });
-
   } catch (error) {
     console.error("❌ Error in recommedProduct:", error);
-    return res.status(500).json({ message: "An error occurred!", error: error.message });
+    return res
+      .status(500)
+      .json({ message: "An error occurred!", error: error.message });
   }
 };

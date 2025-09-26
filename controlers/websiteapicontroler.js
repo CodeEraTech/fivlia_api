@@ -214,6 +214,12 @@ exports.forwebbestselling = async (req, res) => {
       enrichedBestProducts.push(enrichedProduct);
     }
 
+    enrichedBestProducts.sort((a, b) => {
+      const aQty = a.inventory?.some((i) => i.quantity > 0) ? 1 : 0;
+      const bQty = b.inventory?.some((i) => i.quantity > 0) ? 1 : 0;
+      return bQty - aQty;
+    });
+
     return res.status(200).json({
       message: "Success",
       best: enrichedBestProducts,
@@ -230,32 +236,43 @@ exports.forwebbestselling = async (req, res) => {
 // Website: Get Product (no token, uses lat/lng from query)
 exports.forwebgetProduct = async (req, res) => {
   try {
-    const { id, lat, lng, page = 1, limit = 60 } = req.query;
-    const skip = (page - 1) * limit;
-    const userLat = lat;
-    const userLng = lng;
+    const {
+      category,
+      subCategory,
+      subSubCategory,
+      priceMin,
+      priceMax,
+      filterId,
+      lat,
+      lng,
+      page = 1,
+      limit = 60,
+    } = req.query;
 
-    const [activeCities, zoneDocs, stores] = await Promise.all([
-      CityData.find({ status: true }, "city").lean(),
-      ZoneData.find({ status: true }, "zones").lean(),
-      getStoresWithinRadius(userLat, userLng),
-    ]);
+    const skip = (page - 1) * limit;
+
+    // 1. Get allowed stores by location
+    const stores = await getStoresWithinRadius(lat, lng);
 
     const allowedStores = Array.isArray(stores?.matchedStores)
       ? stores.matchedStores
       : [];
-    if (!allowedStores.length) {
+
+    const allowedStoreIds = allowedStores.map((s) => s._id.toString());
+
+    if (!allowedStoreIds.length) {
       return res.status(200).json({
         message: "No matching products found for your location.",
         products: [],
         filter: [],
         count: 0,
+        totalPages: 0,
+        page: Number(page),
+        limit: Number(limit),
       });
     }
 
-    const allowedStoreIds = allowedStores.map((s) => s._id.toString());
-
-    // Collect all category IDs
+    // 2. Get all allowed category IDs
     const allCategoryIds = new Set();
     let storeCategoryIds = allowedStores.flatMap((store) =>
       Array.isArray(store.Category)
@@ -265,203 +282,224 @@ exports.forwebgetProduct = async (req, res) => {
         : []
     );
 
-    // Fallback to sellerCategories if no Category found
     if (storeCategoryIds.length < 1) {
       allowedStores.forEach((store) => {
-        store.sellerCategories?.forEach((category) => {
-          if (category?.categoryId) allCategoryIds.add(category.categoryId);
-          category.subCategories?.forEach((sub) => {
+        store.sellerCategories?.forEach((categoryObj) => {
+          if (categoryObj?.categoryId)
+            allCategoryIds.add(categoryObj.categoryId);
+          categoryObj.subCategories?.forEach((sub) => {
             if (sub?.subCategoryId) allCategoryIds.add(sub.subCategoryId);
-            sub.subSubCategories?.forEach((subsub) => {
-              if (subsub?.subSubCategoryId)
-                allCategoryIds.add(subsub.subSubCategoryId);
+            sub.subSubCategories?.forEach((ss) => {
+              if (ss?.subSubCategoryId) allCategoryIds.add(ss.subSubCategoryId);
             });
           });
         });
       });
     } else {
-      const uniqueCategoryIds = [...new Set(storeCategoryIds)];
+      const uniqueCatIds = [...new Set(storeCategoryIds)];
       const categories = await Category.find({
-        _id: { $in: uniqueCategoryIds },
+        _id: { $in: uniqueCatIds },
       }).lean();
       for (const cat of categories) {
         allCategoryIds.add(cat._id.toString());
         (cat.subcat || []).forEach((sub) => {
           if (sub?._id) allCategoryIds.add(sub._id.toString());
-          (sub.subsubcat || []).forEach((subsub) => {
-            if (subsub?._id) allCategoryIds.add(subsub._id.toString());
+          (sub.subsubcat || []).forEach((ss) => {
+            if (ss?._id) allCategoryIds.add(ss._id.toString());
           });
         });
       }
     }
 
-    const categoryArray = [...allCategoryIds];
+    const categoryScopeIds = Array.from(allCategoryIds);
 
-    // Get stock data for allowed stores
+    // 3. Get stock documents for current location stores
     const stockDocs = await Stock.find({
       storeId: { $in: allowedStoreIds },
     }).lean();
 
-    const stockMap = {};
     const stockDetailMap = {};
 
-    // Map stock entries for quick lookup
     for (const doc of stockDocs) {
       (doc.stock || []).forEach((entry) => {
         const key = `${entry.productId}_${entry.variantId}_${doc.storeId}`;
-        stockMap[key] = entry.quantity;
         stockDetailMap[key] = entry;
       });
     }
 
-    // Only include products which have stock entries
-    const stockProductIds = new Set(
-      stockDocs.flatMap((doc) =>
-        (doc.stock || []).map((item) => item.productId.toString())
-      )
-    );
-
-    // Build product query
-    let productQuery = {
-      _id: { $in: Array.from(stockProductIds) },
+    // 4. Build product query
+    const productQuery = {
       $or: [
-        { "category._id": { $in: categoryArray } },
-        { "subCategory._id": { $in: categoryArray } },
-        { "subSubCategory._id": { $in: categoryArray } },
+        { "category._id": { $in: categoryScopeIds } },
+        { "subCategory._id": { $in: categoryScopeIds } },
+        { "subSubCategory._id": { $in: categoryScopeIds } },
       ],
     };
 
-    if (id) {
-      const stringIdsSet = new Set(
-        [...allCategoryIds].map((id) => id.toString())
-      );
-      if (!stringIdsSet.has(id)) {
-        return res.status(200).json({
-          message: "No matching products found for your location.",
-          products: [],
-          filter: [],
-          count: 0,
-        });
-      }
+    if (category) {
+      const catArr = Array.isArray(category) ? category : [category];
       productQuery.$or = [
-        { "category._id": id },
-        { "subCategory._id": id },
-        { "subSubCategory._id": id },
+        { "category._id": { $in: catArr } },
+        { "subCategory._id": { $in: catArr } },
+        { "subSubCategory._id": { $in: catArr } },
       ];
     }
 
-    const [products, totalProducts] = await Promise.all([
-      Products.find(productQuery).lean(),
-      Products.countDocuments(productQuery),
-    ]);
+    if (subCategory) {
+      const subArr = Array.isArray(subCategory) ? subCategory : [subCategory];
+      productQuery["subCategory._id"] = { $in: subArr };
+    }
 
-    // Store lookup map
+    if (subSubCategory) {
+      const ssArr = Array.isArray(subSubCategory)
+        ? subSubCategory
+        : [subSubCategory];
+      productQuery["subSubCategory._id"] = { $in: ssArr };
+    }
+
+    // 5. Get all products in the category scope
+    const allProducts = await Products.find(productQuery).lean();
+
     const storeMap = {};
     allowedStores.forEach((s) => {
       storeMap[s._id.toString()] = s;
     });
 
-    const enrichedProducts = [];
+    const enriched = [];
 
-    for (const product of products) {
-      if (!Array.isArray(product.variants) || !product.variants.length)
+    for (const product of allProducts) {
+      if (!Array.isArray(product.variants) || product.variants.length === 0) {
         continue;
+      }
 
       const variantOptions = [];
 
-      product.variants.forEach((variant) => {
-        allowedStoreIds.forEach((storeId) => {
+      for (const variant of product.variants) {
+        for (const storeId of allowedStoreIds) {
           const key = `${product._id}_${variant._id}_${storeId}`;
           const stockEntry = stockDetailMap[key];
           const store = storeMap[storeId];
-          if (!store || !stockEntry) return;
+          if (!store) continue;
+
+          const price = stockEntry?.price ?? variant.sell_price ?? 0;
+          const mrp = stockEntry?.mrp ?? variant.mrp ?? 0;
+
+          // Apply price range filters
+          if (priceMin != null && price < Number(priceMin)) continue;
+          if (priceMax != null && price > Number(priceMax)) continue;
+
+          if (filterId) {
+            const matches = (product.filter || []).some((f) =>
+              (f.selected || []).some(
+                (sel) => sel._id.toString() === filterId.toString()
+              )
+            );
+            if (!matches) continue;
+          }
 
           variantOptions.push({
-            productId: product._id,
-            variantId: variant._id,
-            storeId: store._id,
+            productId: product._id.toString(),
+            variantId: variant._id.toString(),
+            storeId: store._id.toString(),
             storeName: store.soldBy?.storeName || store.storeName,
             official: store.soldBy?.official || 0,
-            rating: 5,
-            distance: store.distance || 999999,
-            price: stockEntry.price ?? variant.sell_price ?? 0,
-            mrp: stockEntry.mrp ?? variant.mrp ?? 0,
-            quantity: stockEntry.quantity,
+            rating: variant.rating ?? product.rating ?? 0,
+            distance: store.distance ?? Number.MAX_SAFE_INTEGER,
+            price,
+            mrp,
+            quantity: stockEntry?.quantity ?? 0,
           });
-        });
-      });
+        }
+      }
 
-      if (!variantOptions.length) continue;
-
-      variantOptions.sort((a, b) => {
-        // 1. Stock availability: prioritize in-stock items
-        const aInStock = a.quantity > 0 ? 1 : 0;
-        const bInStock = b.quantity > 0 ? 1 : 0;
-        if (aInStock !== bInStock) return bInStock - aInStock;
-        // 2. Official store
-        if (a.official !== b.official) return b.official - a.official;
-        // 3. Rating
-        if (a.rating !== b.rating) return b.rating - a.rating;
-        // 4. Price (lowest first)
-        if (a.price !== b.price) return a.price - b.price;
-        // 5. Distance (nearest first)
-        return a.distance - b.distance;
-      });
-
-      const best = variantOptions[0];
-
-      const finalProduct = {
+      let finalProd = {
         ...product,
-        storeId: best.storeId,
-        storeName: best.storeName,
+        storeId: null,
+        storeName: "",
+        inventory: [],
+        variants: [],
       };
 
-      // Rebuild inventory
-      finalProduct.inventory = product.variants.map((variant) => {
-        const match = variantOptions.find(
-          (opt) => opt.variantId.toString() === variant._id.toString()
-        );
-        return { variantId: variant._id, quantity: match ? match.quantity : 0 };
-      });
+      if (variantOptions.length > 0) {
+        variantOptions.sort((a, b) => {
+          const aInStock = a.quantity > 0 ? 1 : 0;
+          const bInStock = b.quantity > 0 ? 1 : 0;
+          if (aInStock !== bInStock) return bInStock - aInStock;
+          if (a.official !== b.official) return b.official - a.official;
+          if (a.rating !== b.rating) return b.rating - a.rating;
+          if (a.price !== b.price) return a.price - b.price;
+          return a.distance - b.distance;
+        });
 
-      // Update sell_price and mrp
-      product.variants.forEach((variant) => {
-        const match = variantOptions.find(
-          (opt) => opt.variantId.toString() === variant._id.toString()
-        );
-        if (match) {
-          variant.sell_price = match.price;
-          variant.mrp = match.mrp;
-        }
-      });
+        const best = variantOptions[0];
+        finalProd.storeId = best.storeId;
+        finalProd.storeName = best.storeName;
 
-      enrichedProducts.push(finalProduct);
+        finalProd.inventory = product.variants.map((variant) => {
+          const match = variantOptions.find(
+            (opt) => opt.variantId === variant._id.toString()
+          );
+          return {
+            variantId: variant._id.toString(),
+            quantity: match?.quantity || 0,
+          };
+        });
+
+        finalProd.variants = product.variants.map((variant) => {
+          const match = variantOptions.find(
+            (opt) => opt.variantId === variant._id.toString()
+          );
+          return {
+            ...variant,
+            sell_price: match?.price ?? variant.sell_price,
+            mrp: match?.mrp ?? variant.mrp,
+          };
+        });
+      } else {
+        // No stock entries matched → default pricing/inventory
+        finalProd.inventory = product.variants.map((variant) => ({
+          variantId: variant._id.toString(),
+          quantity: 0,
+        }));
+
+        finalProd.variants = product.variants.map((variant) => ({
+          ...variant,
+          sell_price: variant.sell_price ?? 0,
+          mrp: variant.mrp ?? 0,
+        }));
+      }
+
+      enriched.push(finalProd);
     }
 
-    // Pagination after sorting
-    const paginatedProducts = enrichedProducts.slice(
-      skip,
-      skip + Number(limit)
-    );
+    enriched.sort((a, b) => {
+      const aQty = a.inventory?.some((i) => i.quantity > 0) ? 1 : 0;
+      const bQty = b.inventory?.some((i) => i.quantity > 0) ? 1 : 0;
+      return bQty - aQty;
+    });
 
-    // Filters
-    let filter = [];
-    if (id) {
-      const matchedCategory = await Category.findById(id).lean();
-      if (matchedCategory?.filter?.length) {
-        const filterIds = matchedCategory.filter.map((f) => f._id);
-        filter = await Filters.find({ _id: { $in: filterIds } }).lean();
+    const totalEnriched = enriched.length;
+    const sliced = enriched.slice(skip, skip + Number(limit));
+
+    // 6. Get filters (if category is present)
+    let filterList = [];
+    if (category) {
+      const catId = Array.isArray(category) ? category[0] : category;
+      const catDoc = await Category.findById(catId).lean();
+      if (catDoc?.filter?.length) {
+        const filterIds = catDoc.filter.map((f) => f._id);
+        filterList = await Filters.find({ _id: { $in: filterIds } }).lean();
       }
     }
 
     return res.status(200).json({
       message: "Products fetched successfully.",
-      filter,
-      products: paginatedProducts,
-      count: enrichedProducts.length,
+      filter: filterList,
+      products: sliced,
+      count: totalEnriched,
+      totalPages: Math.ceil(totalEnriched / Number(limit)),
       page: Number(page),
-      limit: Number(limit) || "",
-      totalPages: Math.ceil(enrichedProducts.length / limit) || "",
+      limit: Number(limit),
     });
   } catch (error) {
     console.error("❌ forwebgetProduct error:", error);
@@ -469,6 +507,87 @@ exports.forwebgetProduct = async (req, res) => {
       message: "Server error",
       error: error.message,
     });
+  }
+};
+
+// Website: Get Product count by category
+exports.getCategoryCounts = async (req, res) => {
+  try {
+    const { category, subCategory, subSubCategory, lat, lng } = req.query;
+
+    // Determine allowed store IDs by location
+    const stores = await getStoresWithinRadius(lat, lng);
+    const allowedStores = Array.isArray(stores?.matchedStores)
+      ? stores.matchedStores
+      : [];
+    const allowedStoreIds = allowedStores.map((s) => s._id.toString());
+
+    if (!allowedStoreIds.length) {
+      return res.json({
+        counts: {
+          main: {},
+          subcat: {},
+          subsubcat: {},
+        },
+      });
+    }
+
+    // Build base product query filtering by stock presence
+    const productQuery = {};
+
+    // Apply filters same as your main endpoint
+    if (category) {
+      const catArr = Array.isArray(category) ? category : [category];
+      productQuery["category._id"] = { $in: catArr };
+    }
+    if (subCategory) {
+      const subArr = Array.isArray(subCategory) ? subCategory : [subCategory];
+      productQuery["subCategory._id"] = { $in: subArr };
+    }
+    if (subSubCategory) {
+      const ssArr = Array.isArray(subSubCategory)
+        ? subSubCategory
+        : [subSubCategory];
+      productQuery["subSubCategory._id"] = { $in: ssArr };
+    }
+
+    // Fetch products matching query (ignoring inventory for simplicity)
+    const products = await Products.find(productQuery).lean();
+
+    // 5. Count in-memory categories / sub / subsub
+    const counts = {
+      main: {},
+      subcat: {},
+      subsubcat: {},
+    };
+
+    for (const prod of products) {
+      // main category
+      if (Array.isArray(prod.category) && prod.category.length > 0) {
+        const mainCatId = prod.category[0]._id.toString();
+        counts.main[mainCatId] = (counts.main[mainCatId] || 0) + 1;
+      }
+
+      // sub category
+      if (Array.isArray(prod.subCategory)) {
+        prod.subCategory.forEach((sc) => {
+          const scId = sc._id.toString();
+          counts.subcat[scId] = (counts.subcat[scId] || 0) + 1;
+        });
+      }
+
+      // sub-sub category
+      if (Array.isArray(prod.subSubCategory)) {
+        prod.subSubCategory.forEach((ss) => {
+          const ssId = ss._id.toString();
+          counts.subsubcat[ssId] = (counts.subsubcat[ssId] || 0) + 1;
+        });
+      }
+    }
+    return res.json({ counts });
+  } catch (err) {
+    console.error("getCategoryCounts error:", err);
+    return res.status(500).json({ error: "Server error" });
   }
 };
 
@@ -669,6 +788,12 @@ exports.forwebgetFeatureProduct = async (req, res) => {
 
       enrichedFeatureProducts.push(enrichedProduct);
     }
+
+    enrichedFeatureProducts.sort((a, b) => {
+      const aQty = a.inventory?.some((i) => i.quantity > 0) ? 1 : 0;
+      const bQty = b.inventory?.some((i) => i.quantity > 0) ? 1 : 0;
+      return bQty - aQty;
+    });
 
     return res.status(200).json({
       message: "Feature products fetched successfully.",

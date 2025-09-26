@@ -408,9 +408,8 @@ exports.getProduct = async (req, res) => {
   try {
     const { id, page = 1, limit = 100 } = req.query;
     const skip = (page - 1) * limit;
-    const userId = req.user._id; // Token logic untouched
+    const userId = req.user._id;
 
-    // ✅ Get logged-in user location
     const user = await User.findById(userId).lean();
     if (!user?.location?.latitude || !user?.location?.longitude) {
       return res.status(400).json({ message: "User location not found" });
@@ -419,7 +418,6 @@ exports.getProduct = async (req, res) => {
     const userLat = user.location.latitude;
     const userLng = user.location.longitude;
 
-    // ✅ Fetch active cities, zones & nearby stores
     const [stores, cartDocs] = await Promise.all([
       getStoresWithinRadius(userLat, userLng),
       Cart.find({ userId }).lean(),
@@ -428,6 +426,7 @@ exports.getProduct = async (req, res) => {
     const allowedStores = Array.isArray(stores?.matchedStores)
       ? stores.matchedStores
       : [];
+
     if (!allowedStores.length) {
       return res.status(200).json({
         message: "No matching products found for your location.",
@@ -439,7 +438,6 @@ exports.getProduct = async (req, res) => {
 
     const allowedStoreIds = allowedStores.map((s) => s._id.toString());
 
-    // ✅ Collect all category IDs from stores
     const allCategoryIds = new Set();
     let storeCategoryIds = allowedStores.flatMap((store) =>
       Array.isArray(store.Category)
@@ -480,7 +478,6 @@ exports.getProduct = async (req, res) => {
 
     const categoryArray = [...allCategoryIds];
 
-    // ✅ Get stock data for allowed stores
     const stockDocs = await Stock.find({
       storeId: { $in: allowedStoreIds },
     }).lean();
@@ -496,16 +493,14 @@ exports.getProduct = async (req, res) => {
       });
     }
 
-    // Only include products which have stock entries
     const stockProductIds = new Set(
       stockDocs.flatMap((doc) =>
         (doc.stock || []).map((item) => item.productId.toString())
       )
     );
 
-    // ✅ Build product query
+    // ✅ Build product query (include all products in allowed categories, regardless of stock)
     let productQuery = {
-      _id: { $in: Array.from(stockProductIds) },
       $or: [
         { "category._id": { $in: categoryArray } },
         { "subCategory._id": { $in: categoryArray } },
@@ -514,7 +509,9 @@ exports.getProduct = async (req, res) => {
     };
 
     if (id) {
-      const stringIdsSet = new Set([...allCategoryIds].map((id) => id.toString()));
+      const stringIdsSet = new Set(
+        [...allCategoryIds].map((id) => id.toString())
+      );
       if (!stringIdsSet.has(id)) {
         return res.status(200).json({
           message: "No matching products found for your location.",
@@ -532,13 +529,11 @@ exports.getProduct = async (req, res) => {
 
     const products = await Products.find(productQuery).lean();
 
-    // ✅ Store lookup map
     const storeMap = {};
     allowedStores.forEach((s) => {
       storeMap[s._id.toString()] = s;
     });
 
-    // ✅ Enrich products like forwebgetProduct
     const enrichedProducts = [];
 
     for (const product of products) {
@@ -569,8 +564,7 @@ exports.getProduct = async (req, res) => {
         });
       });
 
-      if (!variantOptions.length) continue;
-
+      // ✅ Sort & select best option
       variantOptions.sort((a, b) => {
         if (a.official !== b.official) return b.official - a.official;
         if (a.rating !== b.rating) return b.rating - a.rating;
@@ -582,19 +576,22 @@ exports.getProduct = async (req, res) => {
 
       const finalProduct = {
         ...product,
-        storeId: best.storeId,
-        storeName: best.storeName,
+        storeId: best ? best.storeId : null,
+        storeName: best ? best.storeName : null,
       };
 
-      // ✅ Rebuild inventory
+      // ✅ Build inventory (zero if no variantOptions matched)
       finalProduct.inventory = product.variants.map((variant) => {
         const match = variantOptions.find(
           (opt) => opt.variantId.toString() === variant._id.toString()
         );
-        return { variantId: variant._id, quantity: match ? match.quantity : 0 };
+        return {
+          variantId: variant._id,
+          quantity: match ? match.quantity : 0,
+        };
       });
 
-      // ✅ Override prices
+      // ✅ Override variant prices if stock exists
       product.variants.forEach((variant) => {
         const match = variantOptions.find(
           (opt) => opt.variantId.toString() === variant._id.toString()
@@ -605,7 +602,7 @@ exports.getProduct = async (req, res) => {
         }
       });
 
-      // ✅ Cart integration
+      // ✅ Cart info
       finalProduct.inCart = { status: false, qty: 0, variantIds: [] };
       cartDocs.forEach((item) => {
         if (item.productId.toString() === product._id.toString()) {
@@ -618,8 +615,17 @@ exports.getProduct = async (req, res) => {
       enrichedProducts.push(finalProduct);
     }
 
+    enrichedProducts.sort((a, b) => {
+      const aQty = a.inventory?.some((i) => i.quantity > 0) ? 1 : 0;
+      const bQty = b.inventory?.some((i) => i.quantity > 0) ? 1 : 0;
+      return bQty - aQty;
+    });
+
     // ✅ Pagination
-    const paginatedProducts = enrichedProducts.slice(skip, skip + Number(limit));
+    const paginatedProducts = enrichedProducts.slice(
+      skip,
+      skip + Number(limit)
+    );
 
     // ✅ Filters
     let filter = [];
@@ -883,7 +889,9 @@ exports.searchProduct = async (req, res) => {
       Cart.find({ userId }).lean(),
     ]);
 
-    const allowedStores = Array.isArray(stores?.matchedStores) ? stores.matchedStores : [];
+    const allowedStores = Array.isArray(stores?.matchedStores)
+      ? stores.matchedStores
+      : [];
     const allowedStoreIds = allowedStores.map((s) => s._id.toString());
 
     // 3️⃣ Build search filter
@@ -910,14 +918,17 @@ exports.searchProduct = async (req, res) => {
           category.subCategories?.forEach((sub) => {
             if (sub?.subCategoryId) allCategoryIds.add(sub.subCategoryId);
             sub.subSubCategories?.forEach((subsub) => {
-              if (subsub?.subSubCategoryId) allCategoryIds.add(subsub.subSubCategoryId);
+              if (subsub?.subSubCategoryId)
+                allCategoryIds.add(subsub.subSubCategoryId);
             });
           });
         });
       });
     } else {
       const uniqueCategoryIds = [...new Set(storeCategoryIds)];
-      const categories = await Category.find({ _id: { $in: uniqueCategoryIds } }).lean();
+      const categories = await Category.find({
+        _id: { $in: uniqueCategoryIds },
+      }).lean();
       for (const cat of categories) {
         allCategoryIds.add(cat._id.toString());
         (cat.subcat || []).forEach((sub) => {
@@ -942,7 +953,9 @@ exports.searchProduct = async (req, res) => {
     }).lean();
 
     // 6️⃣ Fetch stock from allowed stores
-    const stockDocs = await Stock.find({ storeId: { $in: allowedStoreIds } }).lean();
+    const stockDocs = await Stock.find({
+      storeId: { $in: allowedStoreIds },
+    }).lean();
     const stockDetailMap = {};
 
     stockDocs.forEach((doc) => {
@@ -983,10 +996,16 @@ exports.searchProduct = async (req, res) => {
             variant.mrp = stockEntry.mrp ?? variant.mrp ?? 0;
             variant.quantity = stockEntry.quantity;
 
-            product.inventory.push({ variantId: variant._id, quantity: stockEntry.quantity });
+            product.inventory.push({
+              variantId: variant._id,
+              quantity: stockEntry.quantity,
+            });
 
             // Determine best store
-            if (!bestStore || (store.soldBy?.official && !bestStore.soldBy?.official)) {
+            if (
+              !bestStore ||
+              (store.soldBy?.official && !bestStore.soldBy?.official)
+            ) {
               bestStore = store;
             }
 
@@ -1016,7 +1035,9 @@ exports.searchProduct = async (req, res) => {
     });
   } catch (error) {
     console.error("Server error:", error);
-    return res.status(500).json({ message: "An error occurred!", error: error.message });
+    return res
+      .status(500)
+      .json({ message: "An error occurred!", error: error.message });
   }
 };
 
@@ -1184,7 +1205,10 @@ exports.getFeatureProduct = async (req, res) => {
           const match = variantOptions.find(
             (opt) => opt.variantId.toString() === variant._id.toString()
           );
-          return { variantId: variant._id, quantity: match ? match.quantity : 0 };
+          return {
+            variantId: variant._id,
+            quantity: match ? match.quantity : 0,
+          };
         }),
         inCart: { status: false, qty: 0, variantIds: [] },
       };
@@ -1214,7 +1238,10 @@ exports.getFeatureProduct = async (req, res) => {
     }
 
     // ✅ Pagination
-    const paginatedProducts = enrichedProducts.slice(skip, skip + Number(limit));
+    const paginatedProducts = enrichedProducts.slice(
+      skip,
+      skip + Number(limit)
+    );
 
     return res.status(200).json({
       message: "Feature products fetched successfully.",
@@ -2237,20 +2264,27 @@ exports.checkSimilarProduct = async (req, res) => {
       Cart.find({ userId }).lean(),
     ]);
 
-    const allowedStores = Array.isArray(stores?.matchedStores) ? stores.matchedStores : [];
+    const allowedStores = Array.isArray(stores?.matchedStores)
+      ? stores.matchedStores
+      : [];
     if (!allowedStores.length) {
-      return res.status(200).json({ message: "No matching stores nearby.", products: [] });
+      return res
+        .status(200)
+        .json({ message: "No matching stores nearby.", products: [] });
     }
     const allowedStoreIds = allowedStores.map((s) => s._id.toString());
 
     // ✅ Get stock for the product in allowed stores
     const stockDocs = await Stock.find({
       storeId: { $in: allowedStoreIds },
-      "stock.productId": productId
+      "stock.productId": productId,
     }).lean();
 
     if (!stockDocs.length) {
-      return res.status(200).json({ message: "Product not available in nearby stores.", products: [] });
+      return res.status(200).json({
+        message: "Product not available in nearby stores.",
+        products: [],
+      });
     }
 
     // ✅ Build stock mapping
@@ -2294,13 +2328,16 @@ exports.checkSimilarProduct = async (req, res) => {
           distance: store.distance || 999999,
           price: stockEntry.price ?? variant.sell_price ?? 0,
           mrp: stockEntry.mrp ?? variant.mrp ?? 0,
-          quantity: stockEntry.quantity
+          quantity: stockEntry.quantity,
         });
       });
     });
 
     if (!variantOptions.length) {
-      return res.status(200).json({ message: "Product not available from other sellers", products: [] });
+      return res.status(200).json({
+        message: "Product not available from other sellers",
+        products: [],
+      });
     }
 
     // ✅ Sort by official, price, distance
@@ -2313,28 +2350,38 @@ exports.checkSimilarProduct = async (req, res) => {
     // ✅ Build final products array (one product entry per store)
     const finalProducts = [];
     allowedStoreIds.forEach((storeId) => {
-      const variants = variantOptions.filter(v => v.storeId.toString() === storeId);
+      const variants = variantOptions.filter(
+        (v) => v.storeId.toString() === storeId
+      );
       if (!variants.length) return;
 
       const finalProduct = {
         ...product,
         storeId,
         storeName: storeMap[storeId].storeName,
-        inventory: variants.map(v => ({ variantId: v.variantId, quantity: v.quantity })),
-        variants: product.variants.map(v => {
-          const match = variants.find(vo => vo.variantId.toString() === v._id.toString());
+        inventory: variants.map((v) => ({
+          variantId: v.variantId,
+          quantity: v.quantity,
+        })),
+        variants: product.variants.map((v) => {
+          const match = variants.find(
+            (vo) => vo.variantId.toString() === v._id.toString()
+          );
           return {
             ...v,
             sell_price: match?.price ?? v.sell_price,
             mrp: match?.mrp ?? v.mrp,
           };
-        })
+        }),
       };
 
       // ✅ Cart info
       finalProduct.inCart = { status: false, qty: 0, variantIds: [] };
       cartDocs.forEach((item) => {
-        if (item.productId.toString() === product._id.toString() && item.storeId.toString() === storeId) {
+        if (
+          item.productId.toString() === product._id.toString() &&
+          item.storeId.toString() === storeId
+        ) {
           finalProduct.inCart.status = true;
           finalProduct.inCart.qty += item.quantity;
           finalProduct.inCart.variantIds.push(item.varientId);
@@ -2346,12 +2393,13 @@ exports.checkSimilarProduct = async (req, res) => {
 
     return res.status(200).json({
       message: "Similar product(s) from other sellers fetched successfully",
-      products: finalProducts
+      products: finalProducts,
     });
-
   } catch (error) {
     console.error("❌ Error in checkSimilarProduct:", error);
-    return res.status(500).json({ message: "An error occurred!", error: error.message });
+    return res
+      .status(500)
+      .json({ message: "An error occurred!", error: error.message });
   }
 };
 

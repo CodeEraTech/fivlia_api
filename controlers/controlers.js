@@ -1,5 +1,6 @@
 const Intro = require('../modals/intro')
-
+const Event = require('../modals/event')
+const moment = require("moment");
 exports.intro=async (req,res) => {
     try{
         const{title,description}=req.body
@@ -22,12 +23,84 @@ exports.getIntro=async (req,res) => {
     }
 }
 
+exports.addEvent = async (req, res) => {
+try {
+const {eventTitle,type,eventStatus,fontColor,startTime,endTime} = req.body
+const image = `/${req.files.image?.[0].key}`
+
+const start = moment(`${startTime}`, "hh:mmA").toDate(); // e.g., 10:00AM → Date object today
+const end = moment(`${endTime}`, "hh:mmA").toDate();
+
+const newEvent = await Event.create({eventDetails:{eventTitle,fontColor,eventImage:image},startTime:start,endTime:end,type,eventStatus})
+
+return res.status(200).json({message:"Event Added Successfuly",newEvent})
+} catch(error){
+  console.error(error);
+  return res.status(500).json({message:'An Error Occured'})
+}
+}
+
 exports.getEvent = async (req, res) =>{
     try{
-    const {lat,long} = req.body
-    return res.status(200).json({eventStatus:true,eventDetails:{fontColor:"0xFF575454",eventTitle:"Happy Navratri",eventImage:"/image/1758628917707-image.jpg"}})
+    const {lat,long,role} = req.body
+    const now = moment();
+
+    await Event.updateMany(
+      { endTime: { $lt: now.toDate() }, eventStatus: true },
+      { $set: { eventStatus: false } }
+    );
+
+    if(role==='admin'){
+        const AllEvent = await Event.find();
+        res.json(AllEvent)
+    }
+
+   const activeEvent = await Event.findOne({ eventStatus: true }).sort({ startTime: 1 });
+
+    if (!activeEvent) {
+      // No active events
+      return res.status(200).json({ eventStatus: false });
+    }
+
+    res.status(200).json({  eventStatus: true,
+      eventDetails: {
+        eventTitle: activeEvent.eventDetails.eventTitle,
+        eventImage: activeEvent.eventDetails.eventImage,
+        type: activeEvent.type,
+        startTime: activeEvent.startTime,
+        endTime: activeEvent.endTime
+      } });
+
     }catch(error){
         console.error(error);
         return res.status(500).json({message:'An Error Occured'})
     }
+}
+
+exports.editEvent = async (req, res) => {
+try {
+    const {id} = req.params
+const {eventTitle,type,eventStatus,fontColor,startTime,endTime} = req.body
+const image = `/${req.files.image?.[0].key}`
+
+const start = moment(`${startTime}`, "YYYY-MM-DD hh:mmA").toDate(); // e.g., 10:00AM → Date object today
+const end = moment(`${endTime}`, "YYYY-MM-DD hh:mmA").toDate();
+
+ const updateFields = {};
+
+    if (eventTitle) updateFields.eventTitle = eventTitle;
+    if (type) updateFields.type = type;
+    if (eventStatus) updateFields.eventStatus = eventStatus;
+    if (fontColor) updateFields.fontColor = fontColor;
+    if (startTime) updateFields.startTime = startTime;
+    if (endTime) updateFields.endTime = endTime;
+    if (req.files?.image?.[0]) {updateFields.image = `/${req.files.image?.[0].key}`};
+
+const newEvent = await Event.findByIdAndUpdate(id, { $set: updateFields },{ new: true })
+
+return res.status(200).json({message:"Event Edited Successfuly",newEvent})
+} catch(error){
+  console.error(error);
+  return res.status(500).json({message:'An Error Occured'})
+}
 }

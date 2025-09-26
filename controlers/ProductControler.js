@@ -886,13 +886,7 @@ exports.searchProduct = async (req, res) => {
     const allowedStores = Array.isArray(stores?.matchedStores) ? stores.matchedStores : [];
     const allowedStoreIds = allowedStores.map((s) => s._id.toString());
 
-    // 3️⃣ Build search filter
-    const searchFilter = {};
-    if (name) {
-      searchFilter.productName = { $regex: name, $options: "i" };
-    }
-
-    // 4️⃣ Collect all allowed category IDs
+    // 3️⃣ Collect all allowed category IDs
     const allCategoryIds = new Set();
     const storeCategoryIds = allowedStores.flatMap((store) =>
       Array.isArray(store.Category)
@@ -903,7 +897,6 @@ exports.searchProduct = async (req, res) => {
     );
 
     if (storeCategoryIds.length < 1) {
-      // fallback to sellerCategories
       allowedStores.forEach((store) => {
         store.sellerCategories?.forEach((category) => {
           if (category?.categoryId) allCategoryIds.add(category.categoryId);
@@ -929,22 +922,11 @@ exports.searchProduct = async (req, res) => {
       }
     }
 
-    const categoryArray = [...allCategoryIds];
+    const categoryArray = [...allCategoryIds].map((id) => new mongoose.Types.ObjectId(id));
 
-    // 5️⃣ Get products matching filter & category
-    const products = await Products.find({
-      ...searchFilter,
-      $or: [
-        { "category._id": { $in: categoryArray } },
-        { subCategoryId: { $in: categoryArray } },
-        { subSubCategoryId: { $in: categoryArray } },
-      ],
-    }).lean();
-
-    // 6️⃣ Fetch stock from allowed stores
+    // 4️⃣ Fetch stock from allowed stores
     const stockDocs = await Stock.find({ storeId: { $in: allowedStoreIds } }).lean();
     const stockDetailMap = {};
-
     stockDocs.forEach((doc) => {
       (doc.stock || []).forEach((item) => {
         const key = `${item.productId}_${item.variantId}_${doc.storeId}`;
@@ -952,20 +934,56 @@ exports.searchProduct = async (req, res) => {
       });
     });
 
-    // 7️⃣ Map stores for quick access
-    const storeMap = {};
-    allowedStores.forEach((store) => {
-      storeMap[store._id.toString()] = store;
+    // Only products that have stock
+    const stockProductIds = new Set(
+      stockDocs.flatMap((doc) => (doc.stock || []).map((item) => item.productId.toString()))
+    );
+
+    // 5️⃣ Build aggregation pipeline using Atlas Search if name exists
+    const pipeline = [];
+    if (name) {
+      pipeline.push({
+        $search: {
+          index: "product_search",
+          compound: {
+            should: [
+              { autocomplete: { query: name, path: "productName", fuzzy: { maxEdits: 1, prefixLength: 2, maxExpansions: 50 } } },
+              { autocomplete: { query: name, path: "brand_Name.name", fuzzy: { maxEdits: 1, prefixLength: 2, maxExpansions: 50 } } },
+              { autocomplete: { query: name, path: "description", fuzzy: { maxEdits: 1, prefixLength: 2, maxExpansions: 50 } } },
+            ],
+          },
+        },
+      });
+    }
+
+    pipeline.push({
+      $match: {
+        online_visible: true,
+        _id: { $in: Array.from(stockProductIds).map((id) => new mongoose.Types.ObjectId(id)) },
+        $or: [
+          { "category._id": { $in: categoryArray } },
+          { "subCategory._id": { $in: categoryArray } },
+          { "subSubCategory._id": { $in: categoryArray } },
+        ],
+      },
     });
 
-    // 8️⃣ Map cart for user
+    pipeline.push({ $limit: 100 });
+
+    const products = await Products.aggregate(pipeline);
+
+    // 6️⃣ Map stores for quick access
+    const storeMap = {};
+    allowedStores.forEach((store) => (storeMap[store._id.toString()] = store));
+
+    // 7️⃣ Map cart for user
     const cartMap = {};
     cartDocs.forEach((item) => {
       const key = `${item.productId}_${item.varientId}`;
       cartMap[key] = item.quantity;
     });
 
-    // 9️⃣ Enrich products with inventory, price, mrp, stock, best store, cart
+    // 8️⃣ Enrich products with inventory, price, best store, cart
     for (const product of products) {
       product.inventory = [];
       product.inCart = { status: false, qty: 0, variantIds: [] };
@@ -978,19 +996,16 @@ exports.searchProduct = async (req, res) => {
           const store = storeMap[storeId];
 
           if (store && stockEntry) {
-            // Update variant prices
             variant.sell_price = stockEntry.price ?? variant.sell_price ?? 0;
             variant.mrp = stockEntry.mrp ?? variant.mrp ?? 0;
             variant.quantity = stockEntry.quantity;
 
             product.inventory.push({ variantId: variant._id, quantity: stockEntry.quantity });
 
-            // Determine best store
             if (!bestStore || (store.soldBy?.official && !bestStore.soldBy?.official)) {
               bestStore = store;
             }
 
-            // Cart info
             const cartKey = `${product._id}_${variant._id}`;
             if (cartMap[cartKey] > 0) {
               product.inCart.status = true;

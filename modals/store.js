@@ -39,6 +39,7 @@ const storeScheema = new mongoose.Schema({
     closeTime:{type:String},
     bankDetails:{bankName:String,accountHolder:String,accountNumber:Number,ifsc:String,branch:String},
     advertisementImages:[{type:String}],
+    pendingAdvertisementImages:[{type:String,status:{type:String,enum: ['pending', 'approved', 'rejected']}}],
     sellerCategories: [
         {
             categoryId: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' },

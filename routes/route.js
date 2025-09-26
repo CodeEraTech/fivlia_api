@@ -24,7 +24,7 @@ const { createStore, storeLogin, verifyEmail, getStore, addCategoryInStore, remo
 const { settings, getSettings, adminSetting, getSmsType } = require('../controlers/settingControler');
 const { users, addUser, updateProfile, Login, signin, deleteAccount, register, verifyMobile, verifyOtp } = require('../controlers/authControler');
 
-const { intro, getIntro, getEvent} = require('../controlers/controlers')
+const { intro, getIntro, getEvent, addEvent, editEvent} = require('../controlers/controlers')
 
 const { placeOrder, getOrders, orderStatus, test, driver, getDriver, editDriver, verifyPayment, getOrderDetails, deliveryStatus, updatedeliveryStatus, getdeliveryStatus, notification, editNotification, deleteNotification, getNotification } = require('../controlers/orderControler')
 
@@ -175,6 +175,8 @@ router.get('/getdeliveryStatus', getdeliveryStatus)
 router.get('/GetSubSubCategories/:subcatId', GetSubSubCategories)
 router.get('/GetSubCategories/:categoryId', GetSubCategories)
 router.post('/getEvent', getEvent)
+router.post('/addEvent',upload, addEvent)
+router.put('/editEvent/:id',upload, editEvent)
 
 router.put('/editProfile/:id', upload, editProfile)
 router.put('/driverWallet/:orderId', driverWallet)

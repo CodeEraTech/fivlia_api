@@ -469,7 +469,7 @@ exports.editSellerProfile = async (req, res) => {
 
     if (req.files?.image?.[0]) {updateFields.image = `/${req.files.image?.[0].key}`;}
     if (req.files?.MultipleImage?.length > 0) {
-    updateFields.advertisementImages = req.files.MultipleImage.map((file) => `/${file.key}`);
+    updateFields.pendingAdvertisementImages = req.files.MultipleImage.map((file) => `/${file.key}`);
     }
     if (PhoneNumber) updateFields.PhoneNumber = PhoneNumber;
     if (gstNumber) updateFields.gstNumber = gstNumber;
@@ -477,7 +477,7 @@ exports.editSellerProfile = async (req, res) => {
     if (password) updateFields.password = password;
     if (openTime) updateFields.openTime = openTime;
     if (closeTime) updateFields.closeTime = closeTime;   
-    if (status) updateFields.status = status;   
+    if (status !== undefined) updateFields.status = status;   
     if (bankDetails) {
   // Parse bankDetails if it comes as JSON string (from form-data)
   let parsedBankDetails = bankDetails;

@@ -193,7 +193,7 @@ exports.getWithdrawalRequest = async (req,res) => {
   try {
     const {type} = req.query
      if(type==="seller"){
-        const requests = await store_transaction.find({type:'debit'})
+        const requests = await store_transaction.find({type:'debit'}).sort({ createdAt: -1 })
         return res.status(200).json({ message: 'Withdrawal requests', requests});  
      }
     const requests = await Transaction.find({type:'debit'})

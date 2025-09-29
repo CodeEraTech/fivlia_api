@@ -935,16 +935,6 @@ exports.searchProduct = async (req, res) => {
 
     const categoryArray = [...allCategoryIds].map((id) => new mongoose.Types.ObjectId(id));
 
-    // 5️⃣ Get products matching filter & category
-    const products = await Products.find({
-      ...searchFilter,
-      $or: [
-        { "category._id": { $in: categoryArray } },
-        { subCategoryId: { $in: categoryArray } },
-        { subSubCategoryId: { $in: categoryArray } },
-      ],
-    }).lean();
-
     // 6️⃣ Fetch stock from allowed stores
     const stockDocs = await Stock.find({
       storeId: { $in: allowedStoreIds },

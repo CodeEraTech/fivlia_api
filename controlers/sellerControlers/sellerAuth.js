@@ -1,160 +1,238 @@
-const seller = require('../../modals/store')
-const {SettingAdmin} = require('../../modals/setting')
-const {ZoneData} = require('../../modals/cityZone')
-const sendVerificationEmail = require('../../config/nodeMailer'); 
-const OtpModel = require("../../modals/otp")
-const request = require('request');
-const crypto = require('crypto')
-const {otpTemplate} = require('../../utils/emailTemplates')
-const Products = require('../../modals/Product');
-const CategoryModel = require('../../modals/category');
-const Stock = require('../../modals/StoreStock')
-const jwt = require('jsonwebtoken');
-const sellerProduct = require('../../modals/sellerModals/sellerProduct');
-const store_transaction = require('../../modals/storeTransaction')
-const {whatsappOtp} = require('../../config/whatsappsender')
+const seller = require("../../modals/store");
+const { SettingAdmin } = require("../../modals/setting");
+const { ZoneData } = require("../../modals/cityZone");
+const sendVerificationEmail = require("../../config/nodeMailer");
+const OtpModel = require("../../modals/otp");
+const request = require("request");
+const crypto = require("crypto");
+const { otpTemplate } = require("../../utils/emailTemplates");
+const Products = require("../../modals/Product");
+const CategoryModel = require("../../modals/category");
+const Stock = require("../../modals/StoreStock");
+const jwt = require("jsonwebtoken");
+const sellerProduct = require("../../modals/sellerModals/sellerProduct");
+const store_transaction = require("../../modals/storeTransaction");
+const { whatsappOtp } = require("../../config/whatsappsender");
 
-exports.addSeller = async (req,res) => {
-    try {
-        const {storeName,firstName,lastName,PhoneNumber,email,city,zone,gstNumber,fsiNumber,Latitude,Longitude,sellFood,fullAddress} = req.body
+exports.addSeller = async (req, res) => {
+  try {
+    const {
+      storeName,
+      firstName,
+      lastName,
+      PhoneNumber,
+      email,
+      city,
+      zone,
+      gstNumber,
+      fsiNumber,
+      Latitude,
+      Longitude,
+      sellFood,
+      fullAddress,
+    } = req.body;
 
-        const sellerData = await seller.findOne({  $or: [{ email },{ PhoneNumber }] })
-        const setting = await SettingAdmin.findOne()
-        const authSettings = setting?.Auth?.[0] || {};
-        const otp = crypto.randomInt(100000, 999999).toString();
-        const otpEmail = crypto.randomInt(100000, 999999).toString();
+    const sellerData = await seller.findOne({
+      $or: [{ email }, { PhoneNumber }],
+    });
+    const setting = await SettingAdmin.findOne();
+    const authSettings = setting?.Auth?.[0] || {};
+    const otp = crypto.randomInt(100000, 999999).toString();
+    const otpEmail = crypto.randomInt(100000, 999999).toString();
 
     if (sellerData) {
-    // Check if email matches and is verified
- if (
-  (sellerData.email === email && sellerData.emailVerified === true) ||
-  (sellerData.PhoneNumber === PhoneNumber && sellerData.phoneNumberVerified === true)
-) {
-  return res.status(409).json({ message: "Email or Mobile number already exists" });
-}
-    // If email or phone exists but not verified, send OTP
-    try {
-      await whatsappOtp({
+      // Check if email matches and is verified
+      if (
+        (sellerData.email === email && sellerData.emailVerified === true) ||
+        (sellerData.PhoneNumber === PhoneNumber &&
+          sellerData.phoneNumberVerified === true)
+      ) {
+        return res
+          .status(409)
+          .json({ message: "Email or Mobile number already exists" });
+      }
+      // If email or phone exists but not verified, send OTP
+      try {
+        await whatsappOtp({
+          otp,
+          PhoneNumber,
+          authSettings,
+        });
+        await OtpModel.create({
+          email,
+          otpEmail,
+          mobileNumber: PhoneNumber,
+          otp,
+          expiresAt: Date.now() + 30 * 60 * 1000,
+        });
+        await sendVerificationEmail(
+          email,
+          "Welcome to Fivlia – Your store is under verification",
+          otpTemplate(otpEmail)
+        );
+        return res
+          .status(200)
+          .json({ message: "OTP sent to email and phone for verification" });
+      } catch (err) {
+        return res
+          .status(500)
+          .json({ message: "Failed to send OTP", error: err.message });
+      }
+    }
+
+    //     const rawImagePath = req.files?.image?.[0]?.key || "";
+    //     const image = rawImagePath ? `/${rawImagePath}` : "";
+    const aadharCard =
+      req.files?.aadharCard?.map((file) => `/${file.key}`) || [];
+    const panCard = req.files?.panCard?.map((file) => `/${file.key}`) || [];
+    const zones = await ZoneData.find({ "zones._id": { $in: zone } });
+    const matchedZones = [];
+    zones.forEach((doc) => {
+      doc.zones.forEach((z) => {
+        if (zone.includes(z._id.toString())) {
+          matchedZones.push({
+            _id: z._id,
+            name: z.zoneTitle,
+            title: z.zoneTitle,
+            range: z.range,
+            latitude: z.latitude,
+            longitude: z.longitude,
+          });
+        }
+      });
+    });
+    const cityObj = { _id: zones[0]._id, name: zones[0].city };
+    const newSeller = await seller.create({
+      storeName,
+      ownerName: `${firstName} ${lastName}`,
+      Authorized_Store: false,
+      PhoneNumber,
+      email,
+      aadharCard,
+      panCard,
+      fsiNumber,
+      city: cityObj,
+      zone: matchedZones,
+      gstNumber,
+      approveStatus: "pending_verification",
+      Latitude,
+      Longitude,
+      sellFood,
+      fullAddress,
+    });
+
+    var options = {
+      method: "POST",
+      url: "https://msggo.in/wapp/public/api/create-message",
+      headers: {},
+      formData: {
+        appkey: authSettings.whatsApp.appKey,
+        authkey: authSettings.whatsApp.authKey,
+        to: PhoneNumber,
+        message: `Welcome to Fivlia - Delivery in Minutes!\nYour OTP is ${otp}. Do not share it with anyone.\n\nThis OTP is valid for 30 minutes.`,
+      },
+    };
+
+    request(options, async function (error, response) {
+      if (error) {
+        console.error(error);
+        return res
+          .status(500)
+          .json({ message: "Failed to send OTP via WhatsApp" });
+      }
+      await OtpModel.create({
+        email,
+        otpEmail,
+        mobileNumber: PhoneNumber,
         otp,
-        PhoneNumber,
-        authSettings
+        expiresAt: Date.now() + 30 * 60 * 1000,
       });
-     await OtpModel.create({email,otpEmail, mobileNumber:PhoneNumber, otp, expiresAt: Date.now() + 30 * 60 * 1000 });
-     await sendVerificationEmail(email,"Welcome to Fivlia – Your store is under verification",otpTemplate(otpEmail));
-      return res.status(200).json({ message: "OTP sent to email and phone for verification" });
-    } catch (err) {
-      return res.status(500).json({ message: "Failed to send OTP", error: err.message });
-    }
+    });
+    await sendVerificationEmail(
+      email,
+      "Welcome to Fivlia – Your store is under verification",
+      otpTemplate(otpEmail)
+    );
+
+    return res.status(200).json({ message: "OTP sent via WhatsApp And Email" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "An Error Occured" });
   }
+};
 
-//     const rawImagePath = req.files?.image?.[0]?.key || "";
-//     const image = rawImagePath ? `/${rawImagePath}` : ""; 
-       const aadharCard = req.files?.aadharCard?.map(file => `/${file.key}`) || [];
-       const panCard = req.files?.panCard?.map(file => `/${file.key}`) || [];
-       const zones = await ZoneData.find({"zones._id": { $in: zone }});
-       const matchedZones = [];
-zones.forEach(doc => {
-  doc.zones.forEach(z => {
-    if (zone.includes(z._id.toString())) {
-      matchedZones.push({
-        _id:z._id,
-        name: z.zoneTitle,
-        title: z.zoneTitle,
-        range: z.range,
-        latitude: z.latitude,
-        longitude: z.longitude
+exports.sendOtp = async (req, res) => {
+  try {
+    const { PhoneNumber } = req.body;
+    const otp = crypto.randomInt(100000, 999999).toString();
+    const setting = await SettingAdmin.findOne();
+    const authSettings = setting?.Auth?.[0] || {};
+    var options = {
+      method: "POST",
+      url: "https://msggo.in/wapp/public/api/create-message",
+      headers: {},
+      formData: {
+        appkey: authSettings.whatsApp.appKey,
+        authkey: authSettings.whatsApp.authKey,
+        to: PhoneNumber,
+        message: `Welcome to Fivlia - Delivery in Minutes!\nYour OTP is ${otp}. Do not share it with anyone.\n\nThis OTP is valid for 30 minutes.`,
+      },
+    };
+
+    request(options, async function (error, response) {
+      if (error) {
+        console.error(error);
+        return res
+          .status(500)
+          .json({ message: "Failed to send OTP via WhatsApp" });
+      }
+      await OtpModel.create({
+        mobileNumber: PhoneNumber,
+        otp,
+        expiresAt: Date.now() + 30 * 60 * 1000,
       });
-    }
-  });
-});
-const cityObj = { _id: zones[0]._id, name: zones[0].city };
-        const newSeller = await seller.create({storeName,ownerName: `${firstName} ${lastName}`,Authorized_Store:false,PhoneNumber,email,aadharCard,panCard,fsiNumber,city:cityObj,zone:matchedZones,gstNumber,approveStatus: 'pending_verification',Latitude,Longitude,sellFood,fullAddress})
-        
-      var options = {
-       method: 'POST',
-        url: 'https://msggo.in/wapp/public/api/create-message',
-        headers: {},
-      formData: {
-        'appkey': authSettings.whatsApp.appKey,
-        'authkey': authSettings.whatsApp.authKey,
-        'to': PhoneNumber,
-        'message': `Welcome to Fivlia - Delivery in Minutes!\nYour OTP is ${otp}. Do not share it with anyone.\n\nThis OTP is valid for 30 minutes.`,
-      }
-    };
-
-   request(options, async function (error, response) {
-           if (error) {
-             console.error(error);
-             return res.status(500).json({ message: 'Failed to send OTP via WhatsApp' });
-           }
-             await OtpModel.create({email,otpEmail, mobileNumber:PhoneNumber, otp, expiresAt: Date.now() + 30 * 60 * 1000 });
-   });
-     await sendVerificationEmail(email,"Welcome to Fivlia – Your store is under verification",otpTemplate(otpEmail));
-
-        return res.status(200).json({ message: 'OTP sent via WhatsApp And Email' });
-    } catch (error) {
+      return res.status(200).json({ message: "OTP sent via WhatsApp", otp });
+    });
+  } catch (error) {
     console.error(error);
-    return res.status(500).json({message: "An Error Occured"});
-    }
-}
+    return res.status(500).json({ ResponseMsg: "An Error Occured" });
+  }
+};
 
-exports.sendOtp = async (req,res) => {
-    try{
- const {PhoneNumber} = req.body
- const otp = crypto.randomInt(100000, 999999).toString();
- const setting = await SettingAdmin.findOne()
- const authSettings = setting?.Auth?.[0] || {};
- var options = {
-       method: 'POST',
-        url: 'https://msggo.in/wapp/public/api/create-message',
-        headers: {},
-      formData: {
-        'appkey': authSettings.whatsApp.appKey,
-        'authkey': authSettings.whatsApp.authKey,
-        'to': PhoneNumber,
-        'message': `Welcome to Fivlia - Delivery in Minutes!\nYour OTP is ${otp}. Do not share it with anyone.\n\nThis OTP is valid for 30 minutes.`,
-      }
-    };
+exports.getSellerRequest = async (req, res) => {
+  try {
+    const [requests, locationRequests, productRequest, brandRequest] =
+      await Promise.all([
+        seller.find({ approveStatus: "pending_admin_approval" }),
+        seller.find({ "pendingAddressUpdate.status": "pending" }),
+        Products.find({ sellerProductStatus: "pending_admin_approval" }),
+        Products.find({ sellerProductStatus: "submit_brand_approval" }),
+      ]);
 
-   request(options, async function (error, response) {
-           if (error) {
-             console.error(error);
-             return res.status(500).json({ message: 'Failed to send OTP via WhatsApp' });
-           }
-             await OtpModel.create({ mobileNumber:PhoneNumber, otp, expiresAt: Date.now() + 30 * 60 * 1000 });
-             return res.status(200).json({ message: 'OTP sent via WhatsApp', otp });
-   });
-
-    }catch(error){
+    return res
+      .status(200)
+      .json({
+        message: "Seller Approval Requests",
+        requests,
+        locationRequests,
+        productRequest,
+        brandRequest,
+      });
+  } catch (error) {
     console.error(error);
-    return res.status(500).json({ResponseMsg: "An Error Occured"});
-    }
-}
-
-exports.getSellerRequest = async (req,res) => {
-    try{
-
-    const [requests, locationRequests, productRequest, brandRequest] = await Promise.all([
-      seller.find({ approveStatus: "pending_admin_approval" }),
-      seller.find({ "pendingAddressUpdate.status": "pending" }),
-      Products.find({ sellerProductStatus: "pending_admin_approval" }),
-      Products.find({ sellerProductStatus: "submit_brand_approval" }),
-    ]);
-
-    return res.status(200).json({message:"Seller Approval Requests",requests,locationRequests,productRequest,brandRequest})
-    }catch(error){
-    console.error(error);
-    return res.status(500).json({ResponseMsg: "An Error Occured"});
-    }
-}
+    return res.status(500).json({ ResponseMsg: "An Error Occured" });
+  }
+};
 
 exports.getSeller = async (req, res) => {
   try {
-    const { id,page=1,limit } = req.query;
-const skip = (page-1)*limit
+    const { id, page = 1, limit } = req.query;
+    const skip = (page - 1) * limit;
     // 1️⃣ Return all approved sellers if no ID
     if (!id) {
-      const sellers = await seller.find({ approveStatus: "approved" },{Authorized_Store:false}).lean();
+      const sellers = await seller
+        .find({ approveStatus: "approved" }, { Authorized_Store: false })
+        .lean();
       return res.status(200).json({ message: "Sellers Approved", sellers });
     }
 
@@ -179,9 +257,9 @@ const skip = (page-1)*limit
       allCategoryTrees.push(category);
       allCategoryIds.push(category._id.toString());
 
-      (category.subcat || []).forEach(sub => {
+      (category.subcat || []).forEach((sub) => {
         allCategoryIds.push(sub._id.toString());
-        (sub.subsubcat || []).forEach(subsub => {
+        (sub.subsubcat || []).forEach((subsub) => {
           allCategoryIds.push(subsub._id.toString());
         });
       });
@@ -203,9 +281,12 @@ const skip = (page-1)*limit
       $or: [
         { "category._id": { $in: allCategoryIds } },
         { subCategoryId: { $in: allCategoryIds } },
-        { subSubCategoryId: { $in: allCategoryIds } }
-      ]
-    }).skip(skip).limit(limit).lean();
+        { subSubCategoryId: { $in: allCategoryIds } },
+      ],
+    })
+      .skip(skip)
+      .limit(limit)
+      .lean();
 
     for (const product of globalProducts) {
       product.inventory = [];
@@ -226,73 +307,91 @@ const skip = (page-1)*limit
 
           product.inventory.push({
             variantId: variant._id,
-            quantity
+            quantity,
           });
         }
       }
     }
 
     // 6️⃣ Fetch SELLER products (use their own stock field)
-    const sellerProducts = await sellerProduct.find({
-      sellerId: id,
-    }).lean();
+    const sellerProducts = await sellerProduct
+      .find({
+        sellerId: id,
+      })
+      .lean();
 
-    const enrichedSellerProducts = sellerProducts.map(prod => ({
+    const enrichedSellerProducts = sellerProducts.map((prod) => ({
       ...prod,
       inventory: [
         {
           variantId: null, // sellerProduct has no variants
-          quantity: prod.stock || 0
-        }
-      ]
+          quantity: prod.stock || 0,
+        },
+      ],
     }));
 
     // 7️⃣ Combine results
-    const allProducts = globalProducts
+    const allProducts = globalProducts;
 
     return res.status(200).json({
       store,
-      sellerAddedProducts:enrichedSellerProducts,
-      products: allProducts
+      sellerAddedProducts: enrichedSellerProducts,
+      products: allProducts,
     });
-
   } catch (err) {
     console.error("Error in getSeller:", err);
-    return res.status(500).json({ message: "Server error", error: err.message });
+    return res
+      .status(500)
+      .json({ message: "Server error", error: err.message });
   }
 };
 
-exports.acceptDeclineRequest = async(req,res)=>{
-    try{
-     const {approval,id,productId,isLocation,description} = req.body
+exports.acceptDeclineRequest = async (req, res) => {
+  try {
+    const { approval, id, productId, isLocation, description } = req.body;
 
-     if(productId){
-      const productApplication = await Products.findByIdAndUpdate(productId,{sellerProductStatus:approval,brandApprovelDescription:description || ""},{ new: true }) 
-     return res.status(200).json({message:`Product application ${approval}`,productApplication})
-     }
+    if (productId) {
+      let updateFields = {
+        sellerProductStatus: approval,
+        brandApprovelDescription: description || "",
+      };
 
-     if (isLocation) {
+      if (approval === "approved") {
+        updateFields.status = true;
+      }
+
+      const productApplication = await Products.findByIdAndUpdate(
+        productId,
+        updateFields,
+        { new: true }
+      );
+      return res
+        .status(200)
+        .json({
+          message: `Product application ${approval}`,
+          productApplication,
+        });
+    }
+
+    if (isLocation) {
       let updatedData;
       if (approval === "approved") {
-      const sellerDoc = await seller.findById(id);
-       await seller.findByIdAndUpdate(
-      id,
-      {
-        $set: {
-          city: sellerDoc.pendingAddressUpdate.city,
-          zone: sellerDoc.pendingAddressUpdate.zone,
-          location: sellerDoc.pendingAddressUpdate.location,
-        },
-      }
-    );
+        const sellerDoc = await seller.findById(id);
+        await seller.findByIdAndUpdate(id, {
+          $set: {
+            city: sellerDoc.pendingAddressUpdate.city,
+            zone: sellerDoc.pendingAddressUpdate.zone,
+            location: sellerDoc.pendingAddressUpdate.location,
+          },
+        });
 
-    // ✅ Step 2: Remove pendingAddressUpdate completely
-    updatedData = await seller.findByIdAndUpdate(
-      id,
-      { $unset: { pendingAddressUpdate: "" } },
-      { new: true }
-    );
-      }else {
+        // ✅ Step 2: Remove pendingAddressUpdate completely
+        updatedData = await seller.findByIdAndUpdate(
+          id,
+          { $unset: { pendingAddressUpdate: "" } },
+          { new: true }
+        );
+      } else {
         // Rejected: just set status to rejected (do not delete data, maybe admin wants to recheck later)
         updatedData = await seller.findByIdAndUpdate(
           id,
@@ -309,66 +408,76 @@ exports.acceptDeclineRequest = async(req,res)=>{
       });
     }
 
-     const application = await seller.findByIdAndUpdate(id,{approveStatus:approval},{ new: true })
+    const application = await seller.findByIdAndUpdate(
+      id,
+      { approveStatus: approval },
+      { new: true }
+    );
 
-     return res.status(200).json({message:`Seller application ${approval}`,application})
-
-    }catch(error){
-        console.error(error);
-        return res.status(500).json({message:"Server Error"})
-    }
-}
+    return res
+      .status(200)
+      .json({ message: `Seller application ${approval}`, application });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
 
 exports.verifyOtpSeller = async (req, res) => {
   try {
-    const { email, otpEmail, PhoneNumber, otp,type } = req.body;
+    const { email, otpEmail, PhoneNumber, otp, type } = req.body;
 
     if (!PhoneNumber && !email) {
-      return res.status(400).json({ message: 'Mobile number or email is required' });
+      return res
+        .status(400)
+        .json({ message: "Mobile number or email is required" });
     }
 
-    if (type === 'login') {
+    if (type === "login") {
       const sellerDoc = await seller.findOne({
-        $or: [
-          { PhoneNumber },
-          { email }
-        ]
+        $or: [{ PhoneNumber }, { email }],
       });
 
       if (!sellerDoc) {
-        return res.status(404).json({ message: 'Seller not found' });
+        return res.status(404).json({ message: "Seller not found" });
       }
 
-       const otpRecord = await OtpModel.findOne({
-      $or: [{ mobileNumber:PhoneNumber }, { email }],otp
-    });
+      const otpRecord = await OtpModel.findOne({
+        $or: [{ mobileNumber: PhoneNumber }, { email }],
+        otp,
+      });
 
-     if (!otpRecord) {
-      return res.status(400).json({ message: 'Invalid OTP' });
-    }
-     const token = jwt.sign({ _id: sellerDoc._id }, process.env.jwtSecretKey, {expiresIn:"1d"});
-     await OtpModel.deleteOne({ _id: otpRecord._id });
+      if (!otpRecord) {
+        return res.status(400).json({ message: "Invalid OTP" });
+      }
+      const token = jwt.sign({ _id: sellerDoc._id }, process.env.jwtSecretKey, {
+        expiresIn: "1d",
+      });
+      await OtpModel.deleteOne({ _id: otpRecord._id });
 
       return res.status(200).json({
-        message: 'Login successful',
+        message: "Login successful",
         sellerId: sellerDoc._id,
-        storeName:sellerDoc.storeName,
-        token
+        storeName: sellerDoc.storeName,
+        token,
       });
     }
     // 1️⃣ Find OTP record
     const otpRecord = await OtpModel.findOne({
-      $or: [{ mobileNumber:PhoneNumber,otp }, { email,otpEmail }]
+      $or: [
+        { mobileNumber: PhoneNumber, otp },
+        { email, otpEmail },
+      ],
     });
-    console.log(otpRecord)
+    console.log(otpRecord);
     if (!otpRecord) {
-      return res.status(400).json({ message: 'Invalid OTP' });
+      return res.status(400).json({ message: "Invalid OTP" });
     }
 
     // 2️⃣ Find seller
     const sellerDoc = await seller.findOne({ PhoneNumber });
     if (!sellerDoc) {
-      return res.status(404).json({ message: 'Seller not found' });
+      return res.status(404).json({ message: "Seller not found" });
     }
 
     // 3️⃣ Prepare updates
@@ -377,7 +486,7 @@ exports.verifyOtpSeller = async (req, res) => {
     // Verify mobile if provided
     if (PhoneNumber) {
       if (otp !== otpRecord.otp) {
-        return res.status(400).json({ message: 'Invalid mobile OTP' });
+        return res.status(400).json({ message: "Invalid mobile OTP" });
       }
       updates.phoneNumberVerified = true;
       otpRecord.otp = null; // clear mobile OTP but keep email OTP if present
@@ -386,19 +495,20 @@ exports.verifyOtpSeller = async (req, res) => {
     // Verify email if provided
     if (email) {
       if (otpEmail !== otpRecord.otpEmail) {
-        return res.status(400).json({ message: 'Invalid email OTP' });
+        return res.status(400).json({ message: "Invalid email OTP" });
       }
       updates.emailVerified = true;
       otpRecord.otpEmail = null; // clear email OTP but keep mobile OTP if present
     }
 
     const isMobileVerified =
-      updates.phoneNumberVerified === true || sellerDoc.phoneNumberVerified === true;
+      updates.phoneNumberVerified === true ||
+      sellerDoc.phoneNumberVerified === true;
     const isEmailVerified =
       updates.emailVerified === true || sellerDoc.emailVerified === true;
 
     if (isMobileVerified && isEmailVerified) {
-      updates.approveStatus = 'pending_admin_approval';
+      updates.approveStatus = "pending_admin_approval";
     }
 
     // 4️⃣ Update seller
@@ -412,13 +522,14 @@ exports.verifyOtpSeller = async (req, res) => {
     }
 
     return res.status(200).json({
-      message: 'Verification successful',
+      message: "Verification successful",
       status: updates.approveStatus || sellerDoc.approveStatus,
     });
-
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "An error occurred", error: error.message });
+    return res
+      .status(500)
+      .json({ message: "An error occurred", error: error.message });
   }
 };
 
@@ -426,8 +537,8 @@ exports.editSellerProfile = async (req, res) => {
   try {
     const {
       storeName,
-      city, 
-      zone, 
+      city,
+      zone,
       Latitude,
       Longitude,
       ownerName,
@@ -440,65 +551,73 @@ exports.editSellerProfile = async (req, res) => {
       bankDetails,
       openTime,
       status,
-      closeTime
+      closeTime,
       // {bankName, accountHolder, accountNumber, ifsc, branch}
     } = req.body;
 
-    const sellerId =req.params.id;
+    const sellerId = req.params.id;
 
     const updateFields = {};
 
     if (storeName) updateFields.storeName = storeName;
     if (ownerName) updateFields.ownerName = ownerName;
     if (email) updateFields.email = email;
-    
-    if (invoicePrefix) {
-  // Check if the prefix is already used by another seller
-  const existingPrefix = await seller.findOne({ 
-    invoicePrefix, 
-    _id: { $ne: sellerId } // exclude current seller
-  });
-  if (existingPrefix) {
-    return res.status(400).json({ 
-      success: false, 
-      message: "Invoice prefix already in use. Please choose a unique prefix." 
-    });
-  }
-  updateFields.invoicePrefix = invoicePrefix;
-}
 
-    if (req.files?.image?.[0]) {updateFields.image = `/${req.files.image?.[0].key}`;}
+    if (invoicePrefix) {
+      // Check if the prefix is already used by another seller
+      const existingPrefix = await seller.findOne({
+        invoicePrefix,
+        _id: { $ne: sellerId }, // exclude current seller
+      });
+      if (existingPrefix) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invoice prefix already in use. Please choose a unique prefix.",
+        });
+      }
+      updateFields.invoicePrefix = invoicePrefix;
+    }
+
+    if (req.files?.image?.[0]) {
+      updateFields.image = `/${req.files.image?.[0].key}`;
+    }
     if (req.files?.MultipleImage?.length > 0) {
-    updateFields.pendingAdvertisementImages = req.files.MultipleImage.map((file) => `/${file.key}`);
+      updateFields.pendingAdvertisementImages = req.files.MultipleImage.map(
+        (file) => `/${file.key}`
+      );
     }
     if (PhoneNumber) updateFields.PhoneNumber = PhoneNumber;
     if (gstNumber) updateFields.gstNumber = gstNumber;
     if (fsiNumber) updateFields.fsiNumber = fsiNumber;
     if (password) updateFields.password = password;
     if (openTime) updateFields.openTime = openTime;
-    if (closeTime) updateFields.closeTime = closeTime;   
-    if (status !== undefined) updateFields.status = status;   
+    if (closeTime) updateFields.closeTime = closeTime;
+    if (status !== undefined) updateFields.status = status;
     if (bankDetails) {
-  // Parse bankDetails if it comes as JSON string (from form-data)
-  let parsedBankDetails = bankDetails;
-  if (typeof bankDetails === "string") {
-    try {
-      parsedBankDetails = JSON.parse(bankDetails);
-    } catch (err) {
-      return res.status(400).json({ success: false, message: "Invalid bankDetails format" });
-    }
-  }
+      // Parse bankDetails if it comes as JSON string (from form-data)
+      let parsedBankDetails = bankDetails;
+      if (typeof bankDetails === "string") {
+        try {
+          parsedBankDetails = JSON.parse(bankDetails);
+        } catch (err) {
+          return res
+            .status(400)
+            .json({ success: false, message: "Invalid bankDetails format" });
+        }
+      }
 
-  // Validate fields before saving
-  const { bankName, accountHolder, accountNumber, ifsc, branch } = parsedBankDetails;
-  updateFields.bankDetails = {
-    ...(bankName && { bankName }),
-    ...(accountHolder && { accountHolder }),
-    ...(accountNumber && { accountNumber }),
-    ...(ifsc && { ifsc }),
-    ...(branch && { branch }),
-  };
-}
+      // Validate fields before saving
+      const { bankName, accountHolder, accountNumber, ifsc, branch } =
+        parsedBankDetails;
+      updateFields.bankDetails = {
+        ...(bankName && { bankName }),
+        ...(accountHolder && { accountHolder }),
+        ...(accountNumber && { accountNumber }),
+        ...(ifsc && { ifsc }),
+        ...(branch && { branch }),
+      };
+    }
     // Do not overwrite live city/zone/lat/lng -> store in pendingAddressUpdate
     if (city || zone || Latitude || Longitude) {
       // Fetch city object
@@ -514,7 +633,9 @@ exports.editSellerProfile = async (req, res) => {
       if (zone) {
         const cityDoc = await ZoneData.findOne({ "zones._id": zone });
         if (cityDoc) {
-          const zoneDoc = cityDoc.zones.find((z) => String(z._id) === String(zone));
+          const zoneDoc = cityDoc.zones.find(
+            (z) => String(z._id) === String(zone)
+          );
           if (zoneDoc) {
             zoneArray.push({
               _id: zoneDoc._id,
@@ -545,77 +666,93 @@ exports.editSellerProfile = async (req, res) => {
     );
 
     if (!updatedSeller) {
-      return res.status(404).json({ success: false, message: "Seller not updated or not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Seller not updated or not found" });
     }
 
     return res.status(200).json({
       success: true,
-      message: "Seller profile updated successfully (pending address approval if changed)",
+      message:
+        "Seller profile updated successfully (pending address approval if changed)",
       seller: updatedSeller,
     });
   } catch (error) {
     console.error("editSellerProfile error:", error);
-    return res.status(500).json({ success: false, message: "Server Error", error: error.message });
+    return res
+      .status(500)
+      .json({ success: false, message: "Server Error", error: error.message });
   }
 };
 
-exports.sellerWithdrawalRequest = async(req, res) =>{
+exports.sellerWithdrawalRequest = async (req, res) => {
   try {
-      const { storeId, amount } = req.body;
-  
-      const storeData = await seller.findById(storeId);
-      if (!storeData) return res.status(204).json({ message: "Seller not found" });
-  
-      const settings = await SettingAdmin.findOne();
-      const minWithdrawal = settings?.minWithdrawal || 0;
+    const { storeId, amount } = req.body;
 
-      if (amount < minWithdrawal) {
-      return res.status(400).json({ message: `Minimum withdrawal amount is ₹${minWithdrawal}` });
-      }
+    const storeData = await seller.findById(storeId);
+    if (!storeData)
+      return res.status(204).json({ message: "Seller not found" });
 
-      const pendingWithdrawals = await store_transaction.aggregate([
-        { $match: { storeId: storeData._id, status: "Pending", type: "debit" } },
-        { $group: { _id: null, totalPending: { $sum: "$amount" } } }
-      ]);
-  
-      const totalPending = pendingWithdrawals[0]?.totalPending || 0;
-  
-      // Check if requested amount + pending exceeds wallet
-      if (amount + totalPending > storeData.wallet) {
-        return res.status(400).json({ message: "Insufficient wallet balance considering pending withdrawals" });
-      }
-  
-      // Check if a pending withdrawal already exists
-      let withdrawal = await store_transaction.findOne({ storeId: storeData._id, status: "Pending", type: "debit" });
-  
-      if (withdrawal) {
-        // Update existing pending request
-        withdrawal.amount += amount;
-        withdrawal.description = `Withdrawal request of ₹${withdrawal.amount} by seller`;
-        await withdrawal.save();
-      } else {
-        // Create new withdrawal request
-        withdrawal = await store_transaction.create({
-          storeId: storeData._id,
-          amount,
-          type: "debit",
-          description: `Withdrawal request of ₹${amount} by seller`,
-          status: "Pending"
-        });
-      }
-  
-      return res.status(200).json({
-        message: "Withdrawal request submitted successfully",
-        wallet: storeData.wallet,
-        pendingWithdrawal: withdrawal
-      });
-  
-    } catch (error) {
-      console.error(error);
-      return res.status(500).json({ message: "Server error", error: error.message });
+    const settings = await SettingAdmin.findOne();
+    const minWithdrawal = settings?.minWithdrawal || 0;
+
+    if (amount < minWithdrawal) {
+      return res
+        .status(400)
+        .json({ message: `Minimum withdrawal amount is ₹${minWithdrawal}` });
     }
-  };
-  
 
+    const pendingWithdrawals = await store_transaction.aggregate([
+      { $match: { storeId: storeData._id, status: "Pending", type: "debit" } },
+      { $group: { _id: null, totalPending: { $sum: "$amount" } } },
+    ]);
+
+    const totalPending = pendingWithdrawals[0]?.totalPending || 0;
+
+    // Check if requested amount + pending exceeds wallet
+    if (amount + totalPending > storeData.wallet) {
+      return res
+        .status(400)
+        .json({
+          message:
+            "Insufficient wallet balance considering pending withdrawals",
+        });
+    }
+
+    // Check if a pending withdrawal already exists
+    let withdrawal = await store_transaction.findOne({
+      storeId: storeData._id,
+      status: "Pending",
+      type: "debit",
+    });
+
+    if (withdrawal) {
+      // Update existing pending request
+      withdrawal.amount += amount;
+      withdrawal.description = `Withdrawal request of ₹${withdrawal.amount} by seller`;
+      await withdrawal.save();
+    } else {
+      // Create new withdrawal request
+      withdrawal = await store_transaction.create({
+        storeId: storeData._id,
+        amount,
+        type: "debit",
+        description: `Withdrawal request of ₹${amount} by seller`,
+        status: "Pending",
+      });
+    }
+
+    return res.status(200).json({
+      message: "Withdrawal request submitted successfully",
+      wallet: storeData.wallet,
+      pendingWithdrawal: withdrawal,
+    });
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(500)
+      .json({ message: "Server error", error: error.message });
+  }
+};
 
 // https://api.fivlia.in/getSellerProducts?categories=683eeb6ff6f5264ba0295760%683ed131f6f5264ba0295759&subCategories=683ef865f6f5264ba0295774%683ed131f6f5264ba0295755&subsubCategories=683ef865f6f5264ba0295724%683ed131f6f5264ba0295715

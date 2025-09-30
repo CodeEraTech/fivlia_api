@@ -10,6 +10,7 @@ const Address = require('../modals/Address')
 const OtpModel = require("../modals/otp")
 const admin_transaction = require('../modals/adminTranaction')
 const store_transaction = require('../modals/storeTransaction')
+const { FeeInvoiceId } = require("../config/counter");
 const { generateAndSendThermalInvoice, generateStoreInvoiceId} = require('../config/invoice');
 const Transaction = require('../modals/driverModals/transaction')
 require('dotenv').config()
@@ -129,6 +130,7 @@ exports.driverOrderStatus = async (req, res) => {
     }
 
 if (orderStatus === 'Delivered') {
+  let feeInvoiceId = await FeeInvoiceId(true); 
   const otpRecord = await OtpModel.findOne({ orderId, otp });
   if (!otpRecord) {
     return res.status(400).json({ message: 'Invalid OTP' });
@@ -201,7 +203,7 @@ const totalCommission = order.items.reduce((sum, item) => {
 
   const statusUpdate = await Order.findOneAndUpdate(
     { orderId },
-    { orderStatus, storeInvoiceId },
+    { orderStatus, storeInvoiceId,feeInvoiceId },
     { new: true }
   );
 

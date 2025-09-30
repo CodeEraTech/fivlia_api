@@ -16,7 +16,7 @@ const sendNotification = require("../firebase/pushnotification");
 const Store = require("../modals/store");
 const { generateAndSendThermalInvoice, generateStoreInvoiceId} = require('../config/invoice');
 const deliveryStatus = require("../modals/deliveryStatus");
-const { getNextOrderId } = require("../config/counter");
+const { getNextOrderId, FeeInvoiceId} = require("../config/counter");
 const { createRazorpayOrder, getCommison} = require("../utils/razorpayService");
 
 const MAX_DISTANCE_METERS = 5000;
@@ -450,6 +450,8 @@ exports.orderStatus = async (req, res) => {
     }
 
    if (status === "Delivered" && updatedOrder.driver?.driverId) {
+    let feeInvoiceId = await FeeInvoiceId(true); 
+
       await Assign.findOneAndDelete({
         driverId: updatedOrder.driver.driverId,
         orderId: updatedOrder.orderId,
@@ -513,7 +515,7 @@ exports.orderStatus = async (req, res) => {
 
       // 🧾 Generate Store Invoice ID
       const storeInvoiceId = await generateStoreInvoiceId(updatedOrder.storeId);
-      await Order.findByIdAndUpdate(updatedOrder._id, { storeInvoiceId });
+      await Order.findByIdAndUpdate(updatedOrder._id, { storeInvoiceId, feeInvoiceId});
 
       // 🧾 Generate and send Thermal Invoice
       try {

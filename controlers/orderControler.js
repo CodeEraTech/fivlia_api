@@ -450,7 +450,6 @@ exports.orderStatus = async (req, res) => {
     }
 
    if (status === "Delivered" && updatedOrder.driver?.driverId) {
-    let feeInvoiceId = await FeeInvoiceId(true); 
 
       await Assign.findOneAndDelete({
         driverId: updatedOrder.driver.driverId,
@@ -513,11 +512,21 @@ exports.orderStatus = async (req, res) => {
         });
       }
 
+    let storeInvoiceId;
+    let feeInvoiceId;
       // 🧾 Generate Store Invoice ID
-      const storeInvoiceId = await generateStoreInvoiceId(updatedOrder.storeId);
+    if (store.Authorized_Store) {
+        // Authorized store: use global counter for both invoices
+        storeInvoiceId = await FeeInvoiceId(true); // increments counter
+        feeInvoiceId = await FeeInvoiceId(true);   // increments counter again
+    } else {
+        // Unauthorized store: local logic
+        storeInvoiceId = await generateStoreInvoiceId(updatedOrder.storeId);
+        feeInvoiceId = await FeeInvoiceId(true); // can still increment global counter
+    }
+
       await Order.findByIdAndUpdate(updatedOrder._id, { storeInvoiceId, feeInvoiceId});
 
-      // 🧾 Generate and send Thermal Invoice
       try {
         await generateAndSendThermalInvoice(updatedOrder.orderId);
       } catch (err) {

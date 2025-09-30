@@ -64,7 +64,7 @@ exports.generateStoreInvoiceId = async(storeId) => {
 
   let prefix = '';
   if (store.Authorized_Store) {      // field from store document
-    prefix = 'FIV';
+    return await FeeInvoiceId(true); 
   } else {
     prefix = store.invoicePrefix;
   }

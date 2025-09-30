@@ -365,12 +365,36 @@ exports.acceptDeclineRequest = async (req, res) => {
         updateFields,
         { new: true }
       );
-      return res
-        .status(200)
-        .json({
-          message: `Product application ${approval}`,
-          productApplication,
+      if (approval === "approved") {
+        let storeStock = await Stock.findOne({
+          storeId: productApplication.addedBy,
         });
+        if (!Array.isArray(storeStock.stock)) {
+          storeStock.stock = [];
+        }
+        for (const variant of productApplication.variants) {
+          const exists = storeStock.stock.find(
+            (s) =>
+              s.productId.toString() === productApplication._id.toString() &&
+              s.variantId.toString() === variant._id.toString()
+          );
+
+          if (!exists) {
+            storeStock.stock.push({
+              productId: productApplication._id,
+              variantId: variant._id,
+              quantity: 0,
+              price: variant.sell_price || 0,
+              mrp: variant.mrp || 0,
+            });
+          }
+        }
+        await storeStock.save();
+      }
+      return res.status(200).json({
+        message: `Product application ${approval}`,
+        productApplication,
+      });
     }
 
     if (isLocation) {

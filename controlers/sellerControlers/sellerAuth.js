@@ -685,7 +685,7 @@ exports.editSellerProfile = async (req, res) => {
       updateFields.image = `/${req.files.image?.[0].key}`;
     }
      if (req.files?.file?.[0]) {
-      updateFields.signature = `/${req.files.file?.[0].key}`;
+      updateFields.sellerSignature = `/${req.files.file?.[0].key}`;
     }
     if (req.files?.MultipleImage?.length > 0) {
   updateFields.pendingAdvertisementImages = {

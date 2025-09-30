@@ -14,7 +14,7 @@ async function sendNotification(fcmToken, title, body,clickAction = "/dashboard1
         body: body
       },
       data: {
-        click_action: "FLUTTER_NOTIFICATION_CLICK",
+        click_action: "clickAction",
         ...data
       },
             webpush: {

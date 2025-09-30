@@ -16,7 +16,7 @@ const sendNotification = require("../firebase/pushnotification");
 const Store = require("../modals/store");
 const { generateAndSendThermalInvoice, generateStoreInvoiceId} = require('../config/invoice');
 const deliveryStatus = require("../modals/deliveryStatus");
-const { getNextOrderId } = require("../config/counter");
+const { getNextOrderId, FeeInvoiceId} = require("../config/counter");
 const { createRazorpayOrder, getCommison} = require("../utils/razorpayService");
 
 const MAX_DISTANCE_METERS = 5000;
@@ -450,6 +450,7 @@ exports.orderStatus = async (req, res) => {
     }
 
    if (status === "Delivered" && updatedOrder.driver?.driverId) {
+
       await Assign.findOneAndDelete({
         driverId: updatedOrder.driver.driverId,
         orderId: updatedOrder.orderId,
@@ -511,11 +512,21 @@ exports.orderStatus = async (req, res) => {
         });
       }
 
+    let storeInvoiceId;
+    let feeInvoiceId;
       // 🧾 Generate Store Invoice ID
-      const storeInvoiceId = await generateStoreInvoiceId(updatedOrder.storeId);
-      await Order.findByIdAndUpdate(updatedOrder._id, { storeInvoiceId });
+    if (store.Authorized_Store) {
+        // Authorized store: use global counter for both invoices
+        storeInvoiceId = await FeeInvoiceId(true); // increments counter
+        feeInvoiceId = await FeeInvoiceId(true);   // increments counter again
+    } else {
+        // Unauthorized store: local logic
+        storeInvoiceId = await generateStoreInvoiceId(updatedOrder.storeId);
+        feeInvoiceId = await FeeInvoiceId(true); // can still increment global counter
+    }
 
-      // 🧾 Generate and send Thermal Invoice
+      await Order.findByIdAndUpdate(updatedOrder._id, { storeInvoiceId, feeInvoiceId});
+
       try {
         await generateAndSendThermalInvoice(updatedOrder.orderId);
       } catch (err) {

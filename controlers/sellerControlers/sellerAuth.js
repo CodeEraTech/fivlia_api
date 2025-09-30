@@ -691,7 +691,6 @@ exports.editSellerProfile = async (req, res) => {
     if (storeName) updateFields.storeName = storeName;
     if (ownerName) updateFields.ownerName = ownerName;
     if (email) updateFields.email = email;
-
     if (invoicePrefix) {
       // Check if the prefix is already used by another seller
       const existingPrefix = await seller.findOne({
@@ -710,6 +709,9 @@ exports.editSellerProfile = async (req, res) => {
 
     if (req.files?.image?.[0]) {
       updateFields.image = `/${req.files.image?.[0].key}`;
+    }
+     if (req.files?.file?.[0]) {
+      updateFields.sellerSignature = `/${req.files.file?.[0].key}`;
     }
     if (req.files?.MultipleImage?.length > 0) {
   updateFields.pendingAdvertisementImages = {

@@ -75,10 +75,9 @@ exports.generateStoreInvoiceId = async (storeId) => {
   const store = await Store.findById(storeId);
   if (!store) throw new Error("Store not found");
 
-  let prefix = "";
-  if (store.Authorized_Store) {
-    // field from store document
-    prefix = "FIV";
+  let prefix = '';
+  if (store.Authorized_Store) {      // field from store document
+    return await FeeInvoiceId(true); 
   } else {
     prefix = store.invoicePrefix;
   }

@@ -17,7 +17,8 @@ items: [
  platformFee:Number,
  invoiceUrl: { type: String },
  storeInvoiceId:{type: String},
- thermalInvoice: { type: String }, // For thermal printer invoice content
+ feeInvoiceId:{type: String},
+ thermalInvoice: { type: String },
  transactionId:String,
  driver:{driverId:String,name:String,mobileNumber:String}
 },{timestamps:true});

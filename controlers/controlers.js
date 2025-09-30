@@ -28,8 +28,8 @@ try {
 const {eventTitle,type,eventStatus,fontColor,startTime,endTime} = req.body
 const image = `/${req.files.image?.[0].key}`
 
-const start = moment(`${startTime}`, "hh:mmA").toDate(); // e.g., 10:00AM → Date object today
-const end = moment(`${endTime}`, "hh:mmA").toDate();
+const start = moment(`${startTime}`, "YYYY-MM-DD hh:mmA").toDate(); // e.g., 10:00AM → Date object today
+const end = moment(`${endTime}`, "YYYY-MM-DD hh:mmA").toDate();
 
 const newEvent = await Event.create({eventDetails:{eventTitle,fontColor,eventImage:image},startTime:start,endTime:end,type,eventStatus})
 
@@ -88,13 +88,13 @@ const end = moment(`${endTime}`, "YYYY-MM-DD hh:mmA").toDate();
 
  const updateFields = {};
 
-    if (eventTitle) updateFields.eventTitle = eventTitle;
+    if (eventTitle) updateFields["eventDetails.eventTitle"] = eventTitle;
     if (type) updateFields.type = type;
     if (eventStatus) updateFields.eventStatus = eventStatus;
-    if (fontColor) updateFields.fontColor = fontColor;
+    if (fontColor) updateFields["eventDetails.fontColor"] = fontColor;
     if (startTime) updateFields.startTime = startTime;
     if (endTime) updateFields.endTime = endTime;
-    if (req.files?.image?.[0]) {updateFields.image = `/${req.files.image?.[0].key}`};
+    if (req.files?.image?.[0]) {updateFields["eventDetails.eventImage"] = `/${req.files.image?.[0].key}`};
 
 const newEvent = await Event.findByIdAndUpdate(id, { $set: updateFields },{ new: true })
 

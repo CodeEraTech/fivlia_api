@@ -39,7 +39,9 @@ const storeScheema = new mongoose.Schema({
     closeTime:{type:String},
     bankDetails:{bankName:String,accountHolder:String,accountNumber:Number,ifsc:String,branch:String},
     advertisementImages:[{type:String}],
-    pendingAdvertisementImages:[{type:String,status:{type:String,enum: ['pending', 'approved', 'rejected']}}],
+    fcmToken: { type: String, default: null },
+    fcmTokenMobile: { type: String, default: null },
+    pendingAdvertisementImages:{image:[{type:String}],status:{type:String,enum: ['pending', 'approved', 'rejected']}},
     sellerCategories: [
         {
             categoryId: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' },

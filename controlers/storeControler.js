@@ -392,7 +392,6 @@ exports.getStore = async (req, res) => {
 
       const quantity = stockData?.quantity || 0;
 
-      // ✅ Update price and mrp directly in the variant
       if (stockData?.price != null) {
         variant.sell_price = stockData.price;
       }

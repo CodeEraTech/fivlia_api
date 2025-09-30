@@ -2368,7 +2368,7 @@ exports.checkSimilarProduct = async (req, res) => {
         })
         .filter(Boolean);
 
-      if (!variantsWithStock.length) continue; // skip if no stock in this store
+      if (!variantsWithStock.length) continue;
 
       const updatedVariants = product.variants.map((variant) => {
         const match = variantsWithStock.find(

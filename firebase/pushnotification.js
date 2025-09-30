@@ -1,10 +1,10 @@
 const axios = require("axios");
 const getAccessToken = require("./getAccessToken"); // adjust path
 
-async function sendNotification(fcmToken, title, body, data = {}) {
+async function sendNotification(fcmToken, title, body,clickAction = "/dashboard1", data = {}) {
   const token = await getAccessToken();
 
-  const fcmUrl = `https://fcm.googleapis.com/v1/projects/fivlia/messages:send`;
+  const fcmUrl = `https://fcm.googleapis.com/v1/projects/fivlia-quick-commerce/messages:send`;
 
   const message = {
     message: {
@@ -16,7 +16,17 @@ async function sendNotification(fcmToken, title, body, data = {}) {
       data: {
         click_action: "FLUTTER_NOTIFICATION_CLICK",
         ...data
-      }
+      },
+            webpush: {
+        notification: {
+          title,
+          body,
+          icon: "/logo192.png",
+        },
+        fcmOptions: {
+          link: clickAction,         // 👈 this is what firebase-messaging-sw.js uses
+        },
+      },
     }
   };
 

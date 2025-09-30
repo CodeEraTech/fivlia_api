@@ -1,27 +1,15 @@
 const { Cart, Discount } = require("../modals/cart");
 const { ZoneData } = require("../modals/cityZone");
-const Address = require("../modals/Address");
 const Products = require("../modals/Product");
 const Store = require("../modals/store");
 const User = require("../modals/User");
 const stock = require("../modals/StoreStock");
-const mongoose = require("mongoose");
 const haversine = require("haversine-distance");
 
 exports.addCart = async (req, res) => {
   try {
     const userId = req.user;
-    const {
-      name,
-      quantity,
-      price,
-      mrp,
-      productId,
-      storeId,
-      varientId,
-      image,
-      clearCart,
-    } = req.body;
+    const { quantity, productId, storeId, varientId, clearCart } = req.body;
 
     if (!storeId) {
       return res.status(400).json({ message: "storeId not found." });
@@ -47,13 +35,12 @@ exports.addCart = async (req, res) => {
       return res.status(400).json({ message: "User location not available." });
     }
 
-    // Fetch all active zones
+    // Fetch active zones
     const zoneDocs = await ZoneData.find({});
     const activeZones = zoneDocs.flatMap((doc) =>
       doc.zones.filter((z) => z.status === true)
     );
 
-    // Match user to a delivery zone
     const matchedZone = activeZones.find((zone) => {
       if (!zone.latitude || !zone.longitude || !zone.range) return false;
       const distance = haversine(
@@ -71,7 +58,7 @@ exports.addCart = async (req, res) => {
 
     const paymentOption = matchedZone.cashOnDelivery === true;
 
-    // Validate single-store cart policy
+    // Single-store cart policy
     const cartItems = await Cart.find({ userId }).lean();
     if (cartItems.length > 0) {
       const existingStoreId = cartItems[0].storeId?.toString();
@@ -83,7 +70,13 @@ exports.addCart = async (req, res) => {
       }
     }
 
-    // Check stock availability for this product variant in the given store
+    // Check product
+    const product = await Products.findOne({ _id: productId }).lean();
+    if (!product) {
+      return res.status(400).json({ message: "Product is unavailable." });
+    }
+
+    // Check stock entry
     const stockDoc = await stock
       .findOne({
         storeId,
@@ -108,19 +101,45 @@ exports.addCart = async (req, res) => {
       });
     }
 
-    // Remove existing cart entry for same product (if any)
+    const name = product.productName;
+    const image = product.productThumbnailUrl;
+    const tax = product.tax || "0%"; // fallback if not present
+    let price = stockEntry?.price;
+    let mrp = stockEntry?.mrp;
+
+    // Fallback to product.variants if price or mrp is missing
+    if (!price || !mrp) {
+      const matchedVariant = product.variants?.find(
+        (v) => v._id?.toString() === varientId?.toString()
+      );
+
+      if (matchedVariant) {
+        price = matchedVariant.sell_price;
+        mrp = matchedVariant.mrp;
+      }
+    }
+
+    // Final fallback to avoid undefined values (optional)
+    if (!price || !mrp) {
+      return res.status(400).json({
+        message: "Price/MRP could not be determined for the selected variant.",
+      });
+    }
+
+    // Remove old cart entry for same product
     await Cart.deleteOne({
       userId,
       productId,
     });
 
-    // Add new item to cart
+    // Create new cart item
     const cartItem = await Cart.create({
-      image,
       name,
+      image,
       quantity,
       price,
       mrp,
+      tax,
       productId,
       varientId,
       userId,
@@ -133,7 +152,6 @@ exports.addCart = async (req, res) => {
       item: cartItem,
     });
   } catch (error) {
-    //console.error("❌ addCart error:", error);
     return res.status(500).json({
       message: "An error occurred!",
       error: error.message,

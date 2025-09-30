@@ -1,25 +1,29 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
-const cartSchema = new mongoose.Schema({
-   image:String,
-   price: { type: Number},
-   mrp:Number,
-   name:String,
-   quantity:Number,
-   productId:{type:mongoose.Schema.ObjectId,ref:'products'},
-   storeId:{type:mongoose.Schema.ObjectId,ref:'stores'},
-   varientId:{type:mongoose.Schema.ObjectId},
-   userId:{type:mongoose.Schema.ObjectId,ref:'Login'},
-   paymentOption:{type:Boolean}
-},{timestamps:true})
+const cartSchema = new mongoose.Schema(
+  {
+    image: String,
+    price: { type: Number },
+    mrp: Number,
+    tax: String,
+    name: String,
+    quantity: Number,
+    productId: { type: mongoose.Schema.ObjectId, ref: "products" },
+    storeId: { type: mongoose.Schema.ObjectId, ref: "stores" },
+    varientId: { type: mongoose.Schema.ObjectId },
+    userId: { type: mongoose.Schema.ObjectId, ref: "Login" },
+    paymentOption: { type: Boolean },
+  },
+  { timestamps: true }
+);
 
-const discountSchema=new mongoose.Schema({
-  head:String,
-  value:Number,
-  description:String
-})
+const discountSchema = new mongoose.Schema({
+  head: String,
+  value: Number,
+  description: String,
+});
 
-module.exports={
-    Cart:mongoose.model('Cart',cartSchema),
-    Discount:mongoose.model('Discount',discountSchema)
-}
+module.exports = {
+  Cart: mongoose.model("Cart", cartSchema),
+  Discount: mongoose.model("Discount", discountSchema),
+};

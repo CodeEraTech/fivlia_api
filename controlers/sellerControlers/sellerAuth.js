@@ -1,4 +1,5 @@
 const seller = require("../../modals/store");
+const sendNotification = require("../../firebase/pushnotification")
 const { SettingAdmin } = require("../../modals/setting");
 const { ZoneData } = require("../../modals/cityZone");
 const sendVerificationEmail = require("../../config/nodeMailer");
@@ -201,10 +202,11 @@ exports.sendOtp = async (req, res) => {
 
 exports.getSellerRequest = async (req, res) => {
   try {
-    const [requests, locationRequests, productRequest, brandRequest] =
+    const [requests, locationRequests,imageRequest, productRequest, brandRequest] =
       await Promise.all([
         seller.find({ approveStatus: "pending_admin_approval" }),
         seller.find({ "pendingAddressUpdate.status": "pending" }),
+      seller.find({"pendingAdvertisementImages.status": "pending","pendingAdvertisementImages.image.0": { $exists: true }}).select("storeName email PhoneNumber ownerName zone pendingAdvertisementImages"),
         Products.find({ sellerProductStatus: "pending_admin_approval" }),
         Products.find({ sellerProductStatus: "submit_brand_approval" }),
       ]);
@@ -215,6 +217,7 @@ exports.getSellerRequest = async (req, res) => {
         message: "Seller Approval Requests",
         requests,
         locationRequests,
+        imageRequest,
         productRequest,
         brandRequest,
       });
@@ -346,19 +349,24 @@ exports.getSeller = async (req, res) => {
   }
 };
 
+const notifySeller = async (sellerDoc, title, body,clickAction = "/dashboard1") => {
+  const tokens = [sellerDoc.fcmToken, sellerDoc.fcmTokenMobile].filter(Boolean);
+  for (const token of tokens) {
+    await sendNotification(token, title, body,clickAction = "/dashboard1");
+  }
+};
+
 exports.acceptDeclineRequest = async (req, res) => {
   try {
-    const { approval, id, productId, isLocation, description } = req.body;
+    const { approval, id, productId, isImage, isLocation, description } = req.body;
 
+    // ---------- PRODUCT APPROVAL ----------
     if (productId) {
-      let updateFields = {
+      const updateFields = {
         sellerProductStatus: approval,
         brandApprovelDescription: description || "",
+        ...(approval === "approved" && { status: true }),
       };
-
-      if (approval === "approved") {
-        updateFields.status = true;
-      }
 
       const productApplication = await Products.findByIdAndUpdate(
         productId,
@@ -391,16 +399,30 @@ exports.acceptDeclineRequest = async (req, res) => {
         }
         await storeStock.save();
       }
+
+      const sellerDoc = await seller.findById(productApplication.sellerId);
+      if (sellerDoc) {
+        await notifySeller(
+          sellerDoc,
+          `Product ${approval}`,
+          `Your product application has been ${approval}.`
+        );
+      }
+
       return res.status(200).json({
         message: `Product application ${approval}`,
         productApplication,
       });
     }
 
+    // ---------- LOCATION UPDATE ----------
     if (isLocation) {
+      const sellerDoc = await seller.findById(id);
+      if (!sellerDoc) return res.status(404).json({ message: "Seller not found" });
+
       let updatedData;
+
       if (approval === "approved") {
-        const sellerDoc = await seller.findById(id);
         await seller.findByIdAndUpdate(id, {
           $set: {
             city: sellerDoc.pendingAddressUpdate.city,
@@ -409,18 +431,28 @@ exports.acceptDeclineRequest = async (req, res) => {
           },
         });
 
-        // ✅ Step 2: Remove pendingAddressUpdate completely
         updatedData = await seller.findByIdAndUpdate(
           id,
           { $unset: { pendingAddressUpdate: "" } },
           { new: true }
         );
+
+        await notifySeller(
+          sellerDoc,
+          `Location Update Approved`,
+          `Your location update request has been approved.`
+        );
       } else {
-        // Rejected: just set status to rejected (do not delete data, maybe admin wants to recheck later)
         updatedData = await seller.findByIdAndUpdate(
           id,
           { "pendingAddressUpdate.status": "rejected" },
           { new: true }
+        );
+
+        await notifySeller(
+          sellerDoc,
+          `Location Update Rejected`,
+          `Your location update request has been rejected.`
         );
       }
 
@@ -432,24 +464,82 @@ exports.acceptDeclineRequest = async (req, res) => {
       });
     }
 
+    // ---------- IMAGE UPDATE ----------
+    if (isImage) {
+      const sellerDoc = await seller.findById(id);
+      if (!sellerDoc) return res.status(404).json({ message: "Seller not found" });
+
+      let updatedData;
+
+      if (approval === "approved") {
+        const pendingImages = sellerDoc.pendingAdvertisementImages?.image || [];
+
+        await seller.findByIdAndUpdate(id, {
+          $set: {
+            advertisementImages: pendingImages.filter(img => img && img !== ""),
+          },
+          $unset: { pendingAdvertisementImages: "" },
+        });
+
+        updatedData = await seller.findById(id); // Get latest version
+
+        await notifySeller(
+          sellerDoc,
+          `Advertisement Images Approved`,
+          `Your advertisement images update has been approved.`
+        );
+      } else {
+        updatedData = await seller.findByIdAndUpdate(
+          id,
+          { "pendingAdvertisementImages.status": "rejected" },
+          { new: true }
+        );
+
+        await notifySeller(
+          sellerDoc,
+          `Advertisement Images Rejected`,
+          `Your advertisement images update has been rejected.`,
+          "/Profile"
+        );
+      }
+
+      return res.status(200).json({
+        success: true,
+        type: "image",
+        message: `Image update ${approval}`,
+        data: updatedData,
+      });
+    }
+
+    // ---------- SELLER APPLICATION APPROVAL ----------
     const application = await seller.findByIdAndUpdate(
       id,
       { approveStatus: approval },
       { new: true }
     );
 
+    const sellerDoc = await seller.findById(id);
+    if (sellerDoc) {
+      await notifySeller(
+        sellerDoc,
+        `Seller Application ${approval}`,
+        `Your seller application has been ${approval}.`
+      );
+    }
+
     return res
       .status(200)
       .json({ message: `Seller application ${approval}`, application });
+
   } catch (error) {
-    console.error(error);
+    console.error("❌ Error in acceptDeclineRequest:", error);
     return res.status(500).json({ message: "Server Error" });
   }
 };
 
 exports.verifyOtpSeller = async (req, res) => {
   try {
-    const { email, otpEmail, PhoneNumber, otp, type } = req.body;
+    const { email, otpEmail, PhoneNumber, otp, type, fcmToken,fcmTokenMobile} = req.body;
 
     if (!PhoneNumber && !email) {
       return res
@@ -474,6 +564,21 @@ exports.verifyOtpSeller = async (req, res) => {
       if (!otpRecord) {
         return res.status(400).json({ message: "Invalid OTP" });
       }
+
+  if (fcmTokenMobile && typeof fcmTokenMobile === 'string' && fcmTokenMobile.trim() !== '') {
+  if (sellerDoc.fcmTokenMobile !== fcmTokenMobile) {
+    sellerDoc.fcmTokenMobile = fcmTokenMobile;
+    await sellerDoc.save();
+  }
+  }
+
+  if (fcmToken && typeof fcmToken === 'string' && fcmToken.trim() !== '') {
+  if (sellerDoc.fcmToken !== fcmToken) {
+    sellerDoc.fcmToken = fcmToken;
+    await sellerDoc.save();
+  }
+  }
+
       const token = jwt.sign({ _id: sellerDoc._id }, process.env.jwtSecretKey, {
         expiresIn: "1d",
       });
@@ -607,10 +712,12 @@ exports.editSellerProfile = async (req, res) => {
       updateFields.image = `/${req.files.image?.[0].key}`;
     }
     if (req.files?.MultipleImage?.length > 0) {
-      updateFields.pendingAdvertisementImages = req.files.MultipleImage.map(
-        (file) => `/${file.key}`
-      );
-    }
+  updateFields.pendingAdvertisementImages = {
+    image: req.files.MultipleImage.map(file => `/${file.key}`),
+    status: 'pending'
+  };
+}
+
     if (PhoneNumber) updateFields.PhoneNumber = PhoneNumber;
     if (gstNumber) updateFields.gstNumber = gstNumber;
     if (fsiNumber) updateFields.fsiNumber = fsiNumber;

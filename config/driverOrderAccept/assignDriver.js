@@ -82,8 +82,9 @@ const orderPlain = order.toObject ? order.toObject() : order;
 
         // Lock the order assignment
         if (assignedOrders.has(orderId)) {
-          // socket.emit("orderAlreadyAccepted", { orderId });
-          socket.emit("newOrder", []);
+          socket.emit("orderAlreadyAccepted", { orderId });
+          console.log(`🉑 orderAlreadyAccepted by ${driverId} order ${orderId}.`);
+          // socket.emit("newOrder", []);
           return;
         }
 
@@ -115,8 +116,9 @@ const orderPlain = order.toObject ? order.toObject() : order;
         drivers.forEach((d) => {
           const otherSocket = driverSocketMap.get(d._id.toString());
           if (d._id.toString() !== driverId && otherSocket) {
-            //otherSocket.emit("orderTaken", { orderId });
-            otherSocket.emit("newOrder", []);
+            otherSocket.emit("orderTaken", { orderId });
+             console.log(`✅ orderTaken by ${driverId} order ${orderId}.`);
+            // otherSocket.emit("newOrder", []);
           }
         });
 

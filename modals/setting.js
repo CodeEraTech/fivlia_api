@@ -17,6 +17,8 @@ codLimit:Number,
 GST_Number:String,
 Description:String,
 Delivery_Charges:Number,
+Delivery_Charges_Gst:Number,
+adminSignature:String,
 DeliveryStatus:String,
 Auth:[{firebase:{status:Boolean},whatsApp:{appKey:String,authKey:String,status:Boolean}}],
 PaymentGateways:{RazorPayKey:{test:String,live:String,secretKey:String,status:Boolean},PhonePe:{test:String,live:String,secretKey:String,status:Boolean}},
@@ -32,4 +34,4 @@ freeDeliveryLimit:Number
 module.exports ={
  SettingAdmin: mongoose.model("SettingAdmin", settingAdminSchema)
 }
-
+// {"RazorPayKey":{"test":"rzp_live_Fb8vLci1im6l0l","live":"rzp_live_Fb8vLci1im6l0l","status":true,"secretKey":"","activeMode":"test"},"PhonePe":{"test":"","live":"","status":false,"secretKey":""}}

@@ -304,7 +304,7 @@ exports.driverWallet = async (req, res) => {
       return res.status(400).json({ message: "Invalid order or not delivered" });
     }
 
-    const payout = order.deliveryCharges;
+    const payout = order.deliveryPayout;
     // If you have order.driver.driverId, use that for more reliability
     const updatedDriver = await driver.findOneAndUpdate(
       { "address.mobileNo": order.driver.mobileNumber },

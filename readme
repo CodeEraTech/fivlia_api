@@ -1,165 +1,96 @@
-const sendNotification = require('./path/to/sendNotification'); // adjust path
-const Seller = require('./models/seller'); // Your seller model
-const Products = require('./models/products'); // Your products model
-
-exports.acceptDeclineRequest = async (req, res) => {
-  try {
-    const { approval, id, productId, isImage, isLocation, description } = req.body;
-
-    if (productId) {
-      let updateFields = {
-        sellerProductStatus: approval,
-        brandApprovelDescription: description || "",
-      };
-
-      if (approval === "approved") {
-        updateFields.status = true;
-      }
-
-      const productApplication = await Products.findByIdAndUpdate(
-        productId,
-        updateFields,
-        { new: true }
-      );
-
-      // Fetch seller to get their FCM token
-      const sellerDoc = await Seller.findById(productApplication.sellerId);
-      if (sellerDoc && sellerDoc.fcmToken) {
-        await sendNotification(
-          sellerDoc.fcmToken,
-          `Product Application ${approval}`,
-          `Your product application has been ${approval}.`
-        );
-      }
-
-      return res.status(200).json({
-        message: `Product application ${approval}`,
-        productApplication,
-      });
+{
+  "_id": {
+    "$oid": "6852a24c44c77f7d54b9d158"
+  },
+  "Owner_Name": "Fivlia",
+  "Owner_Email": "fivliaindia@gmail.com",
+  "Owner_Number": 1662366150,
+  "links": {
+    "about_us": {
+      "title": "about-us",
+      "_id": {
+        "$oid": "68a9a6eb0feea668bbf74f28"
+      },
+      "data": "Online Shopping in Minutes\n\nAs the leading destination for online shopping in minutes, FIVLIA has everything you need under one roof. Whether you’re shopping for the latest beauty care products electronics, fashion, homeware, books and stationery, sports and health care products or groceries, we have thousands of products in local FIVLIA store. As a customer-centric online store, we make it easier to buy online with flexible payment plans that help you save, along with regular sales across our extensive product range, gift cards, our easy-to-use shopping app, and so much more. \n\nAt FIVLIA, we work hard to deliver the very best experience for our customers. Currently we deliver to Hisar, Sirsa, Fatehabad, Bhiwani and many other cities of the India. We offer so much more than your average online shop. We go above and beyond to make your shopping experience as stress-free as possible, with products that offer long-term quality. Save time and effort, and enjoy one-stop shopping from the comfort of your home. \n\nHassle-free online shopping at FIVLIA\n\nWhen you buy online at FIVLIA, you will always have peace of mind knowing that you are getting the best level of service. We take the hassle out of online shopping in for available location, with a number of features and flexible payment plans that make shopping simpler, faster, and better. We accept credit cards and debit cards and online payments and cash on delivery. For even more convenience, we have a No-Cost EMI. We have three day return policy on selected products that takes even more stress out of shopping. \n\nSet up a wishlist quickly and easily, and share your list with friends and family. Our website is easy to use. Shop by department or sub-category to find what you need. You can also use our advanced search features to filter products according to price and other criteria. This mobile app/site has all the features of the online store, along with exclusive benefits, regular deals, and more. \n\nHowever you choose to shop online within available cities across the Haryana & Rest of India , makes shopping easy. Say goodbye to crowded malls, long lines and stressful in-store shopping for good. Get all the benefits of shopping from home when you shop online within few minutes. \n\n\n\nTo get started, sign up for your account, set your delivery address, and then choose your payment option. Browse categories and add products to your cart. Once you’re finished shopping, complete the checkout process. We’ll take over from there, preparing your order for delivery. Your order will then be shipped straight to your door. \n\nSign up for your account at the FIVLIA online shop now to start shopping. Happy shopping!"
+    },
+    "privacy_Policy": {
+      "title": "privacy-policy",
+      "_id": {
+        "$oid": "68a9a8700feea668bbf74f2b"
+      },
+      "data": "This Privacy Policy outlines how we collect, use, and protect the personal information of individuals (\"users\" or \"you\") who visit and interact with our website \"Fivlia.com\". We are committed to maintaining your privacy and ensuring the security of your personal information. By using our Website, you consent to the practices described in this Privacy Policy.\n\nInformation We Collect: We may collect the following types of information:\nPersonal Information: We may collect personal information such as your name, email address, contact details, and any other information you voluntarily provide to us through forms or other interactive features on the Website.\nUsage Data: We may automatically collect certain information about your visit to the Website, including your IP address, browser type, device type, operating system, referring URLs, pages visited, and the dates and times of your visit. We may also collect information about your interactions with our advertisements.\nUse of Information: We may use the collected information for the following purposes:\nTo provide and personalize our services, products, and content.\nTo respond to your inquiries, requests, or comments.\nTo send you administrative and service-related communications.\nTo improve our Website, products, and services.\nTo analyze and monitor usage patterns and trends.\nTo detect, prevent, and address technical issues or security vulnerabilities.\nTo comply with legal obligations or resolve any disputes.\nCookies and Tracking Technologies: We may use cookies, web beacons, and similar technologies to collect information about your interactions with the Website. This information allows us to enhance your experience, analyze usage patterns, and provide relevant content and advertisements. You can modify your browser settings to control the use of cookies, but this may affect certain functionalities of the Website.\nThird-Party Disclosure: We do not sell, trade, or transfer your personal information to third parties without your consent, except as necessary to provide services to you or as required by law. However, we may share non-personal information and aggregated data with third parties for various purposes, including analytics, advertising, and marketing.\nData Security: We employ reasonable security measures to protect your personal information from unauthorized access, disclosure, alteration, or destruction. However, please be aware that no method of transmission over the Internet or electronic storage is completely secure, and we cannot guarantee absolute security.\nLinks to Third-Party Websites: Our Website may contain links to third-party websites. We are not responsible for the privacy practices or content of such websites. We encourage you to review the privacy policies of those websites before providing any personal information.\nChildren's Privacy: Our Website is not directed to individuals under the age of beow 18 years (depending on applicable law), and we do not knowingly collect personal information from minors. If you believe that we have inadvertently collected information from a minor, please contact us so that we can promptly delete it.\nUpdates to this Privacy Policy: We reserve the right to update this Privacy Policy from time to time. We will notify you of any significant changes by posting the revised policy on our Website or through other appropriate communication channels. Your continued use of the Website after such changes will constitute your consent to the updated Privacy Policy.\nLocation Information : We may collect your location data if you permit the App to access your device's location services. This data may include your real-time geographic location (e.g., GPS data, IP address-based location) and is collected to provide location-based services and enhance your experience.\nNote: You can disable location access in your device settings, but some features of the App may not function properly without location access.\n​\n\nContact Us: If you have any questions, concerns, or requests regarding this Privacy Policy or our privacy practices, please contact us at Link.\n\n​\n\nBy using Fivlia.com , you acknowledge that you have read and understood this Privacy Policy and agree to its terms and conditions."
+    },
+    "termAndCondition": {
+      "title": "term-and-condition",
+      "_id": {
+        "$oid": "68a9a8bf0feea668bbf74f2c"
+      },
+      "data": "\n\nThe website www.fivlia.com (hereinafter referred to as “Website”) is owned & managed by brand “FIVLIA.com”, with its registered under Ministry of commerce office (Govt. of India) in class \"35\" with application no \"5727290\".For the purpose of these terms of use, wherever the context so requires “you”, “yourself”, “client” or “user” or similar terminology are all in use in reference to the individual user of this Website. The terms “we”, “us”, “our”, “ours” shall refer to FIVLIA.\n\n​\n\nFivlia.com provides its services to you subject to the notices, terms, and conditions set forth in this agreement (hereinafter referred to as the “Terms”). In addition, when you use any www.fivlia.com service, you will be subject to the rules, guidelines, policies, terms, conditions and documents applicable to such service, and they are incorporated into these Terms by this reference. These Terms is formulated in accordance with the Information Technology Act, 2000 read with the Information Technology (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021.\n\n \n\nBy mere use of the Website, you are contracting with Fivlia and these Terms including the policies represent a binding contract between you and us. Therefore, you should read these Terms carefully before you start to use the Services. Fivlia retains the right to deny access to anyone who we believe has violated any of these Terms.\n\n \n\nACCESSING, BROWSING & USING THIS WEBSITE INDICATES YOUR AGREEMENT TO THESE TERMS, SO YOU ARE ADVISED TO READ THIS AGREEMENT CAREFULLY BEFORE PROCEEDING.\n\n \n\nCHANGES TO THESE TERMS\n\nWe reserve the unilateral right to revise these Terms from time to time, and in any case at least once on an annual basis, and at any time and will inform you of a revision of the Terms, via a medium selected by us, at our sole discretion. We will post the new version of these Terms or any policies on this Website and any change or modification to these Terms shall be effective immediately from the date of such upload of the revised Terms on the Website. Your continued use of the Website following the modifications to the Terms and policies constitutes your acceptance of the modified terms and conditions whether or not you have read them and shall be binding on you. For this reason, you are advised to frequently review these Terms, and other policies.\n\n \n\nCHANGES TO WEBSITE\n\nIn order to optimize and improve your experience, we may update the Website from time to time, and may change the content, display or form at any time without prior notice. We do not guarantee that the Website, or any content provided or displayed on it, will be free from errors or omissions. Further, we are under no obligation to update the Website or any of the content provided on it.\n\n \n\nELIGIBILITY\n\nYou must be 18 (eighteen) years or older and capable of entering into a legally binding agreement (as per the Indian Contract Act, 1872) in order to use Website. If you are under 18 (eighteen) years of age, you may use this Website only with the involvement of a parent or guardian. You may not authorize third parties to access any accounts that you have created on the Website. You are responsible for all activity that occurs under the accounts you have created on the Website.\n\n \n\nTERMS OF SERVICES\n\nRegistration and Information: In order to use Website and avail the services, you are required to sign up by creating an account. You must read, agree with and accept all of the terms and conditions contained in these Terms, including our Privacy Policy. You will be responsible for maintaining confidentiality of your account, password, and restricting access to your computer, and you hereby accept responsibility for all activities that occur under your account and password.\n\n \n\nDuring the registration process you are also required to submit your personal information, which may include information relating to your name, age, gender, mobile device, location etc. You agree that the information provided by you upon registration and at all times thereafter will be true, accurate, current, and complete. You agree to maintain and update this information to keep it true, accurate and complete at all times while using Website and availing the services. You also acknowledge that the information you provide, in any manner whatsoever, is not confidential or proprietary and does not infringe any rights of a third party in whatsoever nature.\n\n \n\nIf you are accessing, browsing, and using the Website or availing the services on someone else’s behalf, you represent that you have the authority to bind that person to all the terms and conditions herein. In the event that the person refuses to be bound as the principal to these Terms, you agree to accept liability for any harm cause by any wrongful use of the Website resulting from such access or use of the Website in whatsoever nature.\n\n \n\nIf you know or have reason to believe that the security of your account has been breached, you should contact us immediately at the ‘Contact Information’ provided on the Website. If we have found a breach or suspected breach of the security of your account, we may require you to change your password, temporarily or permanently block or suspend your account without any liability to FIVLIA.\n\n \n\nProhibited Uses: You shall not use the Website for any illegal, unlawful, unauthorized or prohibited purposes including without limitation to posting, sharing or storing any information that (i) that belongs to another person and to which you do not have any right; (ii) is defamatory, obscene, pornographic, paedophilic, invasive of another‘s privacy, including bodily privacy, insulting or harassing on the basis of gender, libellous, racially or ethnically objectionable, relating or encouraging money laundering or gambling, or otherwise inconsistent with or contrary to the laws in force; (iii) is harmful to children; (iv) infringes any patent, trademark, copyright or other proprietary rights; (v) violates any law for the time being in force; (vi) deceives or misleads the addressee about the origin of the message or knowingly and intentionally communicates any information which is patently false or misleading in nature but may reasonably be perceived as a fact; (vii) impersonates another person; (viii) threatens the unity, integrity, defence, security or sovereignty of India, friendly relations with foreign States, or public order, or causes incitement to the commission of any cognisable offence or prevents investigation of any offence or is insulting other nation; (ix) contains software virus or any other computer code, file or program designed to interrupt, destroy or limit the functionality of any computer resource; (x) is patently false and untrue, and is written or published in any form, with the intent to mislead or harass a person, entity or agency for financial gain or to cause any injury to any person; (collectively the “Prohibited Uses”). You will comply with all applicable laws, rules and regulations in your use of the Website. In the event you use Website for any Prohibited Uses, we reserve the right to immediately and without notice, suspend/delete your account and ban you from accessing Website in future.\n\n \n\nWe reserve the right to refuse service and/or terminate accounts without prior notice if these Terms are violated or if we decide, in our sole discretion, that it would be in FIVLIA’s best interests to do so. You are solely responsible for all contents that you upload, post, email or otherwise transmit via the Website. The information provided to us shall be maintained by us in accordance with our Privacy Policy.\n\n \n\nUSER CONTENT\n\nYou retain ownership and sole responsibility for any text, messages, chat communications, bill postings, software, photos, drawings, graphics, profiles, opinions, ideas, images, videos, audio files or other materials or information posted, uploaded, emailed, transmitted or otherwise made available to the Website by you (collectively “User Content”). Therefore, you are responsible for User Content and you must ensure that you have all the rights and permissions needed to use User Content on the Website.\n\n \n\nBy using the Website you grant us a worldwide, perpetual, unrestricted, royalty free license to use, reproduce, distribute, modify, adapt, create derivative works, make publicly available, and otherwise exploit User Content, but only for the limited purposes of providing the services to you and as otherwise permitted by our privacy policies. This license continues even after you stop using our Website. You acknowledge that this license includes the right for us to make User Content available to other users of the Website, who may use User Content subject to these Terms.\n\n \n\nYou can remove your content by deleting it, however in certain circumstances User Content may not be completely removed, and copies of User Content may continue to exist on the Website. We are not responsible or liable for the removal or deletion of (or failure to remove or delete) any of User Content.\n\n \n\nFIVLIA does not endorse or control the User Content transmitted or posted on the Website and therefore, accuracy, integrity or quality of User Content is not guaranteed by FIVLIA. You understand that by using the Website, you may be exposed to User Content that is offensive, indecent or objectionable to you. Under no circumstances will FIVLIA be liable in any manner whatsoever for any User Content, including without limitation, for any errors or omissions in any User Content, or for any loss or damage of any kind incurred by you as a result of the use of any User Content. You hereby waive all rights to any claims against FIVLIA for any alleged or actual infringements of any proprietary rights, rights of privacy and publicity, moral rights, and rights of attribution in connection with User Content.\n\n \n\nYou hereby acknowledge that FIVLIA has the right, but not the obligation, in its sole discretion to refuse to post or to remove any User Content and further reserves the right to change, condense, or delete any User Content. You agree not to provide User Content that is defamatory, grossly harmful, blasphemous, paedophilic, invasive of another’s privacy, ethnically objectionable, disparaging, relating or encouraging money laundering, gambling, libellous, hateful, racist, violent, obscene, pornographic, unlawful or otherwise offensive, as determined by FIVLIA , in its sole discretion, whether or not such material is protected by law. FIVLIA may, but shall not be obliged to review, monitor or remove User Content, at its sole discretion and at any time and for any reason, without notice to you.\n\n \n\nTERMINATION\n\nThese Terms are effective unless and until terminated by either you or FIVLIA .You agree that FIVLIA , in its sole discretion, for any or no reason, and without penalty or notice, may suspend or terminate your account (or any part thereof) or your use of the Website at any time.You agree that any termination of your access to the Website or any account you may have or portion thereof may be without prior notice, and you agree that FIVLIA will not be liable to you or any third party for any such termination.Any suspected fraudulent, abusive or illegal activity may be referred to appropriate law enforcement authorities. These remedies are in addition to any other remedies that FIVLIA may have at law or in equity.\n\n \n\nUpon termination for any reason of the Terms by either you or FIVLIA , you must promptly destroy all materials downloaded or otherwise obtained from this Website, as well as all copies of such materials, whether made under the Terms of Use or otherwise. Any such termination of these Terms shall not cancel your obligation to pay for the product already ordered from the Website or affect any liability that may have arisen under these Terms.\n\n \n\nDISCLAIMER OR WARRANTY AND LIMITATION OF LIABILITY\n\nThe Website is presented “as is” and “as available” basis without any warranty or condition, express, implied or statutory. Neither we nor our affiliates, partners, directors, employers, agents, licensors or suppliers make any representations or warranties of any kind whatsoever, express or implied, in connection with these terms and conditions or this Website or any of the content, including but not limited to warranties of merchantability, non-infringement or fitness for a particular purpose, except to the extent such representations and warranties are not legally excludable.\n\n \n\nYou agree that in no event will FIVLIA or its affiliates, directors, employees, agents, licensors, partners, suppliers be liable to you for any special, indirect, incidental, consequential, punitive, reliance, or exemplary damages (including without limitation lost business opportunities, lost revenues, or loss of anticipated profits or any other pecuniary or non-pecuniary loss or damage of any nature whatsoever) arising out of or relating to: these Terms; the Website; or your use or inability to use the Website.\n\n \n\nHealth Disclaimer. The products on the Website are not intended to diagnose, treat, cure or prevent any disease. If you are pregnant, nursing, taking medication, or have a history of heart conditions, we suggest that you should consult with a physician before using any of our products. The results on all products available on the Website are not typical and not everyone will experience these results.\n\n \n\nINDEMNIFICATION\n\nYou agree to defend, indemnify and hold FIVLIA and its affiliates, contractors, employees, officers, directors, agents and third party partners harmless from any and all claims, losses, damages, liabilities, costs and expenses, including without limitation, legal fees and expenses, caused by or arising out of claims based upon your actions or inactions or related to your use or misuse of the Website, any violation of these Terms or any of the covenants made by you herein, which may result in any loss or liability to FIVLIA or any third party.\n\n \n\nINTELLECTUAL PROPERTY RIGHTS\n\nAll material and content on the Website, including images, illustrations, text, graphics, logos, button icons, images, audio clips, digital downloads, data compilations and software, is our property, or the property of our affiliates or content suppliers, and is protected by Indian and international intellectual property law, including copyright, authors’ rights, database rights laws, trademarks, and other intellectual property rights that are owned and controlled by us or by other parties that have licensed their material to us. The compilation of all content on Website is our exclusive property, and is protected by laws of India and international copyright and database right laws. All software used on Website is also our exclusive property, or the property of our affiliates or software suppliers, and is protected by Indian and international copyright, authors’ rights law and other intellectual property rights. You hereby agree to not copy, reproduce, republish, upload, post, transmit or distribute such material in any way, including by e-mail or other electronic means whether directly or indirectly and you must not assist any other person to do so. Without the prior written consent of FIVLIA , modification of the materials, use of the materials on any other web site or use of the materials for any purpose other than personal, non-commercial use is a violation of the copyrights, trademarks and other proprietary rights, and is prohibited.\n\n \n\nNothing in these Terms should be construed as conferring any right in or license to FIVLIA’s or any third party’s intellectual rights.\n\n \n\nLICENSE TO USE WEBSITE\n\nWe grant you a limited license to access and make personal use of Website, but not to modify it, or any portion of it, except with our written consent. This license does not include any resale or commercial use of the Website or its contents; any derivative use of the Website or its contents; any downloading or copying of account information for the benefit of another user, or any use of data mining, robots or similar data gathering and extraction tools.\n\n \n\nWebsite or any portion thereof (including but not limited to any copyrighted material, trademarks, or other proprietary information) may not be reproduced, duplicated, copied, sold, resold, visited, distributed or otherwise exploited for any commercial purpose without our express written consent.\n\n \n\nPRIVACY\n\nBy using the Website, you agree to our Privacy Policy https://www.fivlia.com/privacy-policy the terms of which are incorporated into, and form a crucial part of, these Terms. Our Privacy Policy sets out the terms on which we process any personal or financial data we collect from you, or that you provide to us. Our Privacy Policy shall also apply to your use of Website and by using Website, you consent to such processing and you warrant that all data provided by you is accurate.\n\n \n\nCANCELLATIONS, SHIPPING,REFUNDS AND RETURNS\n\nPlease refer to our Cancellation, Refunds and Returns Policy for details with respect to cancellations, refunds and returns of our products. Please refer to our Shipping and Delivery Policy for details with respect to shipping and delivery of our products.\n\n \n\nPRICES AND AVAILABILITY OF PRODUCTS\n\nWithout limiting the generality of Clause for (Cancellations, Refunds and Returns), if a product/ service is listed at an incorrect price or with incorrect information due to any technical error, FIVLIA shall have the right, at it sole discretion, to refuse or cancel any orders placed for that product/service, unless the product has already been delivered or the service already been availed by you. In the event that an item is wrongly priced, FIVLIA may, in its sole discretion either contact you for instructions or cancel your order and notify you of such cancellation. Unless the product ordered by you has been delivered and the services availed, your offer will not be deemed accepted and FIVLIA will have the right to modify the price of the product/service and contact you for further instructions using the contact details provided by you.\n\nWe reserve the right to refuse any order you place with us. We may, in our sole discretion, limit or cancel quantities purchased per person, per household or per order. These restrictions may include orders placed by or under the same customer account, the same credit card, and/or orders that use the same billing and/or shipping address. In the event that we make a change to or cancel an order, we may attempt to notify you by contacting the e-mail and/or billing address/phone number provided at the time the order was made. We reserve the right to limit or prohibit orders that, in our sole judgment, appear to be placed by dealers, resellers or distributors.\n\nPrices and availability of the products and service provided or offered on the Website are subject to change without prior notice and at the sole discretion of FIVLIA and FIVLIA may revise and cease to make available any product/service at any time.\n\n \n\nGOVERNING LAW AND JURISDICTION\n\nThese Terms are governed by and construed in accordance with the laws of India. You agree, as we do, to submit to the exclusive jurisdiction of courts in Fatehabad, India.\n\n \n\nThe Grievance Person can be contacted to report abuse, or to complain against any content hosted, transmitted, published, updated or shared on Website. Grievance Contact on Link"
+    },
+    "seller": "https://fivlia.in/become-a-seller?inapp=true"
+  },
+  "Platform_Fee": 3.5,
+  "GST_Number": "06BMAPS8004F1Z9",
+  "Description": "Fivlia Online Shopping Delivery in Minutes",
+  "Delivery_Charges": 29.5,
+  "__v": 0,
+  "DeliveryStatus": "",
+  "Password": "1234",
+  "codLimit": 1999,
+  "PaymentGatewayStatus": true,
+  "PaymentGateways": {
+    "RazorPayKey": {
+      "test": "rzp_live_Fb8vLci1im6l0l",
+      "live": "rzp_live_Fb8vLci1im6l0l",
+      "status": true,
+      "secretKey": "WwMPEO1lEY5gPHLnfOyPXqAG"
+    },
+    "PhonePe": {
+      "test": "",
+      "live": "",
+      "status": false,
+      "secretKey": ""
     }
-
-    if (isLocation) {
-      let updatedData;
-      const sellerDoc = await Seller.findById(id);
-
-      if (approval === "approved") {
-        await Seller.findByIdAndUpdate(id, {
-          $set: {
-            city: sellerDoc.pendingAddressUpdate.city,
-            zone: sellerDoc.pendingAddressUpdate.zone,
-            location: sellerDoc.pendingAddressUpdate.location,
-          },
-        });
-
-        updatedData = await Seller.findByIdAndUpdate(
-          id,
-          { $unset: { pendingAddressUpdate: "" } },
-          { new: true }
-        );
-
-        if (sellerDoc?.fcmToken) {
-          await sendNotification(
-            sellerDoc.fcmToken,
-            `Location Update Approved`,
-            `Your location update request has been approved.`
-          );
-        }
-      } else {
-        updatedData = await Seller.findByIdAndUpdate(
-          id,
-          { "pendingAddressUpdate.status": "rejected" },
-          { new: true }
-        );
-
-        if (sellerDoc?.fcmToken) {
-          await sendNotification(
-            sellerDoc.fcmToken,
-            `Location Update Rejected`,
-            `Your location update request has been rejected.`
-          );
-        }
+  },
+  "maxPrice": 10000,
+  "minPrice": 0,
+  "Map_Api": [
+    {
+      "google": {
+        "api_key": "AIzaSyCV41o6JOHUXh3lHvhOh3sCCcGbwIOt8Yw",
+        "status": false
+      },
+      "apple": {
+        "api_key": "4861c6aa561717200e4aa911f3385f2a",
+        "status": false
+      },
+      "ola": {
+        "api_key": "YHGoHrZHMgUpEeCA1CNKTg4iUePHYU2T8Upv6xdM",
+        "status": true
+      },
+      "_id": {
+        "$oid": "68dbd47262f9c97b6bbb991a"
       }
-
-      return res.status(200).json({
-        success: true,
-        type: "location",
-        message: `Location update ${approval}`,
-        data: updatedData,
-      });
     }
-
-    if (isImage) {
-      let updatedData;
-      const sellerDoc = await Seller.findById(id);
-
-      if (approval === "approved") {
-        const pendingImages = sellerDoc.pendingAdvertisementImages?.image || [];
-
-        await Seller.findByIdAndUpdate(id, {
-          $set: {
-            advertisementImages: pendingImages.filter(img => img && img !== ""),
-          },
-        });
-
-        updatedData = await Seller.findByIdAndUpdate(
-          id,
-          { $unset: { pendingAdvertisementImages: "" } },
-          { new: true }
-        );
-
-        if (sellerDoc?.fcmToken) {
-          await sendNotification(
-            sellerDoc.fcmToken,
-            `Advertisement Images Approved`,
-            `Your advertisement images update has been approved.`
-          );
-        }
-      } else {
-        updatedData = await Seller.findByIdAndUpdate(
-          id,
-          { "pendingAdvertisementImages.status": "rejected" },
-          { new: true }
-        );
-
-        if (sellerDoc?.fcmToken) {
-          await sendNotification(
-            sellerDoc.fcmToken,
-            `Advertisement Images Rejected`,
-            `Your advertisement images update has been rejected.`
-          );
-        }
+  ],
+  "Auth": [
+    {
+      "firebase": {
+        "status": false
+      },
+      "whatsApp": {
+        "appKey": "5126749a-2739-4a5a-8c8c-955c2d07f76e",
+        "authKey": "ObZ27CShikHwIUsJxlmX8wr6I7H3KATFjN3rGxh5Tnkjq68mqS",
+        "status": true
+      },
+      "_id": {
+        "$oid": "68dbceab2aea0501c884c0a0"
       }
-
-      return res.status(200).json({
-        success: true,
-        type: "image",
-        message: `Image update ${approval}`,
-        data: updatedData,
-      });
     }
-
-    // Default seller approval
-    const application = await Seller.findByIdAndUpdate(
-      id,
-      { approveStatus: approval },
-      { new: true }
-    );
-
-    const sellerDoc = await Seller.findById(id);
-    if (sellerDoc?.fcmToken) {
-      await sendNotification(
-        sellerDoc.fcmToken,
-        `Seller Application ${approval}`,
-        `Your seller application has been ${approval}.`
-      );
-    }
-
-    return res.status(200).json({
-      message: `Seller application ${approval}`,
-      application,
-    });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "Server Error" });
-  }
-};
+  ],
+  "imageLink": "https://fivliaproject.s3.eu-north-1.amazonaws.com",
+  "minWithdrawal": 500,
+  "freeDeliveryLimit": 500,
+  "Delivery_Charges_Gst": 5,
+  "adminSignature": "/goru-Gallery/cs7kuvlovomhuhl1v5ez.jpg"
+}

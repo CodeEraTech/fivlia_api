@@ -22,6 +22,7 @@ const assignWithBroadcast = async (order, drivers) => {
       const driverId = driver._id.toString();
       const socket = driverSocketMap.get(driverId);
 
+      console.log(driverId, driverSocketMap.has(driverId))
       if (!socket) return;
 
       // Emit socket event
@@ -34,6 +35,8 @@ const assignWithBroadcast = async (order, drivers) => {
         userLat: orderUser.location.latitude,
         userLng: orderUser.location.longitude,
       });
+
+      console.log(`✅ 📦order ${orderId} to 👉🏻driver 🚘 ${driverId}`);
 
       // Send push notification
       if (driver.fcmToken) {

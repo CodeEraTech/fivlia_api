@@ -398,7 +398,7 @@ async function generatePDFInvoice(
           continued: false,
         });
 
-        doc.moveDown(0.5);
+        doc.moveDown(0.8);
 
         // Signature image (if available)
         if (store.Authorized_Store === true && adminSignatreBuffer) {
@@ -412,20 +412,15 @@ async function generatePDFInvoice(
           doc.moveDown();
           doc.y += 30;
         } else if (signatureBuffer) {
-          const sigWidth = 100;
-          const sigHeight = 50;
-          const sigX = (doc.page.width - sigWidth) / 2;
-          doc.image(signatureBuffer, sigX, doc.y, {
-            fit: [sigWidth, sigHeight],
-            align: "center",
+          doc.fontSize(7).text("Seller Authorized Signature", {
+            align: "right",
           });
-          doc.y += sigHeight + 10;
-          doc
-            .fontSize(9)
-            .font("Helvetica-Bold")
-            .text(" Seller Authorized Signature", {
-              align: "center",
-            });
+          doc.image(signatureBuffer, doc.page.width - 110, doc.y, {
+            fit: [100, 50],
+            align: "right",
+          });
+          doc.moveDown();
+          doc.y += 30;
         }
 
         doc.moveDown(4);
@@ -477,7 +472,7 @@ async function generatePDFInvoice(
         if (order.deliveryCharges > 0) {
           const deliveryLine =
             "Delivery Charges:".padEnd(30) +
-            order.deliveryCharges.toFixed(2).padStart(13);
+            order.deliveryCharges.toFixed(2).padStart(12);
           doc.text(deliveryLine);
           deliveryTotal = order.deliveryCharges;
         }
@@ -517,7 +512,7 @@ async function generatePDFInvoice(
         // **Total** for Delivery & Platform Fees
         const totalFeesLine =
           "TOTAL FEES:".padEnd(26) +
-          (deliveryTotal + platformTotal).toFixed(2).padStart(4);
+          (deliveryTotal + platformTotal).toFixed(2).padStart(3);
         doc.fontSize(9).font("Helvetica-Bold").text(totalFeesLine);
 
         doc.moveDown(1.5);

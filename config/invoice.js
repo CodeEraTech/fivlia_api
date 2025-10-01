@@ -187,8 +187,10 @@ async function generatePDFInvoice(
         } else {
           doc.text(`Invoice Id: ${order.storeInvoiceId}`);
         }
-        if (isSecondInvoice) {
+        if (isSecondInvoice || store.Authorized_Store === true) {
           doc.text(`GST ID: ${setting[0]?.GST_Number || "N/A"}`);
+        } else if (store.gstNumber == "" && store.fsiNumber != "") {
+          doc.text(`FSSAI ID: ${store.fsiNumber || "N/A"}`);
         } else {
           doc.text(`GST ID: ${store.gstNumber || "N/A"}`);
         }
@@ -226,87 +228,229 @@ async function generatePDFInvoice(
       };
 
       // Create the first invoice: Items + details
-      const createItemsInvoice = (signatureBuffer) => {
+      const createItemsInvoice = (signatureBuffer, adminSignatreBuffer) => {
         createHeader("BILLING INVOICE");
         doc.moveDown(0.7);
         createStoreAndCustomerInfo(false);
         doc.fontSize(9).font("Helvetica-Bold").text("ITEMS:");
-        doc.fontSize(7).font("Helvetica");
-
-        // Items table header (with additional columns for GST(%) and IGST)
-        const itemHeader =
-          "Name".padEnd(30) +
-          "Qty".padStart(10) +
-          "GST(%)".padStart(10) +
-          "IGST".padStart(10) +
-          "Price".padStart(11);
-        doc.text(itemHeader);
         doc.moveDown(0.3);
-        // Line separator
-        doc.moveTo(10, doc.y).lineTo(216, doc.y).stroke();
-        doc.moveDown(0.3);
+        doc.fontSize(6).font("Helvetica");
 
-        // Items total calculation
-        let itemsTotalGst = 0;
-        // Items
-        order.items.forEach((item) => {
-          const itemName = (item.name || "Product").substring(0, 20);
-          const quantity = item.quantity.toString();
-          const price = (item.price * item.quantity).toFixed(2);
-          const gstPercent = parseFloat(item.gst) || 0.0;
-          const basePrice = item.price / (1 + gstPercent / 100);
-          const gstAmount = basePrice * (gstPercent / 100);
-          const igst = (gstAmount * item.quantity).toFixed(2);
+        // Define column positions for thermal printer (226pt width)
+        const tableLeft = 10;
+        const tableRight = 216;
+        const columns = {
+          name: { x: tableLeft, width: 50 },
+          qty: { x: tableLeft + 52, width: 20 },
+          gst: { x: tableLeft + 74, width: 32 },
+          igst: { x: tableLeft + 108, width: 32 },
+          price: { x: tableLeft + 142, width: 40 },
+        };
 
-          itemsTotal += parseFloat(price);
-          itemsTotalGst += parseFloat(igst);
-          const itemLine =
-            itemName.padEnd(22) +
-            quantity.padStart(5) +
-            `${gstPercent.toString().padStart(10)}%` +
-            igst.padStart(16) +
-            price.padStart(12);
-          doc.text(itemLine);
-          doc.moveDown(0.2);
+        const tableTop = doc.y;
+
+        // Draw table header
+        doc.font("Helvetica-Bold").fontSize(8);
+        doc.text("Name", columns.name.x, tableTop, {
+          width: columns.name.width,
+          align: "left",
+          continued: false,
+        });
+        doc.text("Qty", columns.qty.x, tableTop, {
+          width: columns.qty.width,
+          align: "center",
+          continued: false,
+        });
+        doc.text("GST(%)", columns.gst.x, tableTop, {
+          width: columns.gst.width,
+          align: "center",
+          continued: false,
+        });
+        doc.text("IGST", columns.igst.x, tableTop, {
+          width: columns.igst.width,
+          align: "right",
+          continued: false,
+        });
+        doc.text("Price", columns.price.x, tableTop, {
+          width: columns.price.width,
+          align: "right",
+          continued: false,
         });
 
+        doc.moveDown(0.4);
+
         // Line separator
-        doc.moveTo(10, doc.y).lineTo(216, doc.y).stroke();
-        doc.moveDown(0.3);
+        const lineY = doc.y;
+        doc.moveTo(tableLeft, lineY).lineTo(tableRight, lineY).stroke();
+        doc.moveDown(0.2);
 
-        // **Total** (not subtotal) for items
-        const totalLine =
-          "TOTAL:".padEnd(30) + itemsTotal.toFixed(2).padStart(15);
-        doc.fontSize(9).font("Helvetica-Bold").text(totalLine);
-        doc.moveDown(0.3);
+        // Initialize totals
+        let itemsTotalGst = 0;
 
-        // **Total GST**  for items
-        const totalLineGST =
-          "TOTAL GST:".padEnd(30) + itemsTotalGst.toFixed(2).padStart(10);
-        doc.fontSize(9).font("Helvetica-Bold").text(totalLineGST);
+        doc.font("Helvetica").fontSize(7);
+
+        // Items
+        order.items.forEach((item) => {
+          const itemName = item.name || "Product";
+          const quantity = item.quantity;
+          const gstPercent = parseFloat(item.gst) || 0.0;
+
+          // Calculate prices (assuming item.price includes GST)
+          const priceWithGst = item.price;
+          const basePrice = priceWithGst / (1 + gstPercent / 100);
+          const gstPerUnit = priceWithGst - basePrice;
+          const totalGstAmount = gstPerUnit * quantity;
+          const totalPrice = priceWithGst * quantity;
+
+          itemsTotal += totalPrice;
+          itemsTotalGst += totalGstAmount;
+
+          const rowY = doc.y;
+
+          // Name (with wrapping if needed, truncate very long names)
+          const truncatedName =
+            itemName.length > 50 ? itemName.substring(0, 47) + "..." : itemName;
+          doc.text(truncatedName, columns.name.x, rowY, {
+            width: columns.name.width,
+            align: "left",
+            lineBreak: true,
+            continued: false,
+          });
+
+          // Calculate name height for row spacing
+          const nameHeight = doc.heightOfString(truncatedName, {
+            width: columns.name.width,
+          });
+
+          // Qty (centered, aligned to first line of name)
+          doc.text(quantity.toString(), columns.qty.x, rowY, {
+            width: columns.qty.width,
+            align: "center",
+            lineBreak: false,
+            continued: false,
+          });
+
+          // GST% (centered, aligned to first line)
+          doc.text(`${gstPercent}%`, columns.gst.x, rowY, {
+            width: columns.gst.width,
+            align: "center",
+            lineBreak: false,
+            continued: false,
+          });
+
+          // IGST (right aligned, aligned to first line)
+          doc.text(totalGstAmount.toFixed(2), columns.igst.x, rowY, {
+            width: columns.igst.width,
+            align: "right",
+            lineBreak: false,
+            continued: false,
+          });
+
+          // Price (right aligned, aligned to first line)
+          doc.text(totalPrice.toFixed(2), columns.price.x, rowY, {
+            width: columns.price.width,
+            align: "right",
+            lineBreak: false,
+            continued: false,
+          });
+
+          // Move down based on name height plus small spacing
+          doc.y = rowY + nameHeight + 2;
+        });
+
+        doc.moveDown(0.1);
+
+        // Line separator
+        const bottomLineY = doc.y;
+        doc
+          .moveTo(tableLeft, bottomLineY)
+          .lineTo(tableRight, bottomLineY)
+          .stroke();
         doc.moveDown(0.5);
+
+        // Total GST - label on left, value on right
+        doc.fontSize(8);
+        const gstY = doc.y;
+        doc.text("GST (included):", tableLeft, gstY, {
+          width: 80,
+          align: "left",
+          continued: false,
+        });
+        doc.text(itemsTotalGst.toFixed(2), tableLeft + 80, gstY, {
+          width: tableRight - tableLeft - 80,
+          align: "left",
+          continued: false,
+        });
+
+        doc.moveDown(0.3);
+
+        // Total - label on left, value on right
+        doc.font("Helvetica-Bold").fontSize(9);
+        const totalY = doc.y;
+        doc.text("TOTAL:", tableLeft, totalY, {
+          width: 80,
+          align: "left",
+          continued: false,
+        });
+        doc.text(itemsTotal.toFixed(2), tableLeft + 80, totalY, {
+          width: tableRight - tableLeft - 80,
+          align: "left",
+          continued: false,
+        });
+
+        doc.moveDown(0.5);
+
         // Signature image (if available)
-        if (signatureBuffer) {
-          doc.image(signatureBuffer, doc.page.width - 110, doc.y, {
+        if (store.Authorized_Store === true && adminSignatreBuffer) {
+          doc.fontSize(7).text("Seller Authorized Signature", {
+            align: "right",
+          });
+          doc.image(adminSignatreBuffer, doc.page.width - 110, doc.y, {
             fit: [100, 50],
             align: "right",
           });
           doc.moveDown();
           doc.y += 30;
-          doc.fontSize(7).font("Helvetica-Bold").text("Authorized Signatory", {
-            align: "right",
+        } else if (signatureBuffer) {
+          const sigWidth = 100;
+          const sigHeight = 50;
+          const sigX = (doc.page.width - sigWidth) / 2;
+          doc.image(signatureBuffer, sigX, doc.y, {
+            fit: [sigWidth, sigHeight],
+            align: "center",
           });
+          doc.y += sigHeight + 10;
+          doc
+            .fontSize(9)
+            .font("Helvetica-Bold")
+            .text(" Seller Authorized Signature", {
+              align: "center",
+            });
         }
-        doc.moveDown(1);
-        doc.fontSize(9).font("Helvetica-Bold").text("DECLARATION");
 
+        doc.moveDown(4);
+        doc
+          .fontSize(9)
+          .font("Helvetica-Bold")
+          .text("DECLARATION", tableLeft, doc.y, {
+            width: tableRight - tableLeft,
+            align: "left",
+          });
         doc.moveDown(0.3);
-        // Declaration text
+
+        // Declaration text - full width justified
         doc
           .fontSize(8)
           .font("Helvetica")
           .text(
-            "The goods sold as part of this shipment are intended for end-user consumption and are not for sale."
+            "The goods sold as part of this shipment are intended for end-user consumption and are not for sale.",
+            tableLeft,
+            doc.y,
+            {
+              width: tableRight - tableLeft,
+              align: "left",
+              lineBreak: true,
+            }
           );
 
         doc.moveDown(0.5);
@@ -346,14 +490,6 @@ async function generatePDFInvoice(
           doc.text(platformLine);
         }
 
-        doc.moveDown(0.3);
-
-        // **Total** for Delivery & Platform Fees
-        const totalFeesLine =
-          "TOTAL FEES:".padEnd(27) +
-          (deliveryTotal + platformTotal).toFixed(2).padStart(5);
-        doc.fontSize(9).font("Helvetica-Bold").text(totalFeesLine);
-
         // **Total GST** for Delivery & Platform Fees
         // Calculate base price (excluding GST) for deliveryTotal and platformTotal
         const deliveryBasePrice = deliveryTotal / (1 + deliveryGstPer / 100);
@@ -374,8 +510,16 @@ async function generatePDFInvoice(
           parseFloat(deliveryGst) + parseFloat(platformGst)
         ).toFixed(2);
 
-        const totalFeesGSTLine = "TOTAL GST:".padEnd(27) + feeigst.padStart(5);
-        doc.fontSize(9).font("Helvetica-Bold").text(totalFeesGSTLine);
+        const totalFeesGSTLine =
+          "GST (included):".padEnd(29) + feeigst.padStart(14);
+        doc.text(totalFeesGSTLine);
+        doc.moveDown(0.3);
+        // **Total** for Delivery & Platform Fees
+        const totalFeesLine =
+          "TOTAL FEES:".padEnd(26) +
+          (deliveryTotal + platformTotal).toFixed(2).padStart(4);
+        doc.fontSize(9).font("Helvetica-Bold").text(totalFeesLine);
+
         doc.moveDown(1.5);
         // Signature image (if available)
         if (adminSignatreBuffer) {
@@ -387,7 +531,7 @@ async function generatePDFInvoice(
             align: "right",
           });
           doc.moveDown();
-          doc.y += 30;
+          doc.y += 50;
         }
       };
 
@@ -409,7 +553,7 @@ async function generatePDFInvoice(
       // Check dType and generate invoices accordingly
       if (dType === "admin") {
         // Admin generates both invoices
-        createItemsInvoice(signatureBuffer);
+        createItemsInvoice(signatureBuffer, adminSignatreBuffer);
         footer();
 
         // Add page break to separate the two invoices

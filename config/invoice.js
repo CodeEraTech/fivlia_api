@@ -368,17 +368,15 @@ async function generatePDFInvoice(
           .stroke();
         doc.moveDown(0.5);
 
-        // Totals section
-        doc.font("Helvetica-Bold").fontSize(9);
-
-        // Total - label on left, value on right
-        const totalY = doc.y;
-        doc.text("TOTAL:", tableLeft, totalY, {
+        // Total GST - label on left, value on right
+        doc.fontSize(8);
+        const gstY = doc.y;
+        doc.text("GST (included):", tableLeft, gstY, {
           width: 80,
           align: "left",
           continued: false,
         });
-        doc.text(itemsTotal.toFixed(2), tableLeft + 80, totalY, {
+        doc.text(itemsTotalGst.toFixed(2), tableLeft + 80, gstY, {
           width: tableRight - tableLeft - 80,
           align: "left",
           continued: false,
@@ -386,14 +384,15 @@ async function generatePDFInvoice(
 
         doc.moveDown(0.3);
 
-        // Total GST - label on left, value on right
-        const gstY = doc.y;
-        doc.text("TOTAL GST:", tableLeft, gstY, {
+        // Total - label on left, value on right
+        doc.font("Helvetica-Bold").fontSize(9);
+        const totalY = doc.y;
+        doc.text("TOTAL:", tableLeft, totalY, {
           width: 80,
           align: "left",
           continued: false,
         });
-        doc.text(itemsTotalGst.toFixed(2), tableLeft + 80, gstY, {
+        doc.text(itemsTotal.toFixed(2), tableLeft + 80, totalY, {
           width: tableRight - tableLeft - 80,
           align: "left",
           continued: false,
@@ -429,7 +428,7 @@ async function generatePDFInvoice(
             });
         }
 
-        doc.moveDown(1);
+        doc.moveDown(4);
         doc
           .fontSize(9)
           .font("Helvetica-Bold")
@@ -491,14 +490,6 @@ async function generatePDFInvoice(
           doc.text(platformLine);
         }
 
-        doc.moveDown(0.3);
-
-        // **Total** for Delivery & Platform Fees
-        const totalFeesLine =
-          "TOTAL FEES:".padEnd(27) +
-          (deliveryTotal + platformTotal).toFixed(2).padStart(5);
-        doc.fontSize(9).font("Helvetica-Bold").text(totalFeesLine);
-
         // **Total GST** for Delivery & Platform Fees
         // Calculate base price (excluding GST) for deliveryTotal and platformTotal
         const deliveryBasePrice = deliveryTotal / (1 + deliveryGstPer / 100);
@@ -519,8 +510,16 @@ async function generatePDFInvoice(
           parseFloat(deliveryGst) + parseFloat(platformGst)
         ).toFixed(2);
 
-        const totalFeesGSTLine = "TOTAL GST:".padEnd(27) + feeigst.padStart(5);
-        doc.fontSize(9).font("Helvetica-Bold").text(totalFeesGSTLine);
+        const totalFeesGSTLine =
+          "GST (included):".padEnd(29) + feeigst.padStart(14);
+        doc.text(totalFeesGSTLine);
+        doc.moveDown(0.3);
+        // **Total** for Delivery & Platform Fees
+        const totalFeesLine =
+          "TOTAL FEES:".padEnd(26) +
+          (deliveryTotal + platformTotal).toFixed(2).padStart(4);
+        doc.fontSize(9).font("Helvetica-Bold").text(totalFeesLine);
+
         doc.moveDown(1.5);
         // Signature image (if available)
         if (adminSignatreBuffer) {
@@ -532,7 +531,7 @@ async function generatePDFInvoice(
             align: "right",
           });
           doc.moveDown();
-          doc.y += 30;
+          doc.y += 50;
         }
       };
 

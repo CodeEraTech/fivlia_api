@@ -149,6 +149,7 @@ async function generatePDFInvoice(
 
   return new Promise((resolve, reject) => {
     try {
+      let itemsTotal = 0;
       const doc = new PDFDocument({
         size: [226, 800],
         margins: {
@@ -227,6 +228,7 @@ async function generatePDFInvoice(
       // Create the first invoice: Items + details
       const createItemsInvoice = (signatureBuffer) => {
         createHeader("BILLING INVOICE");
+        doc.moveDown(0.7);
         createStoreAndCustomerInfo(false);
         doc.fontSize(9).font("Helvetica-Bold").text("ITEMS:");
         doc.fontSize(7).font("Helvetica");
@@ -245,7 +247,6 @@ async function generatePDFInvoice(
         doc.moveDown(0.3);
 
         // Items total calculation
-        let itemsTotal = 0;
         let itemsTotalGst = 0;
         // Items
         order.items.forEach((item) => {
@@ -314,6 +315,7 @@ async function generatePDFInvoice(
       // Create the second invoice: Delivery & Platform Fees
       const createFeesInvoice = (deliveryGstPer, adminSignatreBuffer) => {
         createHeader("FIVLIA INVOICE");
+        doc.moveDown(0.7);
         createStoreAndCustomerInfo(true);
         doc
           .fontSize(9)
@@ -338,11 +340,10 @@ async function generatePDFInvoice(
 
         // Platform Fee
         if (order.platformFee > 0) {
+          platformTotal = itemsTotal * (order.platformFee / 100);
           const platformLine =
-            "Platform Fee:".padEnd(30) +
-            order.platformFee.toFixed(2).padStart(15);
+            "Platform Fee:".padEnd(30) + platformTotal.toFixed(2).padStart(15);
           doc.text(platformLine);
-          platformTotal = order.platformFee;
         }
 
         doc.moveDown(0.3);

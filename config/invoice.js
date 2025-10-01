@@ -75,9 +75,10 @@ exports.generateStoreInvoiceId = async (storeId) => {
   const store = await Store.findById(storeId);
   if (!store) throw new Error("Store not found");
 
-  let prefix = '';
-  if (store.Authorized_Store) {      // field from store document
-    return await FeeInvoiceId(true); 
+  let prefix = "";
+  if (store.Authorized_Store) {
+    // field from store document
+    return await FeeInvoiceId(true);
   } else {
     prefix = store.invoicePrefix;
   }
@@ -252,11 +253,9 @@ async function generatePDFInvoice(
           const quantity = item.quantity.toString();
           const price = (item.price * item.quantity).toFixed(2);
           const gstPercent = parseFloat(item.gst) || 0.0;
-          const igst = (
-            item.price *
-            item.quantity *
-            (gstPercent / 100)
-          ).toFixed(2);
+          const basePrice = item.price / (1 + gstPercent / 100);
+          const gstAmount = basePrice * (gstPercent / 100);
+          const igst = (gstAmount * item.quantity).toFixed(2);
 
           itemsTotal += parseFloat(price);
           itemsTotalGst += parseFloat(igst);
@@ -285,19 +284,16 @@ async function generatePDFInvoice(
           "TOTAL GST:".padEnd(30) + itemsTotalGst.toFixed(2).padStart(10);
         doc.fontSize(9).font("Helvetica-Bold").text(totalLineGST);
         doc.moveDown(0.5);
-
         // Signature image (if available)
         if (signatureBuffer) {
-          doc.image(signatureBuffer, doc.page.width / 2 - 50, doc.y, {
+          doc.image(signatureBuffer, doc.page.width - 110, doc.y, {
             fit: [100, 50],
-            align: "center",
+            align: "right",
           });
-
           doc.moveDown();
-          doc.y += 40;
-          // "Authorized Signatory" label
-          doc.fontSize(9).font("Helvetica-Bold").text("Authorized Signatory", {
-            align: "center",
+          doc.y += 30;
+          doc.fontSize(7).font("Helvetica-Bold").text("Authorized Signatory", {
+            align: "right",
           });
         }
         doc.moveDown(1);
@@ -358,11 +354,25 @@ async function generatePDFInvoice(
         doc.fontSize(9).font("Helvetica-Bold").text(totalFeesLine);
 
         // **Total GST** for Delivery & Platform Fees
-        const deliveryGst = (deliveryTotal * (deliveryGstPer / 100)).toFixed(2);
-        const platformGst = (platformTotal * (deliveryGstPer / 100)).toFixed(2);
+        // Calculate base price (excluding GST) for deliveryTotal and platformTotal
+        const deliveryBasePrice = deliveryTotal / (1 + deliveryGstPer / 100);
+        const platformBasePrice = platformTotal / (1 + deliveryGstPer / 100);
+
+        // Calculate GST amount for both delivery and platform (based on base price)
+        const deliveryGst = (
+          deliveryBasePrice *
+          (deliveryGstPer / 100)
+        ).toFixed(2);
+        const platformGst = (
+          platformBasePrice *
+          (deliveryGstPer / 100)
+        ).toFixed(2);
+
+        // Sum the GST amounts for total IGST
         const feeigst = (
           parseFloat(deliveryGst) + parseFloat(platformGst)
         ).toFixed(2);
+
         const totalFeesGSTLine = "TOTAL GST:".padEnd(27) + feeigst.padStart(5);
         doc.fontSize(9).font("Helvetica-Bold").text(totalFeesGSTLine);
         doc.moveDown(1.5);

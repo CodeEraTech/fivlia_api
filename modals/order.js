@@ -19,6 +19,7 @@ items: [
  storeInvoiceId:{type: String},
  feeInvoiceId:{type: String},
  thermalInvoice: { type: String },
+ deliveryPayout:Number,
  transactionId:String,
  driver:{driverId:String,name:String,mobileNumber:String}
 },{timestamps:true});
@@ -37,6 +38,7 @@ const TempOrderSchema = new mongoose.Schema({
   cashOnDelivery:Boolean,
   storeId:{type:mongoose.Schema.ObjectId,ref:'Store'},
   totalPrice: Number,
+  deliveryPayout:Number,
   deliveryCharges:Number,
   platformFee:Number,
   cartIds:[{type:mongoose.Schema.Types.ObjectId,ref:'carts'}]

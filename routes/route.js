@@ -99,6 +99,7 @@ const {
   getSettings,
   adminSetting,
   getSmsType,
+  getTax
 } = require("../controlers/settingControler");
 const {
   users,
@@ -230,7 +231,7 @@ router.post("/verifyPayment", verifyPayment);
 router.post("/filter", filter);
 router.post("/createStore", upload, createStore);
 router.post("/Product/bulk", upload, bulkProductUpload),
-  router.put("/adminSetting", adminSetting);
+  router.put("/adminSetting",upload, adminSetting);
 router.post("/addFilter", addFilter);
 router.post("/address", verifyToken, addAddress);
 router.post("/updateStock/:productId", updateStock);
@@ -324,6 +325,8 @@ router.get("/seller-products", getAllSellerProducts);
 router.get("/products-count", getCategoryCounts)
 router.post("/save-contact-us", contactUs);
 
+
+router.get('/getTax', getTax)
 router.get('/completedOrders/:mobileNumber', completedOrders)
 router.get('/getDriverDetail/:id', getDriverDetail)
 router.get('/cancelOrders/:driverId', cancelOrders)

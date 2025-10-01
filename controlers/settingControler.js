@@ -1,6 +1,7 @@
 const {Settings,SettingAdmin} = require('../modals/setting');
 const Order = require('../modals/order');
 const User = require('../modals/User');  
+const Tax = require('../modals/tax');  
 
 exports.getSettings = async (req, res) => {
   try {
@@ -56,14 +57,21 @@ return res.status(200).json({message:"Setting",setting})
 
 exports.adminSetting = async (req, res) => {
   try {
-    const updateFields = req.body;
+    let updateFields = req.body;
+
+     if (req.body.payload) {
+      updateFields = JSON.parse(req.body.payload);
+    }
 
     if (updateFields.Map_Api && updateFields.Map_Api[0]) {
       const mapApi = updateFields.Map_Api[0];
       
+      console.log(updateFields)
       const currentSettings = await SettingAdmin.findOne().lean();
       const currentMapApi = currentSettings?.Map_Api?.[0] || {};
-      
+      if (req.files?.image?.[0]) {
+      updateFields.adminSignature = `/${req.files.image?.[0].key}`;
+    }
       const finalMapApi = {
         google: { ...currentMapApi.google, ...mapApi.google },
         apple: { ...currentMapApi.apple, ...mapApi.apple },
@@ -103,3 +111,13 @@ exports.adminSetting = async (req, res) => {
     });
   }
 };
+
+exports.getTax = async(req,res)=>{
+  try{
+const result = await Tax.find()
+return res.status(200).json({message:"Success",result})
+  }catch{
+    console.error("Get User Settings Error =>", error);
+    return res.status(500).json({ message: "Error getting settings", error: error.message });
+  }
+}

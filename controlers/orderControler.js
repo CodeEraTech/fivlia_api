@@ -28,6 +28,12 @@ exports.placeOrder = async (req, res) => {
     let nextOrderId = await getNextOrderId(false); 
 
     const chargesData = await SettingAdmin.findOne();
+
+    const deliveryChargeRaw = chargesData.Delivery_Charges || 0;
+    const deliveryGstPercent = chargesData.Delivery_Charges_Gst || 0;
+    const deliveryGstAmount = (deliveryChargeRaw * deliveryGstPercent) / 100;
+
+    const totalDeliveryCharge = deliveryChargeRaw - deliveryGstAmount;
     const cartItems = await Cart.find({ _id: { $in: cartIds } });
     // console.log(chargesData);
     if (!cartItems) {
@@ -47,7 +53,7 @@ exports.placeOrder = async (req, res) => {
       totalPrice = itemsTotal + platformFeeAmount;
     } else {
       totalPrice =
-        itemsTotal + chargesData.Delivery_Charges + platformFeeAmount;
+        itemsTotal + deliveryChargeRaw + platformFeeAmount;
     }
 
     const paymentOption = cartItems[0].paymentOption;
@@ -98,7 +104,8 @@ exports.placeOrder = async (req, res) => {
         totalPrice,
         userId,
         storeId,
-        deliveryCharges: chargesData.Delivery_Charges,
+        deliveryPayout: totalDeliveryCharge,
+        deliveryCharges: deliveryChargeRaw,
         platformFee: chargesData.Platform_Fee,
       });
 
@@ -135,7 +142,8 @@ exports.placeOrder = async (req, res) => {
         paymentStatus: "Pending",
         cashOnDelivery,        
         cartIds,
-        deliveryCharges: chargesData.Delivery_Charges,
+        deliveryPayout: totalDeliveryCharge,
+        deliveryCharges: deliveryChargeRaw,
         platformFee: chargesData.Platform_Fee,
       });
       const payResponse = await createRazorpayOrder(

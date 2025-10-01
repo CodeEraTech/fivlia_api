@@ -22,18 +22,26 @@ const assignWithBroadcast = async (order, drivers) => {
       const driverId = driver._id.toString();
       const socket = driverSocketMap.get(driverId);
 
+      console.log(driverId, driverSocketMap.has(driverId))
       if (!socket) return;
 
+const orderPlain = order.toObject ? order.toObject() : order;
+
+      const orderWithLocation = {
+  ...orderPlain, // keep all existing fields
+  storeLat: orderStore.Latitude,   // store latitude
+  storeLng: orderStore.Longitude,  // store longitude
+  userLat: orderUser.location.latitude, // user latitude
+  userLng: orderUser.location.longitude // user longitude
+};
       // Emit socket event
       socket.emit("newOrder", {
-        order,
+        order:orderWithLocation,
         driverId,
         timeLeft: timeLimit / 1000,
-        storeLat: orderStore.Latitude,
-        storeLng: orderStore.Longitude,
-        userLat: orderUser.location.latitude,
-        userLng: orderUser.location.longitude,
       });
+
+      console.log(`✅ 📦order ${orderId} to 👉🏻driver 🚘 ${driverId}, order -> ${order}`);
 
       // Send push notification
       if (driver.fcmToken) {

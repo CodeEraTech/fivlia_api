@@ -4,46 +4,85 @@ const { Order } = require("../../modals/order");
 const admin = require("../../firebase/firebase");
 const Store = require("../../modals/store");
 const User = require("../../modals/User");
+
 const assignedOrders = new Set();
+const rejectedDriversMap = new Map();
+const retryTracker = new Map();
+
+const MAX_RETRY_COUNT = 30;
+const TIMEOUT_MS = 10000;
 
 const assignWithBroadcast = async (order, drivers) => {
   const orderId = order.orderId.toString();
+
+  if (assignedOrders.has(orderId)) {
+    console.warn(`⚠️ Order ${orderId} already assigned. Aborting broadcast.`);
+    return;
+  }
+
+  const retryCount = retryTracker.get(orderId) || 0;
+  if (retryCount >= MAX_RETRY_COUNT) {
+    console.error(`🚫 Max retry attempts reached for order ${orderId}.`);
+    return;
+  }
+
+  retryTracker.set(orderId, retryCount + 1);
+
   let orderAssigned = false;
-  let respondedDrivers = new Set();
-  const timeLimit = 10000;
+  const respondedDrivers = new Set();
+
   const orderStore = await Store.findOne({ _id: order.storeId }).lean();
   const orderUser = await User.findOne({ _id: order.userId }).lean();
-  const broadcastOrder = () => {
-    console.log(
-      `📢 Broadcasting order ${orderId} to ${drivers.length} drivers...`
-    );
 
-    drivers.forEach((driver) => {
+  const rejectedDrivers = rejectedDriversMap.get(orderId) || new Set();
+  const availableDrivers = drivers.filter(
+    (driver) => !rejectedDrivers.has(driver._id.toString())
+  );
+
+  if (availableDrivers.length === 0) {
+    console.info(`😕 No available drivers to broadcast for order ${orderId}`);
+    return;
+  }
+
+  const cleanupAllListeners = () => {
+    availableDrivers.forEach((driver) => {
+      const driverId = driver._id.toString();
+      const socket = driverSocketMap.get(driverId);
+      if (socket && typeof socket.__cleanupOrder === "function") {
+        socket.__cleanupOrder();
+        delete socket.__cleanupOrder;
+      }
+    });
+  };
+
+  const broadcastOrder = () => {
+    console.log(`📢 Broadcasting order ${orderId} to ${availableDrivers.length} drivers...`);
+
+    availableDrivers.forEach((driver) => {
       const driverId = driver._id.toString();
       const socket = driverSocketMap.get(driverId);
 
-      console.log(driverId, driverSocketMap.has(driverId))
-      if (!socket) return;
-
-const orderPlain = order.toObject ? order.toObject() : order;
+      if (!socket) {
+        console.warn(`❌ No active socket for driver ${driverId}`);
+        return;
+      }
 
       const orderWithLocation = {
-  ...orderPlain, // keep all existing fields
-  storeLat: orderStore.Latitude,   // store latitude
-  storeLng: orderStore.Longitude,  // store longitude
-  userLat: orderUser.location.latitude, // user latitude
-  userLng: orderUser.location.longitude // user longitude
-};
-      // Emit socket event
+        ...(order.toObject ? order.toObject() : order),
+        storeLat: orderStore.Latitude,
+        storeLng: orderStore.Longitude,
+        userLat: orderUser.location.latitude,
+        userLng: orderUser.location.longitude,
+      };
+
       socket.emit("newOrder", {
-        order:orderWithLocation,
+        order: orderWithLocation,
         driverId,
-        timeLeft: timeLimit / 1000,
+        timeLeft: TIMEOUT_MS / 1000,
       });
 
-      console.log(`✅ 📦order ${orderId} to 👉🏻driver 🚘 ${driverId}, order -> ${order}`);
+      console.log(`✅ Sent order ${orderId} to driver ${driverId}`);
 
-      // Send push notification
       if (driver.fcmToken) {
         admin
           .messaging()
@@ -61,41 +100,24 @@ const orderPlain = order.toObject ? order.toObject() : order;
             },
             data: {
               orderId,
-              timeLeft: (timeLimit / 1000).toString(),
+              timeLeft: (TIMEOUT_MS / 1000).toString(),
               screen: "TodayOrderScreen",
             },
           })
           .catch((err) => console.error("Push error:", err));
       }
 
-      // Listen for responses
-      const handleAccept = async ({
-        driverId: incomingDriverId,
-        orderId: incomingOrderId,
-      }) => {
+      // --- Accept Handler ---
+      const handleAccept = async ({ driverId: incomingDriverId, orderId: incomingOrderId }) => {
         if (
           incomingOrderId !== orderId ||
           incomingDriverId !== driverId ||
           orderAssigned
-        )
-          return;
+        ) return;
 
-        // Lock the order assignment
-        if (assignedOrders.has(orderId)) {
-          socket.emit("orderAlreadyAccepted", { orderId });
-          console.log(`🉑 orderAlreadyAccepted by ${driverId} order ${orderId}.`);
-          // socket.emit("newOrder", []);
-          return;
-        }
-
-        assignedOrders.add(orderId);
-        orderAssigned = true;
-
-        console.log(`✅ Driver ${driverId} accepted order ${orderId}.`);
-
-        // Update DB
-        await Order.findOneAndUpdate(
-          { orderId },
+        // Atomic DB update to prevent race condition
+        const updateResult = await Order.findOneAndUpdate(
+          { orderId, "driver.driverId": { $exists: false } },
           {
             driver: {
               driverId,
@@ -103,8 +125,20 @@ const orderPlain = order.toObject ? order.toObject() : order;
               mobileNumber: driver.address?.mobileNo,
             },
             orderStatus: "Going to Pickup",
-          }
+          },
+          { new: true }
         );
+
+        if (!updateResult) {
+          socket.emit("orderAlreadyAccepted", { orderId });
+          console.warn(`🉑 orderAlreadyAccepted for ${driverId} - ${orderId}`);
+          return;
+        }
+
+        assignedOrders.add(orderId);
+        orderAssigned = true;
+
+        console.log(`🎉 Driver ${driverId} accepted order ${orderId}`);
 
         await Assign.updateOne(
           { driverId, orderId },
@@ -112,72 +146,81 @@ const orderPlain = order.toObject ? order.toObject() : order;
           { upsert: true }
         );
 
-        // Inform other drivers
-        drivers.forEach((d) => {
+        availableDrivers.forEach((d) => {
           const otherSocket = driverSocketMap.get(d._id.toString());
           if (d._id.toString() !== driverId && otherSocket) {
             otherSocket.emit("orderTaken", { orderId });
-             console.log(`✅ orderTaken by ${driverId} order ${orderId}.`);
-            // otherSocket.emit("newOrder", []);
           }
         });
 
         cleanupAllListeners();
       };
 
-      const handleReject = async ({
-        driverId: incomingDriverId,
-        orderId: incomingOrderId,
-      }) => {
+      // --- Reject Handler ---
+      const handleReject = async ({ driverId: incomingDriverId, orderId: incomingOrderId }) => {
         if (
           incomingOrderId !== orderId ||
           incomingDriverId !== driverId ||
           orderAssigned
-        )
-          return;
+        ) return;
 
         respondedDrivers.add(driverId);
-        await Assign.create({ driverId, orderId, orderStatus: "Rejected" });
-        console.log(`❌ Driver ${driverId} rejected order ${orderId}.`);
+        rejectedDrivers.add(driverId);
+
+        await Assign.updateOne(
+          { driverId, orderId },
+          { $set: { orderStatus: "Rejected" } },
+          { upsert: true }
+        );
+
+        console.log(`❌ Driver ${driverId} rejected order ${orderId}`);
       };
 
+      // Attach Listeners
       socket.once("acceptOrder", handleAccept);
       socket.once("rejectOrder", handleReject);
+      socket.once("disconnect", () => {
+        socket.__cleanupOrder?.();
+      });
 
-      // Cleanup function for each driver
-      const cleanup = () => {
+      socket.__cleanupOrder = () => {
         socket.off("acceptOrder", handleAccept);
         socket.off("rejectOrder", handleReject);
       };
-
-      // Store cleanup for later
-      socket.__cleanupOrder = cleanup;
     });
   };
 
-  const cleanupAllListeners = () => {
-    drivers.forEach((driver) => {
-      const socket = driverSocketMap.get(driver._id.toString());
-      if (socket && typeof socket.__cleanupOrder === "function") {
-        socket.__cleanupOrder();
-        delete socket.__cleanupOrder;
-      }
-    });
-  };
-
-  // First broadcast
   broadcastOrder();
 
-  // After timeout, check if order was accepted
-  setTimeout(() => {
-    if (!orderAssigned) {
-      console.log(
-        `⏱️ No driver accepted order ${orderId}. Retrying broadcast...`
-      );
-      cleanupAllListeners(); // remove old listeners
-      assignWithBroadcast(order, drivers); // retry
+  setTimeout(async () => {
+    const existingOrder = await Order.findOne({ orderId }).lean();
+
+    const isStillUnassigned =
+      !orderAssigned &&
+      !assignedOrders.has(orderId) &&
+      (!existingOrder?.driver ||
+        existingOrder?.orderStatus !== "Going to Pickup");
+
+    if (isStillUnassigned) {
+      const allDriverIds = new Set(drivers.map((d) => d._id.toString()));
+      const allRejectedOrNoResponse =
+        rejectedDrivers.size === allDriverIds.size || respondedDrivers.size === 0;
+
+      if (allRejectedOrNoResponse) {
+        console.info(`🔁 All drivers rejected or no response for order ${orderId}. Retrying with all drivers...`);
+        rejectedDriversMap.set(orderId, new Set());
+      } else {
+        console.info(`⏱️ No driver accepted order ${orderId}. Retrying with remaining drivers...`);
+        rejectedDriversMap.set(orderId, rejectedDrivers);
+      }
+
+      cleanupAllListeners();
+      assignWithBroadcast(order, drivers);
+    } else {
+      console.log(`✅ Order ${orderId} assigned. Cleaning up.`);
+      cleanupAllListeners();
     }
-  }, timeLimit);
+  }, TIMEOUT_MS);
 };
 
 module.exports = assignWithBroadcast;

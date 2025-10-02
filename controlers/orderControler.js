@@ -14,10 +14,16 @@ const Notification = require("../modals/Notification");
 const Assign = require("../modals/driverModals/assignments");
 const sendNotification = require("../firebase/pushnotification");
 const Store = require("../modals/store");
-const { generateAndSendThermalInvoice, generateStoreInvoiceId} = require('../config/invoice');
+const {
+  generateAndSendThermalInvoice,
+  generateStoreInvoiceId,
+} = require("../config/invoice");
 const deliveryStatus = require("../modals/deliveryStatus");
-const { getNextOrderId, FeeInvoiceId} = require("../config/counter");
-const { createRazorpayOrder, getCommison} = require("../utils/razorpayService");
+const { getNextOrderId, FeeInvoiceId } = require("../config/counter");
+const {
+  createRazorpayOrder,
+  getCommison,
+} = require("../utils/razorpayService");
 
 const MAX_DISTANCE_METERS = 5000;
 
@@ -25,15 +31,15 @@ exports.placeOrder = async (req, res) => {
   try {
     const { cartIds, addressId, storeId, paymentMode } = req.body;
 
-    let nextOrderId = await getNextOrderId(false); 
+    let nextOrderId = await getNextOrderId(false);
 
     const chargesData = await SettingAdmin.findOne();
 
     const deliveryChargeRaw = chargesData.Delivery_Charges || 0;
     const deliveryGstPercent = chargesData.Delivery_Charges_Gst || 0;
-    const deliveryGstAmount = (deliveryChargeRaw * deliveryGstPercent) / 100;
+    const totalDeliveryCharge =
+      deliveryChargeRaw / (1 + deliveryGstPercent / 100);
 
-    const totalDeliveryCharge = deliveryChargeRaw - deliveryGstAmount;
     const cartItems = await Cart.find({ _id: { $in: cartIds } });
     // console.log(chargesData);
     if (!cartItems) {
@@ -52,8 +58,7 @@ exports.placeOrder = async (req, res) => {
     if (itemsTotal >= chargesData.freeDeliveryLimit) {
       totalPrice = itemsTotal + platformFeeAmount;
     } else {
-      totalPrice =
-        itemsTotal + deliveryChargeRaw + platformFeeAmount;
+      totalPrice = itemsTotal + deliveryChargeRaw + platformFeeAmount;
     }
 
     const paymentOption = cartItems[0].paymentOption;
@@ -79,7 +84,7 @@ exports.placeOrder = async (req, res) => {
       }
       const gst = product.tax;
 
-            const commision = await getCommison(product._id)
+      const commision = await getCommison(product._id);
 
       orderItems.push({
         productId: item.productId,
@@ -93,7 +98,7 @@ exports.placeOrder = async (req, res) => {
       });
     }
 
-    if (paymentMode === true) {      
+    if (paymentMode === true) {
       let nextOrderId = await getNextOrderId(true);
       const newOrder = await Order.create({
         orderId: nextOrderId,
@@ -140,7 +145,7 @@ exports.placeOrder = async (req, res) => {
         totalPrice,
         storeId,
         paymentStatus: "Pending",
-        cashOnDelivery,        
+        cashOnDelivery,
         cartIds,
         deliveryPayout: totalDeliveryCharge,
         deliveryCharges: deliveryChargeRaw,
@@ -182,7 +187,8 @@ exports.verifyPayment = async (req, res) => {
 
       return res.status(200).json({
         status: false,
-        message: "Payment failed or cancelled. Order saved with status Cancelled.",
+        message:
+          "Payment failed or cancelled. Order saved with status Cancelled.",
       });
     }
 
@@ -205,24 +211,24 @@ exports.verifyPayment = async (req, res) => {
 
     const finalOrder = await Order.create(orderData);
 
-      for (const item of tempOrder.items) {
-        await stock.updateOne(
-          {
-            storeId: tempOrder.storeId,
-            "stock.productId": item.productId,
-            "stock.variantId": item.varientId,
-          },
-          {
-            $inc: { "stock.$.quantity": -item.quantity },
-          }
-        );
-        await Products.updateOne(
-          { _id: item.productId },
-          { $inc: { purchases: item.quantity } }
-        );
-      }
+    for (const item of tempOrder.items) {
+      await stock.updateOne(
+        {
+          storeId: tempOrder.storeId,
+          "stock.productId": item.productId,
+          "stock.variantId": item.varientId,
+        },
+        {
+          $inc: { "stock.$.quantity": -item.quantity },
+        }
+      );
+      await Products.updateOne(
+        { _id: item.productId },
+        { $inc: { purchases: item.quantity } }
+      );
+    }
 
-      await Cart.deleteMany({ _id: { $in: tempOrder.cartIds } });
+    await Cart.deleteMany({ _id: { $in: tempOrder.cartIds } });
     // 5. Delete the temp order
     await TempOrder.findByIdAndDelete(tempOrderId);
 
@@ -349,10 +355,12 @@ exports.getOrderDetails = async (req, res) => {
   try {
     const userId = req.user;
 
-    const userOrders = await Order.find({ userId }).sort({createdAt:-1}).lean();
+    const userOrders = await Order.find({ userId })
+      .sort({ createdAt: -1 })
+      .lean();
     const results = [];
- 
-    const settings = await SettingAdmin.findOne()
+
+    const settings = await SettingAdmin.findOne();
 
     for (const order of userOrders) {
       // 1. Fetch address
@@ -372,13 +380,12 @@ exports.getOrderDetails = async (req, res) => {
         };
       }
 
-       if (settings && order.totalPrice > settings.freeDeliveryLimit) {
+      if (settings && order.totalPrice > settings.freeDeliveryLimit) {
         order.deliveryCharges = 0;
       }
 
       const itemsWithDetails = await Promise.all(
         order.items.map(async (item) => {
-
           const product = await Products.findById(item.productId).lean();
           return {
             name: item.name,
@@ -457,8 +464,7 @@ exports.orderStatus = async (req, res) => {
       });
     }
 
-   if (status === "Delivered" && updatedOrder.driver?.driverId) {
-
+    if (status === "Delivered" && updatedOrder.driver?.driverId) {
       await Assign.findOneAndDelete({
         driverId: updatedOrder.driver.driverId,
         orderId: updatedOrder.orderId,
@@ -498,12 +504,16 @@ exports.orderStatus = async (req, res) => {
         storeId: updatedOrder.storeId,
         description: store.Authorized_Store
           ? "Full amount credited (Authorized Store)"
-          : `Credited after commission cut (${totalCommission.toFixed(2)} deducted)`,
+          : `Credited after commission cut (${totalCommission.toFixed(
+              2
+            )} deducted)`,
       });
 
       // 🏛️ Credit Admin Wallet (only if commission exists)
       if (!store.Authorized_Store && totalCommission > 0) {
-        const lastAmount = await admin_transaction.findById("6899c9b7eeb3a6cd3a142237").lean();
+        const lastAmount = await admin_transaction
+          .findById("6899c9b7eeb3a6cd3a142237")
+          .lean();
         const updatedWallet = await admin_transaction.findByIdAndUpdate(
           "6899c9b7eeb3a6cd3a142237",
           { $inc: { wallet: totalCommission } },
@@ -520,20 +530,23 @@ exports.orderStatus = async (req, res) => {
         });
       }
 
-    let storeInvoiceId;
-    let feeInvoiceId;
+      let storeInvoiceId;
+      let feeInvoiceId;
       // 🧾 Generate Store Invoice ID
-    if (store.Authorized_Store) {
+      if (store.Authorized_Store) {
         // Authorized store: use global counter for both invoices
         storeInvoiceId = await FeeInvoiceId(true); // increments counter
-        feeInvoiceId = await FeeInvoiceId(true);   // increments counter again
-    } else {
+        feeInvoiceId = await FeeInvoiceId(true); // increments counter again
+      } else {
         // Unauthorized store: local logic
         storeInvoiceId = await generateStoreInvoiceId(updatedOrder.storeId);
         feeInvoiceId = await FeeInvoiceId(true); // can still increment global counter
-    }
+      }
 
-      await Order.findByIdAndUpdate(updatedOrder._id, { storeInvoiceId, feeInvoiceId});
+      await Order.findByIdAndUpdate(updatedOrder._id, {
+        storeInvoiceId,
+        feeInvoiceId,
+      });
 
       try {
         await generateAndSendThermalInvoice(updatedOrder.orderId);

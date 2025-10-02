@@ -9,6 +9,7 @@ const { Order } = require("../modals/order");
 const User = require("../modals/User");
 const Product = require("../modals/Product"); // Add this line
 const request = require("request"); // for msggo.in
+const { FeeInvoiceId } = require("./counter");
 
 // Generate PDF Thermal Invoice and upload to AWS
 exports.generateThermalInvoice = async (orderId) => {
@@ -37,7 +38,8 @@ exports.generateThermalInvoice = async (orderId) => {
       user,
       store,
       subtotal,
-      gstTotal
+      gstTotal,
+      { dType: "seller" }
     );
 
     // Upload to AWS S3

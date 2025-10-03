@@ -43,7 +43,7 @@ exports.update = async (req, res) => {
 
 exports.banner = async (req,res) => {
   try {
-   let {title,type,city,zones,mainCategory,subCategory,subSubCategory,brand:brandId,status,type2}=req.body
+   let {title,type,city,zones,mainCategory,subCategory,subSubCategory,brand:brandId,status,type2,storeId}=req.body
       const rawImagePath = req.files?.image?.[0]?.key || "";
     const image = rawImagePath ? `/${rawImagePath}` : "";
 
@@ -102,14 +102,23 @@ if (foundCategory) {
 
 
    const newBanner = await Banner.create({image,type2,
-    city: { _id: cityDoc._id, name: cityDoc.city } ,title,type:bannerType,
+    city: { _id: cityDoc._id, name: cityDoc.city },
+    title,
+    type:bannerType,
+
     mainCategory: foundCategory
     ? { _id: foundCategory._id, name: foundCategory.name, slug: slugify(foundCategory.name, { lower: true }) }: null,
+
     subCategory:foundSubCategory? { _id: foundSubCategory._id, name: foundSubCategory.name, slug: slugify(foundSubCategory.name, { lower: true }) }: null,
+
     subSubCategory: foundSubSubCategory? { _id: foundSubSubCategory._id, name: foundSubSubCategory.name,slug: slugify(foundSubSubCategory.name, { lower: true }) }: null,
+
     brand: foundBrand
     ? { _id: foundBrand._id, name: foundBrand.brandName, slug: slugify(foundBrand.brandName, { lower: true }) }: null,
-    status,zones
+
+    status,
+    storeId,
+    zones
   })
    return res.status(200).json({message:'Banner Added Successfully',newBanner})
 } catch (error) {

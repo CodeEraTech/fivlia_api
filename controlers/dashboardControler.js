@@ -189,17 +189,69 @@ return res.status(200).json({message:"Tranaction history",Tranaction})
   }
 }
 
-exports.getWithdrawalRequest = async (req,res) => {
+exports.getWithdrawalRequest = async (req, res) => {
   try {
-    const {type} = req.query
-     if(type==="seller"){
-        const requests = await store_transaction.find({type:'debit'}).sort({ createdAt: -1 })
-        return res.status(200).json({ message: 'Withdrawal requests', requests});  
-     }
-    const requests = await Transaction.find({type:'debit'})
-    return res.status(200).json({ message: 'Withdrawal requests', requests});  
+    const { type } = req.query;
+
+    if (type === "seller") {
+      // Fetch all seller withdrawal requests
+      const requests = await store_transaction
+        .find({ type: "debit" })
+        .sort({ createdAt: -1 });
+
+      // Enrich each request with seller details
+      const enrichedRequests = await Promise.all(
+        requests.map(async (reqItem) => {
+          const storeData = await Store.findById(reqItem.storeId).select(
+            "storeName ownerName PhoneNumber email city fullAddress gstNumber wallet bankDetails sellerSignature invoicePrefix openTime closeTime"
+          );
+
+          return {
+            _id: reqItem._id,
+            type: reqItem.type,
+            amount: reqItem.amount,
+            storeId: reqItem.storeId,
+            description: reqItem.description,
+            status: reqItem.status,
+            createdAt: reqItem.createdAt,
+            updatedAt: reqItem.updatedAt,
+            sellerDetails: storeData
+              ? {
+                  storeName: storeData.storeName,
+                  ownerName: storeData.ownerName,
+                  phoneNumber: storeData.PhoneNumber,
+                  email: storeData.email,
+                  city: storeData.city,
+                  fullAddress: storeData.fullAddress,
+                  gstNumber: storeData.gstNumber,
+                  wallet: storeData.wallet,
+                  bankDetails: storeData.bankDetails,
+                  sellerSignature: storeData.sellerSignature,
+                  invoicePrefix: storeData.invoicePrefix,
+                  openTime: storeData.openTime,
+                  closeTime: storeData.closeTime,
+                }
+              : null,
+          };
+        })
+      );
+
+      return res.status(200).json({
+        message: "Withdrawal requests",
+        requests: enrichedRequests,
+      });
+    }
+
+    // For non-seller type (general transaction withdrawal requests)
+    const requests = await Transaction.find({ type: "debit" }).sort({
+      createdAt: -1,
+    });
+
+    return res.status(200).json({ message: "Withdrawal requests", requests });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: 'Server error', error: error.message});  
+    return res
+      .status(500)
+      .json({ message: "Server error", error: error.message });
   }
-}
+};

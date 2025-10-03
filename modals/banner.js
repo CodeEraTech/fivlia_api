@@ -19,7 +19,7 @@ const bannerSchema = new mongoose.Schema({
     subCategory:  { name:{type:String}, _id:{type:mongoose.Schema.Types.ObjectId},slug: String},
     subSubCategory: { name:{type:String}, _id:{type:mongoose.Schema.Types.ObjectId},slug: String},
     brand: {name:{type:String}, _id:{type:mongoose.Schema.Types.ObjectId, ref:'brands'},slug: String},
-    seller:String,
+    storeId:{type:mongoose.Schema.Types.ObjectId, ref:'stores'},
     status:{type:Boolean,dafault:true},
     type:{type:String,enum:['offer','normal'],default:'normal'},
     type2:String

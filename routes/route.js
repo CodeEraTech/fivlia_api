@@ -80,6 +80,7 @@ const {
   verifyOtpSeller,
   editSellerProfile,
   sellerWithdrawalRequest,
+  getAllStore
 } = require("../controlers/sellerControlers/sellerAuth");
 
 const {
@@ -231,7 +232,7 @@ router.post("/verifyPayment", verifyPayment);
 router.post("/filter", filter);
 router.post("/createStore", upload, createStore);
 router.post("/Product/bulk", upload, bulkProductUpload),
-  router.put("/adminSetting",upload, adminSetting);
+router.put("/adminSetting",upload, adminSetting);
 router.post("/addFilter", addFilter);
 router.post("/address", verifyToken, addAddress);
 router.post("/updateStock/:productId", updateStock);
@@ -278,6 +279,7 @@ router.get("/getUnapprovedProducts", getUnapprovedProducts);
 router.post("/saveBrandApprovelDocument", upload, saveBrandApprovelDocument);
 
 router.get("/checkSimilarProduct/:productId", verifyToken, checkSimilarProduct);
+router.get("/getAllStore", getAllStore);
 router.get("/getSeller", getSeller);
 router.get("/getSellerRequest", getSellerRequest);
 router.get("/getCategoryProduct", getCategoryProduct);

@@ -888,4 +888,24 @@ exports.sellerWithdrawalRequest = async (req, res) => {
   }
 };
 
+exports.getAllStore = async (req, res) => {
+  try {
+    const stores = await seller.find().select("storeName _id city");
+
+    // Return success response
+    return res.status(200).json({
+      success: true,
+      count: stores.length,
+      stores,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
 // https://api.fivlia.in/getSellerProducts?categories=683eeb6ff6f5264ba0295760%683ed131f6f5264ba0295759&subCategories=683ef865f6f5264ba0295774%683ed131f6f5264ba0295755&subsubCategories=683ef865f6f5264ba0295724%683ed131f6f5264ba0295715

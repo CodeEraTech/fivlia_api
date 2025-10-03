@@ -69,6 +69,7 @@ const assignWithBroadcast = async (order, drivers) => {
 
       const orderWithLocation = {
         ...(order.toObject ? order.toObject() : order),
+        storeName: orderStore.storeName,
         storeLat: orderStore.Latitude,
         storeLng: orderStore.Longitude,
         userLat: orderUser.location.latitude,

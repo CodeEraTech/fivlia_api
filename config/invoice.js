@@ -10,6 +10,7 @@ const User = require("../modals/User");
 const Product = require("../modals/Product"); // Add this line
 const request = require("request"); // for msggo.in
 const { FeeInvoiceId } = require("./counter");
+const moment = require("moment");
 
 // Generate PDF Thermal Invoice and upload to AWS
 exports.generateThermalInvoice = async (orderId) => {
@@ -204,8 +205,8 @@ async function generatePDFInvoice(
         if (!isSecondInvoice) {
           doc.text(`Address: ${store.fullAddress || store.city.name || "N/A"}`);
         }
-        doc.text(`Date: ${new Date().toLocaleDateString("en-IN")}`);
-        doc.text(`Time: ${new Date().toLocaleTimeString("en-IN")}`);
+        doc.text(`Date: ${moment(order.createdAt).format("DD MMM, YYYY")}`);
+        doc.text(`Time: ${moment(order.createdAt).format("hh:mm:ss A")}`);
         doc.text(`Order ID: ${order.orderId}`);
         doc.moveDown(0.5);
 

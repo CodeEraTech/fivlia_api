@@ -22,6 +22,7 @@ const assignWithBroadcast = async (order, drivers) => {
 
   const retryCount = retryTracker.get(orderId) || 0;
   if (retryCount >= MAX_RETRY_COUNT) {
+    await Order.findOneAndUpdate({ orderId }, { orderStatus: "Cancelled" });
     console.error(`🚫 Max retry attempts reached for order ${orderId}.`);
     return;
   }
@@ -56,7 +57,9 @@ const assignWithBroadcast = async (order, drivers) => {
   };
 
   const broadcastOrder = () => {
-    console.log(`📢 Broadcasting order ${orderId} to ${availableDrivers.length} drivers...`);
+    console.log(
+      `📢 Broadcasting order ${orderId} to ${availableDrivers.length} drivers...`
+    );
 
     availableDrivers.forEach((driver) => {
       const driverId = driver._id.toString();
@@ -109,12 +112,16 @@ const assignWithBroadcast = async (order, drivers) => {
       }
 
       // --- Accept Handler ---
-      const handleAccept = async ({ driverId: incomingDriverId, orderId: incomingOrderId }) => {
+      const handleAccept = async ({
+        driverId: incomingDriverId,
+        orderId: incomingOrderId,
+      }) => {
         if (
           incomingOrderId !== orderId ||
           incomingDriverId !== driverId ||
           orderAssigned
-        ) return;
+        )
+          return;
 
         // Atomic DB update to prevent race condition
         const updateResult = await Order.findOneAndUpdate(
@@ -158,12 +165,16 @@ const assignWithBroadcast = async (order, drivers) => {
       };
 
       // --- Reject Handler ---
-      const handleReject = async ({ driverId: incomingDriverId, orderId: incomingOrderId }) => {
+      const handleReject = async ({
+        driverId: incomingDriverId,
+        orderId: incomingOrderId,
+      }) => {
         if (
           incomingOrderId !== orderId ||
           incomingDriverId !== driverId ||
           orderAssigned
-        ) return;
+        )
+          return;
 
         respondedDrivers.add(driverId);
         rejectedDrivers.add(driverId);
@@ -205,13 +216,18 @@ const assignWithBroadcast = async (order, drivers) => {
     if (isStillUnassigned) {
       const allDriverIds = new Set(drivers.map((d) => d._id.toString()));
       const allRejectedOrNoResponse =
-        rejectedDrivers.size === allDriverIds.size || respondedDrivers.size === 0;
+        rejectedDrivers.size === allDriverIds.size ||
+        respondedDrivers.size === 0;
 
       if (allRejectedOrNoResponse) {
-        console.info(`🔁 All drivers rejected or no response for order ${orderId}. Retrying with all drivers...`);
+        console.info(
+          `🔁 All drivers rejected or no response for order ${orderId}. Retrying with all drivers...`
+        );
         rejectedDriversMap.set(orderId, new Set());
       } else {
-        console.info(`⏱️ No driver accepted order ${orderId}. Retrying with remaining drivers...`);
+        console.info(
+          `⏱️ No driver accepted order ${orderId}. Retrying with remaining drivers...`
+        );
         rejectedDriversMap.set(orderId, rejectedDrivers);
       }
 

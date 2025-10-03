@@ -255,3 +255,45 @@ exports.getWithdrawalRequest = async (req, res) => {
       .json({ message: "Server error", error: error.message });
   }
 };
+
+exports.withdrawal = async (req, res) => {
+  try {
+    const { id, type, action } = req.params; // action: 'accept' or 'decline'
+    const { note, image } = req.body;
+console.log(127127878)
+    if (type === "seller"){
+      
+    const request = await store_transaction.find({'storeId':id,type:"debit"});
+  console.log(373477347,request)
+   
+    request.status = action === "accept" ? "Accepted" : "Declined";
+    request.Note = note; // default note
+    if (image) request.image = image;
+
+    await request.save();
+
+    if (action === "accept") {
+      const store = await Store.findById(request.storeId);
+      if (!store)
+        return res.status(404).json({ message: "Store not found" });
+
+      // Reduce wallet amount
+      store.wallet = Math.max(0, store.wallet - request.amount);
+      await store.save();
+    }
+
+    return res.status(200).json({
+      message: `Withdrawal request ${request.status.toLowerCase()} successfully`,
+      request,
+    });
+    }
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server Error", error: error.message });
+  }
+};
+
+//  const defaultNotes = {
+//         accept: "The withdrawal request has been accepted successfully.",
+//         decline: "The withdrawal request has been declined.",
+//       };

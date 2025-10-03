@@ -46,6 +46,7 @@ const {
   walletAdmin,
   adminTranaction,
   getWithdrawalRequest,
+  withdrawal,
 } = require("../controlers/dashboardControler");
 const { getDeliveryEstimate } = require("../controlers/DeliveryControler");
 
@@ -213,6 +214,9 @@ const {
   deleteAddress,
   setDefault,
 } = require("../controlers/areaControler");
+
+
+router.put("/withdrawal/:id/:action/:type",upload, withdrawal);
 
 router.post("/Login", Login);
 router.post("/verifyOtp", verifyOtp);

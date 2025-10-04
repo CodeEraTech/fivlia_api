@@ -208,7 +208,7 @@ exports.updateBannerStatus = async (req, res) => {
     const { id } = req.params;
     const {
       status, title, city, zones, type2, address,
-      latitude, longitude, mainCategory, subCategory, subSubCategory, range,brand:brandId
+      latitude, longitude, mainCategory, subCategory, subSubCategory, range,brand:brandId, storeId
     } = req.body;
 
     const rawImagePath = req.files?.image?.[0]?.key;
@@ -226,14 +226,20 @@ exports.updateBannerStatus = async (req, res) => {
 
  if (brandId) {
       const foundBrand = await brand.findById(brandId).lean();
-      if (!foundBrand) return res.status(404).json({ message: `Brand ${brandId} not found` });
+      if (!foundBrand) return res.status(204).json({ message: `Brand ${brandId} not found` });
       updateData.brand = {
         _id: foundBrand._id,
         name: foundBrand.brandName,
         slug: slugify(foundBrand.brandName, { lower: true })
       };
     }    
-    // 🔹 Fetch and build category objects (like in addBanner)
+    
+    if (storeId) {
+      const foundStore = await Store.findById(storeId).lean();
+      if (!foundStore) return res.status(204).json({ message: `Store ${storeId} not found` });
+      updateData.storeId = foundStore._id;
+    }    
+
     if (mainCategory) {
       const foundCategory = await Category.findById(mainCategory).lean();
       if (!foundCategory) {

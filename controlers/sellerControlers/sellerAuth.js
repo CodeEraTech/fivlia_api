@@ -869,6 +869,7 @@ exports.sellerWithdrawalRequest = async (req, res) => {
       withdrawal = await store_transaction.create({
         storeId: storeData._id,
         amount,
+        currentAmount:storeData.wallet,
         type: "debit",
         description: `Withdrawal request of ₹${amount} by seller`,
         status: "Pending",

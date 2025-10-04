@@ -266,17 +266,23 @@ exports.withdrawal = async (req, res) => {
     const request = await store_transaction.findOne({'storeId':id,type:"debit",status:"Pending"});
   
       const defaultNotes = {
-        accept: "The withdrawal request has been accepted successfully.",
+        accept: "The withdrawal request has;y been accepted successfully.",
         decline: "The withdrawal request has been declined.",
       };
    
     request.status = action === "accept" ? "Accepted" : "Declined";
     request.Note = note || defaultNotes[action];
+    console.log(image)
     if (image) request.image = image;
 
-    await request.save();
-
     if (action === "accept") {
+
+      request.lastAmount = request.currentAmount;
+
+        // deduct withdrawal amount from currentAmount
+        request.currentAmount = Math.max(0, request.currentAmount - request.amount);
+
+
       const store = await Store.findById(request.storeId);
       if (!store)
         return res.status(404).json({ message: "Store not found" });
@@ -285,6 +291,8 @@ exports.withdrawal = async (req, res) => {
       store.wallet = Math.max(0, store.wallet - request.amount);
       await store.save();
     }
+
+    await request.save();
 
     return res.status(200).json({
       message: `Withdrawal request ${request.status.toLowerCase()} successfully`,

@@ -299,7 +299,7 @@ exports.updateBannerStatus = async (req, res) => {
 };
 
 exports.getAllBanner=async (req,res) => {
-  const allBanner = await Banner.find()
+  const allBanner = await Banner.find().sort({ createdAt: -1 });
   res.json(allBanner)
 }
 

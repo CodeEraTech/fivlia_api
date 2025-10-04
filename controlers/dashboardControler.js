@@ -196,7 +196,7 @@ exports.getWithdrawalRequest = async (req, res) => {
     if (type === "seller") {
       // Fetch all seller withdrawal requests
       const requests = await store_transaction
-        .find({ type: "debit" })
+        .find({ type: "debit",status:"Pending" })
         .sort({ createdAt: -1 });
 
       // Enrich each request with seller details
@@ -258,16 +258,20 @@ exports.getWithdrawalRequest = async (req, res) => {
 
 exports.withdrawal = async (req, res) => {
   try {
-    const { id, type, action } = req.params; // action: 'accept' or 'decline'
-    const { note, image } = req.body;
-console.log(127127878)
+    const { id, action, type } = req.params;
+    const { note, image } = req.body || {};
+
     if (type === "seller"){
       
-    const request = await store_transaction.find({'storeId':id,type:"debit"});
-  console.log(373477347,request)
+    const request = await store_transaction.findOne({'storeId':id,type:"debit",status:"Pending"});
+  
+      const defaultNotes = {
+        accept: "The withdrawal request has been accepted successfully.",
+        decline: "The withdrawal request has been declined.",
+      };
    
     request.status = action === "accept" ? "Accepted" : "Declined";
-    request.Note = note; // default note
+    request.Note = note || defaultNotes[action];
     if (image) request.image = image;
 
     await request.save();

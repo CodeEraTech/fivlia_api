@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Category = require('../modals/category');
 const Banner = require('../modals/banner');
+const Store = require("../modals/store");
 const Filter = require("../modals/filter");     
 const brand = require('../modals/brand')
 const { getBannersWithinRadius } = require('../config/google');
@@ -70,23 +71,29 @@ exports.banner = async (req,res) => {
     let foundSubCategory = null;
     let foundSubSubCategory = null;
     let foundBrand = null;
+    let foundStore = null;
 
     if (type2 === "Brand") {
       foundBrand = await brand.findOne({ _id: brandId });
-      if (!foundBrand) return res.status(404).json({ message: 'Brand not found' });
-    } else {
+      if (!foundBrand) return res.status(204).json({ message: 'Brand not found' });
+    } 
+     else if (type2 === "Store") {
+      foundStore = await Store.findOne({ _id: storeId });
+      if (!foundStore) return res.status(204).json({ message: 'Store not found' });
+    } 
+    else {
       if (!mainCategory) return res.status(400).json({ message: 'Main category is required' });
 
       foundCategory = await Category.findOne({ _id: mainCategory });
-      if (!foundCategory) return res.status(404).json({ message: `Category ${mainCategory} not found` });
+      if (!foundCategory) return res.status(204).json({ message: `Category ${mainCategory} not found` });
 
       if (subCategory) {
         foundSubCategory = foundCategory.subcat.find(sub => sub._id.toString() === subCategory);
-        if (!foundSubCategory) return res.status(404).json({ message: `SubCategory ${subCategory} not found` });
+        if (!foundSubCategory) return res.status(204).json({ message: `SubCategory ${subCategory} not found` });
 
         if (subSubCategory) {
           foundSubSubCategory = foundSubCategory.subsubcat.find(subsub => subsub._id.toString() === subSubCategory);
-          if (!foundSubSubCategory) return res.status(404).json({ message: `SubSubCategory ${subSubCategory} not found` });
+          if (!foundSubSubCategory) return res.status(204).json({ message: `SubSubCategory ${subSubCategory} not found` });
         }
       } else if (subSubCategory) {
         return res.status(400).json({ message: "Cannot provide subSubCategory without subCategory" });
@@ -99,7 +106,6 @@ if (foundCategory) {
   if (foundSubCategory) slug += `/${foundSubCategory._id}`;
   if (foundSubSubCategory) slug += `/${foundSubSubCategory._id}`;
 }
-
 
    const newBanner = await Banner.create({image,type2,
     city: { _id: cityDoc._id, name: cityDoc.city },

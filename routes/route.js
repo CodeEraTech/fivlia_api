@@ -46,6 +46,7 @@ const {
   walletAdmin,
   adminTranaction,
   getWithdrawalRequest,
+  withdrawal,
 } = require("../controlers/dashboardControler");
 const { getDeliveryEstimate } = require("../controlers/DeliveryControler");
 
@@ -80,6 +81,7 @@ const {
   verifyOtpSeller,
   editSellerProfile,
   sellerWithdrawalRequest,
+  getAllStore
 } = require("../controlers/sellerControlers/sellerAuth");
 
 const {
@@ -213,6 +215,9 @@ const {
   setDefault,
 } = require("../controlers/areaControler");
 
+
+router.put("/withdrawal/:id/:action/:type",upload, withdrawal);
+
 router.post("/Login", Login);
 router.post("/verifyOtp", verifyOtp);
 router.post("/signin", signin);
@@ -231,7 +236,7 @@ router.post("/verifyPayment", verifyPayment);
 router.post("/filter", filter);
 router.post("/createStore", upload, createStore);
 router.post("/Product/bulk", upload, bulkProductUpload),
-  router.put("/adminSetting",upload, adminSetting);
+router.put("/adminSetting",upload, adminSetting);
 router.post("/addFilter", addFilter);
 router.post("/address", verifyToken, addAddress);
 router.post("/updateStock/:productId", updateStock);
@@ -278,6 +283,7 @@ router.get("/getUnapprovedProducts", getUnapprovedProducts);
 router.post("/saveBrandApprovelDocument", upload, saveBrandApprovelDocument);
 
 router.get("/checkSimilarProduct/:productId", verifyToken, checkSimilarProduct);
+router.get("/getAllStore", getAllStore);
 router.get("/getSeller", getSeller);
 router.get("/getSellerRequest", getSellerRequest);
 router.get("/getCategoryProduct", getCategoryProduct);

@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Category = require('../modals/category');
 const Banner = require('../modals/banner');
+const Store = require("../modals/store");
 const Filter = require("../modals/filter");     
 const brand = require('../modals/brand')
 const { getBannersWithinRadius } = require('../config/google');
@@ -43,7 +44,7 @@ exports.update = async (req, res) => {
 
 exports.banner = async (req,res) => {
   try {
-   let {title,type,city,zones,mainCategory,subCategory,subSubCategory,brand:brandId,status,type2}=req.body
+   let {title,type,city,zones,mainCategory,subCategory,subSubCategory,brand:brandId,status,type2,storeId}=req.body
       const rawImagePath = req.files?.image?.[0]?.key || "";
     const image = rawImagePath ? `/${rawImagePath}` : "";
 
@@ -70,23 +71,29 @@ exports.banner = async (req,res) => {
     let foundSubCategory = null;
     let foundSubSubCategory = null;
     let foundBrand = null;
+    let foundStore = null;
 
     if (type2 === "Brand") {
       foundBrand = await brand.findOne({ _id: brandId });
-      if (!foundBrand) return res.status(404).json({ message: 'Brand not found' });
-    } else {
+      if (!foundBrand) return res.status(204).json({ message: 'Brand not found' });
+    } 
+     else if (type2 === "Store") {
+      foundStore = await Store.findOne({ _id: storeId });
+      if (!foundStore) return res.status(204).json({ message: 'Store not found' });
+    } 
+    else {
       if (!mainCategory) return res.status(400).json({ message: 'Main category is required' });
 
       foundCategory = await Category.findOne({ _id: mainCategory });
-      if (!foundCategory) return res.status(404).json({ message: `Category ${mainCategory} not found` });
+      if (!foundCategory) return res.status(204).json({ message: `Category ${mainCategory} not found` });
 
       if (subCategory) {
         foundSubCategory = foundCategory.subcat.find(sub => sub._id.toString() === subCategory);
-        if (!foundSubCategory) return res.status(404).json({ message: `SubCategory ${subCategory} not found` });
+        if (!foundSubCategory) return res.status(204).json({ message: `SubCategory ${subCategory} not found` });
 
         if (subSubCategory) {
           foundSubSubCategory = foundSubCategory.subsubcat.find(subsub => subsub._id.toString() === subSubCategory);
-          if (!foundSubSubCategory) return res.status(404).json({ message: `SubSubCategory ${subSubCategory} not found` });
+          if (!foundSubSubCategory) return res.status(204).json({ message: `SubSubCategory ${subSubCategory} not found` });
         }
       } else if (subSubCategory) {
         return res.status(400).json({ message: "Cannot provide subSubCategory without subCategory" });
@@ -100,16 +107,24 @@ if (foundCategory) {
   if (foundSubSubCategory) slug += `/${foundSubSubCategory._id}`;
 }
 
-
    const newBanner = await Banner.create({image,type2,
-    city: { _id: cityDoc._id, name: cityDoc.city } ,title,type:bannerType,
+    city: { _id: cityDoc._id, name: cityDoc.city },
+    title,
+    type:bannerType,
+
     mainCategory: foundCategory
     ? { _id: foundCategory._id, name: foundCategory.name, slug: slugify(foundCategory.name, { lower: true }) }: null,
+
     subCategory:foundSubCategory? { _id: foundSubCategory._id, name: foundSubCategory.name, slug: slugify(foundSubCategory.name, { lower: true }) }: null,
+
     subSubCategory: foundSubSubCategory? { _id: foundSubSubCategory._id, name: foundSubSubCategory.name,slug: slugify(foundSubSubCategory.name, { lower: true }) }: null,
+
     brand: foundBrand
     ? { _id: foundBrand._id, name: foundBrand.brandName, slug: slugify(foundBrand.brandName, { lower: true }) }: null,
-    status,zones
+
+    status,
+    storeId,
+    zones
   })
    return res.status(200).json({message:'Banner Added Successfully',newBanner})
 } catch (error) {
@@ -158,7 +173,7 @@ exports.getBanner = async (req, res) => {
       filters.type = type;
     }
 
-    const allBanners = await Banner.find(filters).lean();
+    const allBanners = await Banner.find(filters).lean().sort({ createdAt: -1 });
     const matchedBanners =await getBannersWithinRadius(userLat, userLng, allBanners);
     // console.log(matchedBanners)
     // console.log("🎯 All banners fetched:", allBanners.length);
@@ -193,7 +208,7 @@ exports.updateBannerStatus = async (req, res) => {
     const { id } = req.params;
     const {
       status, title, city, zones, type2, address,
-      latitude, longitude, mainCategory, subCategory, subSubCategory, range,brand:brandId
+      latitude, longitude, mainCategory, subCategory, subSubCategory, range,brand:brandId, storeId
     } = req.body;
 
     const rawImagePath = req.files?.image?.[0]?.key;
@@ -211,14 +226,20 @@ exports.updateBannerStatus = async (req, res) => {
 
  if (brandId) {
       const foundBrand = await brand.findById(brandId).lean();
-      if (!foundBrand) return res.status(404).json({ message: `Brand ${brandId} not found` });
+      if (!foundBrand) return res.status(204).json({ message: `Brand ${brandId} not found` });
       updateData.brand = {
         _id: foundBrand._id,
         name: foundBrand.brandName,
         slug: slugify(foundBrand.brandName, { lower: true })
       };
     }    
-    // 🔹 Fetch and build category objects (like in addBanner)
+    
+    if (storeId) {
+      const foundStore = await Store.findById(storeId).lean();
+      if (!foundStore) return res.status(204).json({ message: `Store ${storeId} not found` });
+      updateData.storeId = foundStore._id;
+    }    
+
     if (mainCategory) {
       const foundCategory = await Category.findById(mainCategory).lean();
       if (!foundCategory) {
@@ -278,7 +299,7 @@ exports.updateBannerStatus = async (req, res) => {
 };
 
 exports.getAllBanner=async (req,res) => {
-  const allBanner = await Banner.find()
+  const allBanner = await Banner.find().sort({ createdAt: -1 });
   res.json(allBanner)
 }
 

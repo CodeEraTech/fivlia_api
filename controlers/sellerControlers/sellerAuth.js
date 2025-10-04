@@ -869,6 +869,7 @@ exports.sellerWithdrawalRequest = async (req, res) => {
       withdrawal = await store_transaction.create({
         storeId: storeData._id,
         amount,
+        currentAmount:storeData.wallet,
         type: "debit",
         description: `Withdrawal request of ₹${amount} by seller`,
         status: "Pending",
@@ -885,6 +886,26 @@ exports.sellerWithdrawalRequest = async (req, res) => {
     return res
       .status(500)
       .json({ message: "Server error", error: error.message });
+  }
+};
+
+exports.getAllStore = async (req, res) => {
+  try {
+    const stores = await seller.find().select("storeName _id city");
+
+    // Return success response
+    return res.status(200).json({
+      success: true,
+      count: stores.length,
+      stores,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
 

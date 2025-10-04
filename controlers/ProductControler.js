@@ -1038,9 +1038,9 @@ exports.searchProduct = async (req, res) => {
 
       if (bestStore) {
         product.storeId = bestStore._id;
-        product.soldBy = bestStore.soldBy?.storeName || bestStore.storeName;
+        product.storeName = bestStore.soldBy?.storeName || bestStore.storeName;
       } else {
-        product.soldBy = {};
+        product.storeName = {};
       }
     }
 

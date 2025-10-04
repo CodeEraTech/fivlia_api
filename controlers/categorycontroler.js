@@ -173,7 +173,7 @@ exports.getBanner = async (req, res) => {
       filters.type = type;
     }
 
-    const allBanners = await Banner.find(filters).lean();
+    const allBanners = await Banner.find(filters).lean().sort({ createdAt: -1 });
     const matchedBanners =await getBannersWithinRadius(userLat, userLng, allBanners);
     // console.log(matchedBanners)
     // console.log("🎯 All banners fetched:", allBanners.length);

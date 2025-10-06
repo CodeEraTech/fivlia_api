@@ -32,7 +32,10 @@ if(!exist){
 if(exist.password !== password){
     return res.status(400).json({message:"Invalid Credentials"})
 }
-await driver.findOneAndUpdate(  { _id: exist._id },{ fcmToken: fcmToken },{new:true})
+if (fcmToken) {
+  await driver.findByIdAndUpdate(exist._id, { fcmToken });
+}
+
 const token = jwt.sign({ _id: exist._id }, process.env.jwtSecretKey);
 return res.status(200).json({message:"Login Successful",   DriverDetails: {
         id: exist._id,

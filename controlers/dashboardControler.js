@@ -272,8 +272,7 @@ exports.withdrawal = async (req, res) => {
    
     request.status = action === "accept" ? "Accepted" : "Declined";
     request.Note = note || defaultNotes[action];
-    console.log(image)
-    if (image) request.image = image;
+    if (req.files?.image?.[0]) request.image = `/${req.files.image?.[0].key}`;
 
     if (action === "accept") {
 
@@ -304,8 +303,3 @@ exports.withdrawal = async (req, res) => {
     return res.status(500).json({ message: "Server Error", error: error.message });
   }
 };
-
-//  const defaultNotes = {
-//         accept: "The withdrawal request has been accepted successfully.",
-//         decline: "The withdrawal request has been declined.",
-//       };

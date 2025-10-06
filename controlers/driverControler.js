@@ -7,6 +7,7 @@ const {SettingAdmin} = require('../modals/setting')
 const request = require('request');
 const {getAgenda} = require("../config/agenda");
 const Address = require('../modals/Address')
+const mongoose = require('mongoose');
 const OtpModel = require("../modals/otp")
 const admin_transaction = require('../modals/adminTranaction')
 const store_transaction = require('../modals/storeTransaction')
@@ -302,6 +303,19 @@ exports.driverWallet = async (req, res) => {
     const order = await Order.findOne({ orderId });
     if (!order || order.orderStatus !== "Delivered") {
       return res.status(400).json({ message: "Invalid order or not delivered" });
+    }
+
+    const driverObjectId = mongoose.Types.ObjectId.isValid(order.driver.driverId)
+      ? new mongoose.Types.ObjectId(order.driver.driverId)
+      : null;
+
+    const checkTransaction = await Transaction.findOne({
+      orderId: order._id,
+      driverId: driverObjectId,
+    });
+
+    if (checkTransaction) {
+      return res.status(200).json({ message: "Payout already processed for this order" });
     }
 
     const payout = order.deliveryPayout;

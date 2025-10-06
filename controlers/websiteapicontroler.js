@@ -17,6 +17,7 @@ const { SettingAdmin } = require("../modals/setting");
 const { getDistance } = require("../config/Ola");
 const page = require("../modals/pages");
 const Store = require("../modals/store");
+const { lte } = require("zod/v4-mini");
 
 exports.forwebbestselling = async (req, res) => {
   try {
@@ -237,6 +238,7 @@ exports.forwebbestselling = async (req, res) => {
 exports.forwebgetProduct = async (req, res) => {
   try {
     const {
+      seller,
       category,
       subCategory,
       subSubCategory,
@@ -252,11 +254,18 @@ exports.forwebgetProduct = async (req, res) => {
     const skip = (page - 1) * limit;
 
     // 1. Get allowed stores by location
-    const stores = await getStoresWithinRadius(lat, lng);
-
-    const allowedStores = Array.isArray(stores?.matchedStores)
-      ? stores.matchedStores
-      : [];
+    let allowedStores = [];
+    if (seller) {
+      const store = await Store.findById(seller).lean();
+      if (store) {
+        allowedStores = [store];
+      }
+    } else {
+      const stores = await getStoresWithinRadius(lat, lng);
+      allowedStores = Array.isArray(stores?.matchedStores)
+        ? stores.matchedStores
+        : [];
+    }
 
     const allowedStoreIds = allowedStores.map((s) => s._id.toString());
 
@@ -513,13 +522,24 @@ exports.forwebgetProduct = async (req, res) => {
 // Website: Get Product count by category
 exports.getCategoryCounts = async (req, res) => {
   try {
-    const { category, subCategory, subSubCategory, lat, lng } = req.query;
+    const { seller, category, subCategory, subSubCategory, lat, lng } =
+      req.query;
 
     // Determine allowed store IDs by location
-    const stores = await getStoresWithinRadius(lat, lng);
-    const allowedStores = Array.isArray(stores?.matchedStores)
-      ? stores.matchedStores
-      : [];
+    console.log(seller,3284389);
+    let allowedStores = [];
+    if (seller) {
+      const store = await Store.findById(seller).lean();
+      if (store) {
+        allowedStores = [store];
+      }
+    } else {
+      const stores = await getStoresWithinRadius(lat, lng);
+      allowedStores = Array.isArray(stores?.matchedStores)
+        ? stores.matchedStores
+        : [];
+    }
+
     const allowedStoreIds = allowedStores.map((s) => s._id.toString());
 
     if (!allowedStoreIds.length) {

@@ -21,7 +21,8 @@ items: [
  thermalInvoice: { type: String },
  deliveryPayout:Number,
  transactionId:String,
- driver:{driverId:String,name:String,mobileNumber:String}
+ driver:{driverId:String,name:String,mobileNumber:String},
+ deliverStatus:{type:Boolean,default:false}
 },{timestamps:true});
 
 // models/TempOrder.js

@@ -203,7 +203,7 @@ const totalCommission = order.items.reduce((sum, item) => {
 
   const statusUpdate = await Order.findOneAndUpdate(
     { orderId },
-    { orderStatus, storeInvoiceId,feeInvoiceId },
+    { orderStatus, storeInvoiceId,feeInvoiceId,deliverStatus: true },
     { new: true }
   );
 

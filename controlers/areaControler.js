@@ -344,7 +344,7 @@ exports.getAddress = async (req,res) => {
     //   Address.findByIdAndUpdate(addr._id, { default: matched && addr._id.equals(matched._id) })
     // ));
 
-  const addresses = await Address.find({ userId: id }).sort({ createdAt: -1 });
+  const addresses = await Address.find({ userId: id,isDeleted:{$ne:true} }).sort({ createdAt: -1 });
 
     res.status(200).json({
       addresses,
@@ -372,7 +372,7 @@ return res.status(200).json({message:"Address Updated Successfuly"})
 exports.deleteAddress = async (req,res) => {
 try {
   const {id} = req.params
-  const deleteAddress = await Address.findByIdAndDelete(id) 
+  const deleteAddress = await Address.findByIdAndUpdate(id,{isDeleted:true},{ new: true }) 
   return res.status(200).json({message:"Address Delete Successfuly",deleteAddress})
 } catch (error) {
   console.error(error);

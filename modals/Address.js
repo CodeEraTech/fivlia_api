@@ -14,6 +14,7 @@ const addressSchema = new mongoose.Schema({
   latitude:{type:Number},
   longitude:{type:Number},
   range:{type:Number,default:5000},
+  isDeleted:{type:Boolean, default:false},
   city: {type:String},
   addressType: { type: String, enum: ['home', 'work', 'other', 'default'] },
   default:{type:Boolean,default:false}

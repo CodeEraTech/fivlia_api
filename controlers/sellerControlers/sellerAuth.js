@@ -204,11 +204,11 @@ exports.getSellerRequest = async (req, res) => {
   try {
     const [requests, locationRequests,imageRequest, productRequest, brandRequest] =
       await Promise.all([
-        seller.find({ approveStatus: "pending_admin_approval" }),
-        seller.find({ "pendingAddressUpdate.status": "pending" }),
-      seller.find({"pendingAdvertisementImages.status": "pending","pendingAdvertisementImages.image.0": { $exists: true }}).select("storeName email PhoneNumber ownerName zone pendingAdvertisementImages"),
-        Products.find({ sellerProductStatus: "pending_admin_approval" }),
-        Products.find({ sellerProductStatus: "submit_brand_approval" }),
+        seller.find({ approveStatus: "pending_admin_approval" }).sort({ createdAt: -1 }),
+        seller.find({ "pendingAddressUpdate.status": "pending" }).sort({ createdAt: -1 }),
+      seller.find({"pendingAdvertisementImages.status": "pending","pendingAdvertisementImages.image.0": { $exists: true }}).select("storeName email PhoneNumber ownerName zone pendingAdvertisementImages").sort({ createdAt: -1 }),
+        Products.find({ sellerProductStatus: "pending_admin_approval" }).sort({ createdAt: -1 }),
+        Products.find({ sellerProductStatus: "submit_brand_approval" }).sort({ createdAt: -1 }),
       ]);
 
     return res

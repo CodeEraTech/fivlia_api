@@ -22,6 +22,7 @@ const {
   contactUs,
   getAllSellerProducts,
   getCategoryCounts,
+  getTopSeller,
 } = require("../controlers/websiteapicontroler");
 
 const {
@@ -81,7 +82,7 @@ const {
   verifyOtpSeller,
   editSellerProfile,
   sellerWithdrawalRequest,
-  getAllStore
+  getAllStore,
 } = require("../controlers/sellerControlers/sellerAuth");
 
 const {
@@ -101,7 +102,7 @@ const {
   getSettings,
   adminSetting,
   getSmsType,
-  getTax
+  getTax,
 } = require("../controlers/settingControler");
 const {
   users,
@@ -115,7 +116,13 @@ const {
   verifyOtp,
 } = require("../controlers/authControler");
 
-const { intro, getIntro, getEvent, addEvent, editEvent} = require('../controlers/controlers')
+const {
+  intro,
+  getIntro,
+  getEvent,
+  addEvent,
+  editEvent,
+} = require("../controlers/controlers");
 
 const {
   placeOrder,
@@ -215,8 +222,7 @@ const {
   setDefault,
 } = require("../controlers/areaControler");
 
-
-router.put("/withdrawal/:id/:action/:type",upload, withdrawal);
+router.put("/withdrawal/:id/:action/:type", upload, withdrawal);
 
 router.post("/Login", Login);
 router.post("/verifyOtp", verifyOtp);
@@ -236,7 +242,7 @@ router.post("/verifyPayment", verifyPayment);
 router.post("/filter", filter);
 router.post("/createStore", upload, createStore);
 router.post("/Product/bulk", upload, bulkProductUpload),
-router.put("/adminSetting",upload, adminSetting);
+  router.put("/adminSetting", upload, adminSetting);
 router.post("/addFilter", addFilter);
 router.post("/address", verifyToken, addAddress);
 router.post("/updateStock/:productId", updateStock);
@@ -328,38 +334,38 @@ router.get("/website/forwebgetBanner", forwebgetBanner);
 router.get("/getPage", getPage);
 router.get("/getDetailsGst", getDetailsGst);
 router.get("/seller-products", getAllSellerProducts);
-router.get("/products-count", getCategoryCounts)
+router.get("/products-count", getCategoryCounts);
 router.post("/save-contact-us", contactUs);
+router.get("/top-seller", getTopSeller);
 
-
-router.get('/getTax', getTax)
-router.get('/completedOrders/:mobileNumber', completedOrders)
-router.get('/getDriverDetail/:id', getDriverDetail)
-router.get('/cancelOrders/:driverId', cancelOrders)
-router.get('/transactionList/:driverId', transactionList)
-router.get('/bestSelling', verifyToken, bestSelling)
-router.get('/search', verifyToken, searchProduct)
-router.get('/getUnit', getUnit)
-router.get('/getCart', verifyToken, getCart)
-router.get('/getDiscount', getDicount)
-router.get('/getVarients/:id', getVarients)
-router.get('/orders', getOrders);
-router.get('/getSettings', getSettings)
-router.get('/settings', verifyToken, settings);
-router.get('/getAddress', verifyToken, getAddress);
-router.get('/getStore', getStore);
-router.get('/relatedProduct/:productId', verifyToken, getRelatedProducts)
-router.get('/getFilter', getFilter);
-router.get('/getMainCategory', getMainCategory);
-router.get('/getDeliveryEstimate', verifyToken, getDeliveryEstimate);
-router.get('/getDeliveryEstimateForWebsite', getDeliveryEstimateForWebsite);
-router.get('/send-test-notification', test)
-router.get('/getdeliveryStatus', getdeliveryStatus)
-router.get('/GetSubSubCategories/:subcatId', GetSubSubCategories)
-router.get('/GetSubCategories/:categoryId', GetSubCategories)
-router.post('/getEvent', getEvent)
-router.post('/addEvent',upload, addEvent)
-router.put('/editEvent/:id',upload, editEvent)
+router.get("/getTax", getTax);
+router.get("/completedOrders/:mobileNumber", completedOrders);
+router.get("/getDriverDetail/:id", getDriverDetail);
+router.get("/cancelOrders/:driverId", cancelOrders);
+router.get("/transactionList/:driverId", transactionList);
+router.get("/bestSelling", verifyToken, bestSelling);
+router.get("/search", verifyToken, searchProduct);
+router.get("/getUnit", getUnit);
+router.get("/getCart", verifyToken, getCart);
+router.get("/getDiscount", getDicount);
+router.get("/getVarients/:id", getVarients);
+router.get("/orders", getOrders);
+router.get("/getSettings", getSettings);
+router.get("/settings", verifyToken, settings);
+router.get("/getAddress", verifyToken, getAddress);
+router.get("/getStore", getStore);
+router.get("/relatedProduct/:productId", verifyToken, getRelatedProducts);
+router.get("/getFilter", getFilter);
+router.get("/getMainCategory", getMainCategory);
+router.get("/getDeliveryEstimate", verifyToken, getDeliveryEstimate);
+router.get("/getDeliveryEstimateForWebsite", getDeliveryEstimateForWebsite);
+router.get("/send-test-notification", test);
+router.get("/getdeliveryStatus", getdeliveryStatus);
+router.get("/GetSubSubCategories/:subcatId", GetSubSubCategories);
+router.get("/GetSubCategories/:categoryId", GetSubCategories);
+router.post("/getEvent", getEvent);
+router.post("/addEvent", upload, addEvent);
+router.put("/editEvent/:id", upload, editEvent);
 
 router.put("/editProfile/:id", upload, editProfile);
 router.put("/driverWallet/:orderId", driverWallet);

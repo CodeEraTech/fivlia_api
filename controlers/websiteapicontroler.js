@@ -18,6 +18,7 @@ const { getDistance } = require("../config/Ola");
 const page = require("../modals/pages");
 const Store = require("../modals/store");
 const { lte } = require("zod/v4-mini");
+const Rating = require("../modals/rating");
 
 exports.forwebbestselling = async (req, res) => {
   try {
@@ -526,7 +527,7 @@ exports.getCategoryCounts = async (req, res) => {
       req.query;
 
     // Determine allowed store IDs by location
-    console.log(seller,3284389);
+    console.log(seller, 3284389);
     let allowedStores = [];
     if (seller) {
       const store = await Store.findById(seller).lean();
@@ -1553,5 +1554,49 @@ exports.getAllSellerProducts = async (req, res) => {
   } catch (error) {
     console.error("Error fetching seller products:", error);
     return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+exports.getTopSeller = async (req, res) => {
+  const { lat, lng } = req.query;
+  try {
+    const stores = await getStoresWithinRadius(lat, lng);
+    const allowedStores = Array.isArray(stores?.matchedStores)
+      ? stores.matchedStores
+      : [];
+
+    if (!allowedStores.length) {
+      return { error: "No stores found within the radius" };
+    }
+
+    const storeDetailsWithRatings = [];
+
+    for (const store of allowedStores) {
+      // Fetch ratings for the store
+      const ratings = await Rating.find({ storeId: store._id });
+
+      // Calculate average rating
+      const averageRating =
+        ratings.reduce((sum, rating) => sum + rating.rating, 0) /
+          ratings.length || 0;
+
+      // Construct store details with average rating
+      storeDetailsWithRatings.push({
+        storeName: store.storeName,
+        storeId: store._id,
+        image: store.image,
+        averageRating: averageRating.toFixed(1),
+      });
+    }
+
+    // Sort stores by averageRating in descending order (highest to lowest)
+    storeDetailsWithRatings.sort((a, b) => b.averageRating - a.averageRating);
+
+    return res.status(200).json({
+      storeDetailsWithRatings,
+    });
+  } catch (error) {
+    console.error("Error fetching seller:", error);
+    return res.status(500).json({ message: "Something went wrong." });
   }
 };

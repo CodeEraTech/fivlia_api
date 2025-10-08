@@ -30,4 +30,21 @@ async function FeeInvoiceId(increment = true) {
   }
 }
 
-module.exports = { getNextOrderId,FeeInvoiceId };
+
+async function requestId(increment = true) {
+  if (increment) {
+    const counter = await Counter.findOneAndUpdate(
+      { _id: 'requestId' },
+      { $inc: { seq: 1 } },
+      { new: true, upsert: true }
+    );
+    return `REQ${counter.seq.toString().padStart(3, '0')}`;
+  } else {
+    const counter = await Counter.findById('feeInvoiceId');
+    const seq = counter ? counter.seq + 1 : 1;
+    return `REQ${seq.toString().padStart(3, '0')}`;
+  }
+}
+
+
+module.exports = { getNextOrderId,FeeInvoiceId,requestId };

@@ -262,7 +262,6 @@ exports.withdrawal = async (req, res) => {
     const { note, image } = req.body || {};
 
     if (type === "seller"){
-      
     const request = await store_transaction.findOne({'storeId':id,type:"debit",status:"Pending"});
   
       const defaultNotes = {

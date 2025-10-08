@@ -438,7 +438,7 @@ exports.getSellerProducts = async (req, res) => {
       .skip(skip)
       .limit(parseInt(limit))
       .select(
-        "productName mrp sell_price productThumbnailUrl category subCategory subSubCategory variants sku"
+        "productName mrp sku sell_price productThumbnailUrl category subCategory subSubCategory variants sku"
       )
       .populate({ path: "category", model: "Category" })
       .lean();
@@ -499,6 +499,7 @@ exports.getSellerProducts = async (req, res) => {
           sellerProductId: sp._id,
           productId: prod._id,
           productName: prod.productName,
+          sku:prod.sku,
           productThumbnailUrl: prod.productThumbnailUrl,
           category: categoryName,
           mrp: sp.mrp == 0 ? prod.mrp : sp.mrp,

@@ -13,6 +13,7 @@ const Stock = require("../../modals/StoreStock");
 const jwt = require("jsonwebtoken");
 const sellerProduct = require("../../modals/sellerModals/sellerProduct");
 const store_transaction = require("../../modals/storeTransaction");
+const { requestId } = require("../../config/counter");
 const { whatsappOtp } = require("../../config/whatsappsender");
 
 exports.addSeller = async (req, res) => {
@@ -821,20 +822,18 @@ exports.editSellerProfile = async (req, res) => {
 exports.sellerWithdrawalRequest = async (req, res) => {
   try {
     const { storeId, amount } = req.body;
-
     const storeData = await seller.findById(storeId);
     if (!storeData)
       return res.status(204).json({ message: "Seller not found" });
 
     const settings = await SettingAdmin.findOne();
     const minWithdrawal = settings?.minWithdrawal || 0;
-
     if (amount < minWithdrawal) {
       return res
         .status(400)
         .json({ message: `Minimum withdrawal amount is ₹${minWithdrawal}` });
     }
-
+let request = await requestId(true);
     const pendingWithdrawals = await store_transaction.aggregate([
       { $match: { storeId: storeData._id, status: "Pending", type: "debit" } },
       { $group: { _id: null, totalPending: { $sum: "$amount" } } },
@@ -867,6 +866,7 @@ exports.sellerWithdrawalRequest = async (req, res) => {
     } else {
       // Create new withdrawal request
       withdrawal = await store_transaction.create({
+        requestId:request,
         storeId: storeData._id,
         amount,
         currentAmount:storeData.wallet,

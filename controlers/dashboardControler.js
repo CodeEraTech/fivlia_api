@@ -9,6 +9,7 @@ const Driver = require("../modals/driver");
 const admin_transaction = require('../modals/adminTranaction')
 const store_transaction = require('../modals/storeTransaction')
 const Transaction = require('../modals/driverModals/transaction')
+const Stock = require("../modals/StoreStock");
 
 exports.getDashboardStats = async (req, res) => {
   try {
@@ -113,13 +114,35 @@ exports.getStoreDashboardStats = async (req, res) => {
 
     const categoryIds = store.Category || [];
 
-    const totalCategories = categoryIds.length;
-
-    const totalProducts = await Product.countDocuments({
-    "category._id": { $in: categoryIds },
-    });
-
     const storeStatus = store.status
+
+    let totalCategories = 0;
+    let totalProducts = 0;
+
+    if (store.Authorized_Store === true) {
+      // ✅ Authorized Store: Use `Category` field
+      const categoryIds = store.Category || [];
+      totalCategories = categoryIds.length;
+
+      totalProducts = await Product.countDocuments({
+        "category._id": { $in: categoryIds },
+      });
+    } else {
+      const sellerCats = store.sellerCategories || [];
+
+      // count all categories
+      totalCategories = sellerCats.length;
+
+      // find products from stock
+      const stockData = await Stock.findOne({ storeId }).lean();
+
+      if (stockData?.stock?.length) {
+        totalProducts = stockData.stock.length;
+      } else {
+        totalProducts = 0;
+      }
+    }
+
     // Recent Orders (20)
     const recentOrders = await Order.find({ storeId: storeId })
       .sort({ createdAt: -1 })

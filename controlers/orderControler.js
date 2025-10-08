@@ -58,6 +58,7 @@ exports.placeOrder = async (req, res) => {
     let totalPrice = itemsTotal;
     if (itemsTotal >= chargesData.freeDeliveryLimit) {
       totalPrice = itemsTotal + platformFeeAmount;
+      deliveryChargeRaw = 0;
     } else {
       totalPrice = itemsTotal + deliveryChargeRaw + platformFeeAmount;
     }

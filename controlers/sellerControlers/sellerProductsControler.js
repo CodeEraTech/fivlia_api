@@ -742,7 +742,7 @@ exports.getUnapprovedProducts = async (req, res) => {
 
     const query = {
       addedBy: sellerId,
-      //sellerProductStatus: "pending_admin_approval",
+      sellerProductStatus: { $ne: "approved" },
       productName: { $regex: search, $options: "i" },
     };
     const total = await Product.countDocuments(query);

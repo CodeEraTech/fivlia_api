@@ -594,7 +594,15 @@ exports.getExistingProductList = async (req, res) => {
         { "category.name": regex },
         { "subCategory.name": regex },
         { "subSubCategory.name": regex },
-      ],
+      ], sellerProductStatus: {
+    $nin: [
+      "pending_admin_approval",
+      "request_brand_approval",
+      "submit_brand_approval",
+      "rejected"
+    ]
+  }
+
     })
       .select(
         "productName productThumbnailUrl sku brand_Name category subCategory subSubCategory"

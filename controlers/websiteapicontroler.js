@@ -526,37 +526,31 @@ exports.getCategoryCounts = async (req, res) => {
     const { seller, category, subCategory, subSubCategory, lat, lng } =
       req.query;
 
-    // Determine allowed store IDs by location
-    console.log(seller, 3284389);
-    let allowedStores = [];
-    if (seller) {
-      const store = await Store.findById(seller).lean();
-      if (store) {
-        allowedStores = [store];
-      }
-    } else {
-      const stores = await getStoresWithinRadius(lat, lng);
-      allowedStores = Array.isArray(stores?.matchedStores)
-        ? stores.matchedStores
-        : [];
-    }
-
-    const allowedStoreIds = allowedStores.map((s) => s._id.toString());
-
-    if (!allowedStoreIds.length) {
-      return res.json({
-        counts: {
-          main: {},
-          subcat: {},
-          subsubcat: {},
-        },
-      });
-    }
-
     // Build base product query filtering by stock presence
     const productQuery = {};
 
     // Apply filters same as your main endpoint
+    if (seller) {
+      const stockData = await Stock.find({ storeId: seller }).lean();
+      const stockEntries = stockData.flatMap((doc) => doc.stock || []);
+
+      if (!stockData || stockData.length === 0) {
+        return res
+          .status(404)
+          .json({ message: "No stock data found for this seller." });
+      }
+
+      let productIds = stockEntries.map((s) => s.productId).filter(Boolean);
+      if (productIds.length === 0) {
+        return res
+          .status(404)
+          .json({
+            success: false,
+            message: "No products found for this seller",
+          });
+      }
+      productQuery["_id"] = { $in: productIds };
+    }
     if (category) {
       const catArr = Array.isArray(category) ? category : [category];
       productQuery["category._id"] = { $in: catArr };

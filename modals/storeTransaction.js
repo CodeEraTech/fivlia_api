@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const storeSchema = new mongoose.Schema({
+   requestId:String,
    currentAmount:Number,
    lastAmount:Number,
    type:String,

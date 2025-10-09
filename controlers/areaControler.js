@@ -308,7 +308,6 @@ exports.addAddress = async (req, res) => {
   }
 };
 
-
 exports.getAddress = async (req,res) => {
  try {
   const {id} = req.user; 

@@ -42,6 +42,7 @@ const storeScheema = new mongoose.Schema({
     sellerSignature:{type:String},
     fcmToken: { type: String, default: null },
     fcmTokenMobile: { type: String, default: null },
+    fivliaAssured:{type:Boolean,default:false},
     pendingAdvertisementImages:{image:[{type:String}],status:{type:String,enum: ['pending', 'approved', 'rejected']}},
     sellerCategories: [
         {

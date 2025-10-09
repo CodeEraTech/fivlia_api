@@ -438,7 +438,7 @@ exports.getSellerProducts = async (req, res) => {
       .skip(skip)
       .limit(parseInt(limit))
       .select(
-        "productName mrp sell_price productThumbnailUrl category subCategory subSubCategory variants sku"
+        "productName mrp sku sell_price productThumbnailUrl category subCategory subSubCategory variants sku"
       )
       .populate({ path: "category", model: "Category" })
       .lean();
@@ -499,6 +499,7 @@ exports.getSellerProducts = async (req, res) => {
           sellerProductId: sp._id,
           productId: prod._id,
           productName: prod.productName,
+          sku:prod.sku,
           productThumbnailUrl: prod.productThumbnailUrl,
           category: categoryName,
           mrp: sp.mrp == 0 ? prod.mrp : sp.mrp,
@@ -593,7 +594,15 @@ exports.getExistingProductList = async (req, res) => {
         { "category.name": regex },
         { "subCategory.name": regex },
         { "subSubCategory.name": regex },
-      ],
+      ], sellerProductStatus: {
+    $nin: [
+      "pending_admin_approval",
+      "request_brand_approval",
+      "submit_brand_approval",
+      "rejected"
+    ]
+  }
+
     })
       .select(
         "productName productThumbnailUrl sku brand_Name category subCategory subSubCategory"
@@ -741,7 +750,7 @@ exports.getUnapprovedProducts = async (req, res) => {
 
     const query = {
       addedBy: sellerId,
-      //sellerProductStatus: "pending_admin_approval",
+      sellerProductStatus: { $ne: "approved" },
       productName: { $regex: search, $options: "i" },
     };
     const total = await Product.countDocuments(query);

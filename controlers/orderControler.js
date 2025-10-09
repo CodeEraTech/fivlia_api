@@ -14,6 +14,7 @@ const Notification = require("../modals/Notification");
 const Assign = require("../modals/driverModals/assignments");
 const sendNotification = require("../firebase/pushnotification");
 const Store = require("../modals/store");
+const { getStoresWithinRadius } = require('../config/google');
 const {
   generateAndSendThermalInvoice,
   generateStoreInvoiceId,
@@ -57,16 +58,34 @@ exports.placeOrder = async (req, res) => {
     let totalPrice = itemsTotal;
     if (itemsTotal >= chargesData.freeDeliveryLimit) {
       totalPrice = itemsTotal + platformFeeAmount;
+      deliveryChargeRaw = 0;
     } else {
       totalPrice = itemsTotal + deliveryChargeRaw + platformFeeAmount;
     }
 
     const paymentOption = cartItems[0].paymentOption;
 
-    if (paymentMode === true && paymentOption !== true) {
-      return res
-        .status(401)
-        .json({ message: "Cash On Delivery is not available in your zone" });
+    // if (paymentMode === true && paymentOption !== true) {
+    //   return res
+    //     .status(401)
+    //     .json({ message: "Cash On Delivery is not available in your zone" });
+    // }
+
+    const address = await Address.findById(addressId)
+
+    const userLat = address.latitude;
+    const userLng = address.longitude;
+
+    const { matchedStores } = await getStoresWithinRadius(userLat, userLng);
+
+    const storeExistsInZone = matchedStores.some(
+    (store) => store._id.toString() === storeId.toString()
+    );
+
+    if (!storeExistsInZone) {
+      return res.status(400).json({
+        message: "This store does not deliver to your address location.",
+      });
     }
 
     const userId = cartItems[0].userId;

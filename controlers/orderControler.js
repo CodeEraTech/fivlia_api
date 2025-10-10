@@ -28,6 +28,18 @@ const {
 
 const MAX_DISTANCE_METERS = 5000;
 
+const notifySeller = async (sellerDoc, title, body, clickAction = "/dashboard1", data = {}) => {
+  const tokens = [sellerDoc.fcmToken, sellerDoc.fcmTokenMobile].filter(Boolean);
+  for (const token of tokens) {
+    try {
+      await sendNotification(token, title, body, clickAction, data);
+    } catch (err) {
+      console.error("notifySeller: sendNotification failed for token", token, err?.message || err);
+    }
+  }
+};
+
+
 exports.placeOrder = async (req, res) => {
   try {
     const { cartIds, addressId, storeId, paymentMode } = req.body;
@@ -36,9 +48,9 @@ exports.placeOrder = async (req, res) => {
 
     const chargesData = await SettingAdmin.findOne();
 
-    const deliveryChargeRaw = chargesData.Delivery_Charges || 0;
-    const deliveryGstPercent = chargesData.Delivery_Charges_Gst || 0;
-    const totalDeliveryCharge =
+    let deliveryChargeRaw = chargesData.Delivery_Charges || 0;
+    let deliveryGstPercent = chargesData.Delivery_Charges_Gst || 0;
+    let totalDeliveryCharge =
       deliveryChargeRaw / (1 + deliveryGstPercent / 100);
 
     const cartItems = await Cart.find({ _id: { $in: cartIds } });
@@ -151,6 +163,15 @@ exports.placeOrder = async (req, res) => {
         );
         await Cart.deleteMany({ _id: { $in: cartIds } });
       }
+         const sellerDoc = await Store.findById(storeId);
+
+            if (sellerDoc) {
+              await notifySeller(
+                sellerDoc,
+                `New Order`,
+                `New Order:${newOrder.orderId} Comes.`
+              );
+            }
 
       return res
         .status(200)
@@ -250,6 +271,16 @@ exports.verifyPayment = async (req, res) => {
     await Cart.deleteMany({ _id: { $in: tempOrder.cartIds } });
     // 5. Delete the temp order
     await TempOrder.findByIdAndDelete(tempOrderId);
+
+    const sellerDoc = await Store.findById(tempOrder.storeId);
+
+    if (sellerDoc) {
+      await notifySeller(
+        sellerDoc,
+        `New Order`,
+        `New Order:${newOrder.orderId} Comes.`
+      );
+    }
 
     return res.status(200).json({
       status: paymentStatus ? true : false,
@@ -572,6 +603,17 @@ exports.orderStatus = async (req, res) => {
           deliverStatus: true,
         });
 
+       if (store?.fcmTokenMobile) {
+        await sendNotification(
+          store.fcmTokenMobile,
+          "Order Delivered 🎉",
+          `Driver delivered order #${updatedOrder.orderId}.`,
+          "/dashboard1",
+          { orderId: updatedOrder.orderId },
+          "default"
+        );
+      }
+
         try {
           await generateAndSendThermalInvoice(updatedOrder.orderId);
         } catch (err) {
@@ -584,15 +626,18 @@ exports.orderStatus = async (req, res) => {
 
       // 3. Send notification if FCM token valid and status exists
       if (user?.fcmToken && user.fcmToken !== "null" && statusInfo?.statusTitle) {
+        console.log(122626)
         await sendNotification(
           user.fcmToken,
           `📦 Order #${updatedOrder.orderId} - ${statusInfo.statusTitle}`,
           `Your order is now marked as ${statusInfo.statusTitle}`,
+          "/dashboard1",
           {
             image: statusInfo.image || "",
             orderId: updatedOrder.orderId,
             statusCode: statusInfo.statusCode,
-          }
+          },
+          "default"
         );
       }
 

@@ -40,7 +40,7 @@ exports.generateThermalInvoice = async (orderId) => {
       store,
       subtotal,
       gstTotal,
-      { dType: "seller" }
+      { dType: "admin" }
     );
 
     // Upload to AWS S3

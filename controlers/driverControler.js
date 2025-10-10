@@ -143,7 +143,9 @@ if (orderStatus === 'Delivered') {
     return res.status(400).json({ message: 'OTP expired' });
   }
 
-  const order = await Order.findOne({ orderId }).lean();
+  const order = await Order.findOne({ orderId }).populate("userId").lean();
+  const user = order.userId;
+
   if (!order) return res.status(404).json({ message: 'Order not found' });
 
   const storeBefore = await Store.findById(order.storeId).lean();
@@ -221,6 +223,24 @@ const totalCommission = order.items.reduce((sum, item) => {
   } catch (error) {
     console.error('Error generating thermal invoice:', error);
   }
+
+    if (user?.fcmToken) {
+        await admin.messaging().send({
+          token: user.fcmToken,
+          notification: { title: "Order Delivered 🎉", body: `Your order #${orderId} has been delivered successfully.` },
+          android: { notification: { channelId: "default_channel", sound: "default" } },
+          data: { type: "delivered", orderId },
+        });
+      }
+
+      if (store?.fcmToken) {
+        await admin.messaging().send({
+          token: store.fcmToken,
+          notification: { title: "Order Delivered 🎉", body: `Driver delivered order #${orderId}.` },
+          android: { notification: { channelId: "default_channel", sound: "default" } },
+          data: { type: "delivered", orderId },
+        });
+      }
 
   return res.status(200).json({
     message: 'Order Delivered Successfully',

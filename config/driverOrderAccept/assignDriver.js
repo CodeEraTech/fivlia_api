@@ -21,11 +21,54 @@ const assignWithBroadcast = async (order, drivers) => {
   }
 
   const retryCount = retryTracker.get(orderId) || 0;
-  if (retryCount >= MAX_RETRY_COUNT) {
-    await Order.findOneAndUpdate({ orderId }, { orderStatus: "Cancelled" });
-    console.error(`🚫 Max retry attempts reached for order ${orderId}.`);
-    return;
+if (retryCount >= MAX_RETRY_COUNT) {
+  await Order.findOneAndUpdate({ orderId }, { orderStatus: "Cancelled" });
+  console.error(`🚫 Max retry attempts reached for order ${orderId}.`);
+
+  try {
+    const orderData = await Order.findOne({ orderId })
+      .populate("userId")
+      .populate("storeId")
+      .lean();
+
+    if (orderData) {
+      const { userId: user, storeId: store } = orderData;
+
+      // ===== send to user =====
+      if (user?.fcmToken) {
+        await admin.messaging().send({
+          token: user.fcmToken,
+          notification: {
+            title: "Order Cancelled ❌",
+            body: `Your order #${orderId} was cancelled as no driver accepted.`,
+          },
+          android: {
+            notification: { channelId: "default_channel", sound: "default" },
+          },
+          data: { type: "cancelled", orderId },
+        });
+      }
+
+      // ===== send to store =====
+      if (store?.fcmTokenMobile) {
+        await admin.messaging().send({
+          token: store.fcmTokenMobile,
+          notification: {
+            title: "Order Cancelled ❌",
+            body: `Order #${orderId} got cancelled (no driver accepted).`,
+          },
+          android: {
+            notification: { channelId: "default_channel", sound: "default" },
+          },
+          data: { type: "cancelled", orderId },
+        });
+      }
+    }
+  } catch (e) {
+    console.error("⚠️ Auto-cancel push error:", e);
   }
+  return;
+}
 
   retryTracker.set(orderId, retryCount + 1);
 
@@ -234,7 +277,7 @@ const assignWithBroadcast = async (order, drivers) => {
       cleanupAllListeners();
       //assignWithBroadcast(order, drivers);
       const autoAssignDriver = require("./AutoAssignDriver");
-      autoAssignDriver(orderId);
+      autoAssignDriver(existingOrder._id);
     } else {
       console.log(`✅ Order ${orderId} assigned. Cleaning up.`);
       cleanupAllListeners();

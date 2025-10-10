@@ -540,7 +540,7 @@ exports.acceptDeclineRequest = async (req, res) => {
 
 exports.verifyOtpSeller = async (req, res) => {
   try {
-    const { email, otpEmail, PhoneNumber, otp, type, fcmToken,fcmTokenMobile} = req.body;
+    const { email, otpEmail, PhoneNumber, otp, type, fcmToken,token} = req.body;
 
     if (!PhoneNumber && !email) {
       return res
@@ -566,9 +566,9 @@ exports.verifyOtpSeller = async (req, res) => {
         return res.status(400).json({ message: "Invalid OTP" });
       }
 
-  if (fcmTokenMobile && typeof fcmTokenMobile === 'string' && fcmTokenMobile.trim() !== '') {
-  if (sellerDoc.fcmTokenMobile !== fcmTokenMobile) {
-    sellerDoc.fcmTokenMobile = fcmTokenMobile;
+  if (token && typeof token === 'string' && token.trim() !== '') {
+  if (sellerDoc.fcmTokenMobile !== token) {
+    sellerDoc.fcmTokenMobile = token;
     await sellerDoc.save();
   }
   }
@@ -580,7 +580,7 @@ exports.verifyOtpSeller = async (req, res) => {
   }
   }
 
-      const token = jwt.sign({ _id: sellerDoc._id }, process.env.jwtSecretKey, {
+      const jwttoken = jwt.sign({ _id: sellerDoc._id }, process.env.jwtSecretKey, {
         expiresIn: "1d",
       });
       await OtpModel.deleteOne({ _id: otpRecord._id });
@@ -589,7 +589,7 @@ exports.verifyOtpSeller = async (req, res) => {
         message: "Login successful",
         sellerId: sellerDoc._id,
         storeName: sellerDoc.storeName,
-        token,
+        token:jwttoken,
       });
     }
     // 1️⃣ Find OTP record

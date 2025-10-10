@@ -100,6 +100,14 @@ const authSettings = setting?.Auth?.[0] || {};
 
   if(whatsappStatus || website === true){
 
+    if (fcmToken && fcmToken !== "null") {
+        await User.updateOne(
+          { mobileNumber },
+          { $set: { fcmToken } },
+          { upsert: true }
+        );
+      }
+
       if (mobileNumber === "+919999999999") {
         await OtpModel.create({ mobileNumber, otp, expiresAt: Date.now() + 5 * 60 * 1000 });
         return res.status(200).json({ message: 'OTP sent via WhatsApp', otp });

@@ -128,6 +128,7 @@ exports.createStore = async (req, res) => {
       password,
       status,
       Description,
+      isAssured,
       Category: categoryInput,
     } = req.body;
 
@@ -241,6 +242,7 @@ exports.createStore = async (req, res) => {
       Category: finalCategoryIds,
       image,
       products: products.map((p) => p._id),
+      fivliaAssured: isAssured,
     });
 
     return res.status(201).json({
@@ -273,6 +275,7 @@ exports.storeEdit = async (req, res) => {
       password,
       status,
       Description,
+      isAssured,
       Category: categoryInput,
     } = req.body;
 
@@ -324,6 +327,7 @@ exports.storeEdit = async (req, res) => {
 
     if (status !== undefined) updateObj.status = status;
     if (Description) updateObj.Description = Description;
+    if (isAssured) updateObj.fivliaAssured = isAssured;
 
     // ✅ Category
     if (categoryInput) {

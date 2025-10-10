@@ -542,12 +542,10 @@ exports.getCategoryCounts = async (req, res) => {
 
       let productIds = stockEntries.map((s) => s.productId).filter(Boolean);
       if (productIds.length === 0) {
-        return res
-          .status(404)
-          .json({
-            success: false,
-            message: "No products found for this seller",
-          });
+        return res.status(404).json({
+          success: false,
+          message: "No products found for this seller",
+        });
       }
       productQuery["_id"] = { $in: productIds };
     }
@@ -1580,6 +1578,7 @@ exports.getTopSeller = async (req, res) => {
         storeId: store._id,
         image: store.image,
         averageRating: averageRating.toFixed(1),
+        isAssured: store.fivliaAssured || false,
       });
     }
 

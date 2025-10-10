@@ -232,7 +232,9 @@ const assignWithBroadcast = async (order, drivers) => {
       }
 
       cleanupAllListeners();
-      assignWithBroadcast(order, drivers);
+      //assignWithBroadcast(order, drivers);
+      const autoAssignDriver = require("./AutoAssignDriver");
+      autoAssignDriver(orderId);
     } else {
       console.log(`✅ Order ${orderId} assigned. Cleaning up.`);
       cleanupAllListeners();

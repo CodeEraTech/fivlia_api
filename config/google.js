@@ -4,7 +4,7 @@ const haversine = require("haversine-distance");
 const { ZoneData } = require("../modals/cityZone");
 const moment = require("moment");
 const fetch = (...args) =>
-  import("node-fetch").then(({ default: fetch }) => fetch(...args));
+import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 // 🧮 Calculate delivery time between store and user
 const calculateDeliveryTime = async (
@@ -93,51 +93,64 @@ function isWithinZone(userLat, userLng, zone) {
 }
 
 async function getStoresWithinRadius(userLat, userLng) {
+  // Load all active stores from DB
   let allStores = await Store.find({ status: true }).lean();
-  const currentTime = moment();
-  allStores = allStores.filter((store) => {
-    const { openTime, closeTime } = store;
-    // If openTime and closeTime exist, check time range
-    if (openTime && closeTime) {
-      const open = moment(openTime, "HH:mm");
-      const close = moment(closeTime, "HH:mm");
-      // Check if current time is between open and close
-      return currentTime.isBetween(open, close);
-    }
-    // If no time info, just check status (already true from query)
-    return true;
-  });
 
+  // Load zones and filter for active ones
   const cityZoneDocs = await ZoneData.find({});
   const activeZones = cityZoneDocs.flatMap((doc) =>
     doc.zones.filter((z) => z.status === true)
   );
 
+  // Match user's location to zones
   const matchedZones = activeZones.filter((zone) =>
     isWithinZone(userLat, userLng, zone)
   );
 
-  // ✅ If no matching zone found, return early with message
   if (matchedZones.length === 0) {
     return { zoneAvailable: false };
   }
 
   const matchedZoneIds = matchedZones.map((z) => z._id.toString());
 
-  const matchedStores = allStores
-    .filter((store) =>
-      store.zone.some((z) => matchedZoneIds.includes(z._id.toString()))
-    )
-    .map((store) => ({
-      ...store,
-      soldBy: {
-        storeId: store._id,
-        storeName: store.Authorized_Store ? "Fivlia" : store.storeName,
-        official: store.Authorized_Store ? 1 : 0,
-      },
-    }));
+  // Filter stores that belong to matched zones
+  const zoneStores = allStores.filter((store) =>
+    store.zone.some((z) => matchedZoneIds.includes(z._id.toString()))
+  );
 
-  return { zoneAvailable: true, matchedStores };
+  // Filter zone stores by time
+  const currentTime = moment();
+
+  const openStores = zoneStores.filter((store) => {
+    const { openTime, closeTime } = store;
+    if (openTime && closeTime) {
+      const open = moment(openTime, "HH:mm");
+      const close = moment(closeTime, "HH:mm");
+      return currentTime.isBetween(open, close);
+    }
+    return true;
+  });
+  if (openStores.length === 0) {
+    return {
+      zoneAvailable: true,
+      storesOpen: false,
+    };
+  }
+
+  // Map matched and open stores
+  const matchedStores = openStores.map((store) => ({
+    ...store,
+    soldBy: {
+      storeId: store._id,
+      storeName: store.Authorized_Store ? "Fivlia" : store.storeName,
+      official: store.Authorized_Store ? 1 : 0,
+    },
+  }));
+  return {
+    zoneAvailable: true,
+    storesOpen: true,
+    matchedStores,
+  };
 }
 
 function isWithinBanner(userLat, userLng, zone) {

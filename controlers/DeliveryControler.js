@@ -1,9 +1,13 @@
-const { calculateDeliveryTime, reverseGeocode, getStoresWithinRadius } = require('../config/google');
-const Store = require('../modals/store');
-const {SettingAdmin} = require('../modals/setting')
-const User = require('../modals/User');
-const { ZoneData } = require('../modals/cityZone');
-const { getDistance } = require('../config/Ola'); // Add Ola import
+const {
+  calculateDeliveryTime,
+  reverseGeocode,
+  getStoresWithinRadius,
+} = require("../config/google");
+const Store = require("../modals/store");
+const { SettingAdmin } = require("../modals/setting");
+const User = require("../modals/User");
+const { ZoneData } = require("../modals/cityZone");
+const { getDistance } = require("../config/Ola"); // Add Ola import
 
 function addFiveMinutes(durationText) {
   const match = durationText.match(/(\d+)\s*min/); // Extract number
@@ -18,23 +22,34 @@ function addFiveMinutes(durationText) {
 const getDeliveryEstimate = async (req, res) => {
   try {
     const { id } = req.user;
-    if (!id) return res.status(200).json({ status: false, message: "Missing user ID" });
+    if (!id)
+      return res
+        .status(200)
+        .json({ status: false, message: "Missing user ID" });
 
     const user = await User.findById(id);
     const currentLat = parseFloat(user?.location?.latitude);
     const currentLong = parseFloat(user?.location?.longitude);
 
     if (!currentLat || !currentLong) {
-      return res.status(200).json({ status: false, message: "User location not set" });
+      return res
+        .status(200)
+        .json({ status: false, message: "User location not set" });
     }
 
-    const { zoneAvailable, matchedStores } = await getStoresWithinRadius(currentLat, currentLong);
+    const { zoneAvailable,storesOpen, matchedStores } = await getStoresWithinRadius(
+      currentLat,
+      currentLong,
+    );
 
     if (!zoneAvailable) {
-      return res.json({ status: false, message: "Service zone not available" });
+      return res.json({ status: false,result: 0, message: "Service zone not available" });
     }
 
-    // Get admin settings for Map_Api
+    if (!storesOpen) {
+      return res.json({ status: false,result: 1, message: "All Store Is Closed" });
+    }
+    
     const settings = await SettingAdmin.findOne().lean();
     const mapApiArray = settings?.Map_Api || [];
     const mapApi = mapApiArray[0] || {};
@@ -60,38 +75,40 @@ const getDeliveryEstimate = async (req, res) => {
               currentLong,
               googleApi.api_key
             );
-            if (result) result.source = 'google';
+            if (result) result.source = "google";
           } catch (err) {
-            console.log('Google API failed:', err.message);
+            console.log("Google API failed:", err.message);
             return null; // No fallback, just return null
           }
         } else if (olaApi.status && olaApi.api_key) {
           try {
-            
             const olaResult = await getDistance(
-              { lat: parseFloat(store.Latitude), lng: parseFloat(store.Longitude) },
+              {
+                lat: parseFloat(store.Latitude),
+                lng: parseFloat(store.Longitude),
+              },
               { lat: currentLat, lng: currentLong },
               olaApi.api_key
             );
 
-            if (olaResult.status === 'OK') {
+            if (olaResult.status === "OK") {
               result = {
-                source: 'ola',
+                source: "ola",
                 distanceText: olaResult.distance.text,
                 durationText: olaResult.duration.text,
                 trafficDurationText: olaResult.duration.text,
                 distanceValue: olaResult.distance.value,
                 durationValue: olaResult.duration.value,
-                trafficDurationValue: olaResult.duration.value
+                trafficDurationValue: olaResult.duration.value,
               };
             }
           } catch (err) {
-            console.error('Ola API failed:', err.message);
+            console.error("Ola API failed:", err.message);
             return null; // No fallback, just return null
           }
         } else if (appleApi.status && appleApi.api_key) {
           // Use Apple API only (when you implement it)
-          console.log('Apple API not implemented yet');
+          console.log("Apple API not implemented yet");
           return null;
         }
 
@@ -109,18 +126,19 @@ const getDeliveryEstimate = async (req, res) => {
     );
 
     const filtered = results.filter(Boolean);
-    console.log('results',results)
-    console.log('filtered',filtered)
+    console.log("results", results);
+    console.log("filtered", filtered);
     if (filtered.length === 0) {
-      return res.json({ status: false, filtered });
+      return res.json({ status: false,result: 0, filtered });
     }
 
-    res.json({ status: true, filtered });
-
+    res.json({ status: true,result: 2, filtered });
   } catch (err) {
     console.error("💥 Delivery Error:", err);
-    res.status(500).json({ status: false, message: "Server error", error: err.message });
+    res
+      .status(500)
+      .json({ status: false, message: "Server error", error: err.message });
   }
 };
 
-module.exports = { addFiveMinutes,getDeliveryEstimate }; 
+module.exports = { addFiveMinutes, getDeliveryEstimate };

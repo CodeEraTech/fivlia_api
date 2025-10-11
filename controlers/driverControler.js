@@ -303,14 +303,18 @@ exports.acceptedOrder = async(req,res)=>{
     const {mobileNumber} = req.params
     const AcceptedOrders = await Order.find({'driver.mobileNumber':mobileNumber, orderStatus: { $in: ['On The Way', 'Going to Pickup'] }})
     const enrichedOrders = await Promise.all(AcceptedOrders.map(async (order) => {
-      const address = await Address.findById(order.addressId);
+      const address1 = await Address.findById(order.addressId);
+      const storeAddress = await Store.findById(order.storeId);
 
       return {
         ...order.toObject(),
-        name: address?.fullName,
-        contact: address?.mobileNumber,
-        userLat: address?.latitude ,
-        userLng: address?.longitude
+        name: address1?.fullName,
+        address: address1?.address,
+        contact: address1?.mobileNumber,
+        storeAddress: storeAddress?.fullAddress,
+        storeContact: storeAddress?.PhoneNumber,
+        userLat: address1?.latitude ,
+        userLng: address1?.longitude
       };
     }));
 

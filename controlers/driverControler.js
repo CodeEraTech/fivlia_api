@@ -9,6 +9,7 @@ const {getAgenda} = require("../config/agenda");
 const Address = require('../modals/Address')
 const mongoose = require('mongoose');
 const OtpModel = require("../modals/otp")
+const admin = require("../firebase/firebase");
 const admin_transaction = require('../modals/adminTranaction')
 const store_transaction = require('../modals/storeTransaction')
 const { FeeInvoiceId } = require("../config/counter");
@@ -224,23 +225,55 @@ const totalCommission = order.items.reduce((sum, item) => {
     console.error('Error generating thermal invoice:', error);
   }
 
-    if (user?.fcmToken) {
-        await admin.messaging().send({
-          token: user.fcmToken,
-          notification: { title: "Order Delivered 🎉", body: `Your order #${orderId} has been delivered successfully.` },
-          android: { notification: { channelId: "default_channel", sound: "default" } },
-          data: { type: "delivered", orderId },
-        });
-      }
+if (user?.fcmToken) {
+  try {
+    await admin.messaging().send({
+      token: user.fcmToken,
+      notification: {
+        title: "Order Delivered 🎉",
+        body: `Your order #${orderId} has been delivered successfully.`,
+      },
+      android: {
+        notification: {
+          channelId: "default_channel",
+          sound: "default",
+        },
+      },
+      data: {
+        type: "delivered",
+        orderId: orderId.toString(),
+      },
+    });
+    console.log("✅ Notification sent to user");
+  } catch (err) {
+    console.warn("⚠️ User FCM send failed:", err.message);
+  }
+}
 
-      if (store?.fcmToken) {
-        await admin.messaging().send({
-          token: store.fcmToken,
-          notification: { title: "Order Delivered 🎉", body: `Driver delivered order #${orderId}.` },
-          android: { notification: { channelId: "default_channel", sound: "default" } },
-          data: { type: "delivered", orderId },
-        });
-      }
+if (store?.fcmToken) {
+  try {
+    await admin.messaging().send({
+      token: store.fcmToken,
+      notification: {
+        title: "Order Delivered 🎉",
+        body: `Driver delivered order #${orderId}.`,
+      },
+      android: {
+        notification: {
+          channelId: "default_channel",
+          sound: "default",
+        },
+      },
+      data: {
+        type: "delivered",
+        orderId: orderId.toString(),
+      },
+    });
+    console.log("✅ Notification sent to store");
+  } catch (err) {
+    console.warn("⚠️ Store FCM send failed:", err.message);
+  }
+}
 
   return res.status(200).json({
     message: 'Order Delivered Successfully',

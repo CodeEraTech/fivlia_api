@@ -168,8 +168,8 @@ exports.placeOrder = async (req, res) => {
             if (sellerDoc) {
               await notifySeller(
                 sellerDoc,
-                `New Order`,
-                `New Order:${newOrder.orderId} Comes.`
+                `New Order #${newOrder.orderId} Received`,
+                `You’ve received a new order worth ₹${newOrder.totalPrice}. Please confirm and prepare for dispatch.`
               );
             }
 
@@ -277,8 +277,8 @@ exports.verifyPayment = async (req, res) => {
     if (sellerDoc) {
       await notifySeller(
         sellerDoc,
-        `New Order`,
-        `New Order:${newOrder.orderId} Comes.`
+        `New Order #${newOrder.orderId} Received`,
+        `You’ve received a new order worth ₹${newOrder.totalPrice}. Please confirm and prepare for dispatch.`
       );
     }
 

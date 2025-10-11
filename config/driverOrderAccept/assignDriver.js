@@ -1,5 +1,6 @@
 const { driverSocketMap } = require("../../utils/driverSocketMap");
 const Assign = require("../../modals/driverModals/assignments");
+const Address = require('../../modals/Address');
 const { Order } = require("../../modals/order");
 const admin = require("../../firebase/firebase");
 const Store = require("../../modals/store");
@@ -28,6 +29,7 @@ if (retryCount >= MAX_RETRY_COUNT) {
   try {
     const orderData = await Order.findOne({ orderId })
       .populate("userId")
+      .populate("addressId")
       .populate("storeId")
       .lean();
 
@@ -76,6 +78,7 @@ if (retryCount >= MAX_RETRY_COUNT) {
   const respondedDrivers = new Set();
 
   const orderStore = await Store.findOne({ _id: order.storeId }).lean();
+  const orderAddress = await Address.findOne({ _id: order.addressId }).lean();
   const orderUser = await User.findOne({ _id: order.userId }).lean();
 
   const rejectedDrivers = rejectedDriversMap.get(orderId) || new Set();
@@ -116,8 +119,12 @@ if (retryCount >= MAX_RETRY_COUNT) {
       const orderWithLocation = {
         ...(order.toObject ? order.toObject() : order),
         storeName: orderStore.storeName,
+        storeAddress: orderStore.fullAddress || "",
+        storeContact: orderStore.PhoneNumber,
         storeLat: orderStore.Latitude,
         storeLng: orderStore.Longitude,
+        userContact: orderAddress.mobileNumber,
+        userAddress: orderAddress.address,
         userLat: orderUser.location.latitude,
         userLng: orderUser.location.longitude,
       };

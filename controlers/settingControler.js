@@ -1,4 +1,4 @@
-const {Settings,SettingAdmin} = require('../modals/setting');
+const {SettingAdmin} = require('../modals/setting');
 const Order = require('../modals/order');
 const User = require('../modals/User');  
 const Tax = require('../modals/tax');  

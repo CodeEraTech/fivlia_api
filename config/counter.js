@@ -46,5 +46,19 @@ async function requestId(increment = true) {
   }
 }
 
+async function getNextDriverId(increment = true) {
+  if (increment) {
+    const counter = await Counter.findOneAndUpdate(
+      { _id: 'driverId' },
+      { $inc: { seq: 1 } },
+      { new: true, upsert: true }
+    );
+    return `FV${counter.seq.toString().padStart(3, '0')}`;
+  } else {
+    const counter = await Counter.findById('orderId');
+    const seq = counter ? counter.seq + 1 : 1;
+    return `FV${seq.toString().padStart(3, '0')}`;
+  }
+}
 
-module.exports = { getNextOrderId,FeeInvoiceId,requestId };
+module.exports = { getNextOrderId,FeeInvoiceId,requestId,getNextDriverId };

@@ -1,5 +1,6 @@
 const { driverSocketMap } = require("../../utils/driverSocketMap");
 const Assign = require("../../modals/driverModals/assignments");
+const Address = require('../../modals/Address');
 const { Order } = require("../../modals/order");
 const admin = require("../../firebase/firebase");
 const Store = require("../../modals/store");
@@ -116,8 +117,10 @@ if (retryCount >= MAX_RETRY_COUNT) {
       const orderWithLocation = {
         ...(order.toObject ? order.toObject() : order),
         storeName: orderStore.storeName,
+
         storeLat: orderStore.Latitude,
         storeLng: orderStore.Longitude,
+        
         userLat: orderUser.location.latitude,
         userLng: orderUser.location.longitude,
       };

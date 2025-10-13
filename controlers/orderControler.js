@@ -20,7 +20,7 @@ const {
   generateStoreInvoiceId,
 } = require("../config/invoice");
 const deliveryStatus = require("../modals/deliveryStatus");
-const { getNextOrderId, FeeInvoiceId } = require("../config/counter");
+const { getNextOrderId, FeeInvoiceId,getNextDriverId } = require("../config/counter");
 const {
   createRazorpayOrder,
   getCommison,
@@ -736,6 +736,7 @@ exports.orderStatus = async (req, res) => {
   exports.driver = async (req, res) => {
     try {
       const { driverName, status, email, password } = req.body;
+      let nextDriverId = await getNextDriverId(true);
       const rawImagePath = req.files?.image?.[0]?.key || "";
       const image = rawImagePath ? `/${rawImagePath}` : "";
       const policeKey = req.files?.Police_Verification_Copy?.[0]?.key;
@@ -748,8 +749,7 @@ exports.orderStatus = async (req, res) => {
 
       const address = JSON.parse(req.body.address);
       const totalDrivers = await driver.countDocuments();
-      const paddedNumber = String(totalDrivers + 1).padStart(3, "0");
-      const driverId = `FV${paddedNumber}`;
+      const driverId = nextDriverId;
       const newDriver = await driver.create({
         driverId,
         driverName,

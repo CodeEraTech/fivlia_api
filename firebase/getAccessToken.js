@@ -5,7 +5,7 @@ const fs = require("fs");
 
 const keyPath =
   process.env.NODE_ENV === "production"
-    ? require("/etc/secrets/fivlia.json")
+    ? "/etc/secrets/fivlia.json"
     : path.join(__dirname, "fivlia.json");
 
 const keyFile = JSON.parse(fs.readFileSync(keyPath, "utf8"));

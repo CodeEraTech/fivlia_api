@@ -51,7 +51,7 @@ exports.getDashboardStats = async (req, res) => {
     ).length;
 
     // Total Earning
-    const adminWallet = await admin_transaction.findById('6899c9b7eeb3a6cd3a142237');
+    const adminWallet = await admin_transaction.findById('68ea20d2c05a14a96c12788d');
     const totalRevenue = adminWallet?.wallet || 0;
 
     const recentOrders = await Order.find()
@@ -172,7 +172,7 @@ exports.walletAdmin = async (req, res) => {
 
     const orders = await Order.find({}, { storeId: 1, totalPrice: 1 });
 
-    const adminWallet = await admin_transaction.findById('6899c9b7eeb3a6cd3a142237');
+    const adminWallet = await admin_transaction.findById('68ea20d2c05a14a96c12788d');
     const totalCash = adminWallet?.wallet || 0;
 
     const storeTotals = {};

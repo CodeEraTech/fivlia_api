@@ -14,13 +14,17 @@ const Notification = require("../modals/Notification");
 const Assign = require("../modals/driverModals/assignments");
 const sendNotification = require("../firebase/pushnotification");
 const Store = require("../modals/store");
-const { getStoresWithinRadius } = require('../config/google');
+const { getStoresWithinRadius } = require("../config/google");
 const {
   generateAndSendThermalInvoice,
   generateStoreInvoiceId,
 } = require("../config/invoice");
 const deliveryStatus = require("../modals/deliveryStatus");
-const { getNextOrderId, FeeInvoiceId,getNextDriverId } = require("../config/counter");
+const {
+  getNextOrderId,
+  FeeInvoiceId,
+  getNextDriverId,
+} = require("../config/counter");
 const {
   createRazorpayOrder,
   getCommison,
@@ -28,17 +32,26 @@ const {
 
 const MAX_DISTANCE_METERS = 5000;
 
-const notifySeller = async (sellerDoc, title, body, clickAction = "/dashboard1", data = {}) => {
+const notifySeller = async (
+  sellerDoc,
+  title,
+  body,
+  clickAction = "/dashboard1",
+  data = {}
+) => {
   const tokens = [sellerDoc.fcmToken, sellerDoc.fcmTokenMobile].filter(Boolean);
   for (const token of tokens) {
     try {
       await sendNotification(token, title, body, clickAction, data);
     } catch (err) {
-      console.error("notifySeller: sendNotification failed for token", token, err?.message || err);
+      console.error(
+        "notifySeller: sendNotification failed for token",
+        token,
+        err?.message || err
+      );
     }
   }
 };
-
 
 exports.placeOrder = async (req, res) => {
   try {
@@ -83,7 +96,7 @@ exports.placeOrder = async (req, res) => {
     //     .json({ message: "Cash On Delivery is not available in your zone" });
     // }
 
-    const address = await Address.findById(addressId)
+    const address = await Address.findById(addressId);
 
     const userLat = address.latitude;
     const userLng = address.longitude;
@@ -91,7 +104,7 @@ exports.placeOrder = async (req, res) => {
     const { matchedStores } = await getStoresWithinRadius(userLat, userLng);
 
     const storeExistsInZone = matchedStores.some(
-    (store) => store._id.toString() === storeId.toString()
+      (store) => store._id.toString() === storeId.toString()
     );
 
     if (!storeExistsInZone) {
@@ -163,15 +176,15 @@ exports.placeOrder = async (req, res) => {
         );
         await Cart.deleteMany({ _id: { $in: cartIds } });
       }
-         const sellerDoc = await Store.findById(storeId);
+      const sellerDoc = await Store.findById(storeId);
 
-            if (sellerDoc) {
-              await notifySeller(
-                sellerDoc,
-                `New Order #${newOrder.orderId} Received`,
-                `You’ve received a new order worth ₹${newOrder.totalPrice}. Please confirm and prepare for dispatch.`
-              );
-            }
+      if (sellerDoc) {
+        await notifySeller(
+          sellerDoc,
+          `New Order #${newOrder.orderId} Received`,
+          `You’ve received a new order worth ₹${newOrder.totalPrice}. Please confirm and prepare for dispatch.`
+        );
+      }
 
       return res
         .status(200)
@@ -243,6 +256,7 @@ exports.verifyPayment = async (req, res) => {
       deliveryCharges: tempOrder.deliveryCharges,
       platformFee: tempOrder.platformFee,
       gst: tempOrder.gst || "",
+      deliveryPayout: tempOrder.deliveryPayout,
       storeId: tempOrder.storeId,
       transactionId: transactionId || "",
       paymentStatus: "Successful",
@@ -326,21 +340,21 @@ exports.getOrders = async (req, res) => {
         // Format full address
         const formattedAddress = order.addressId
           ? {
-            fullName: order.addressId.fullName || "N/A",
-            fullAddress:
-              [
-                order.addressId.address || "",
-                order.addressId.house_No || "",
-                order.addressId.floor ? `Floor ${order.addressId.floor}` : "",
-                order.addressId.landmark || "",
-                order.addressId.city || "",
-                order.addressId.state || "",
-                order.addressId.pincode || "",
-              ]
-                .filter(Boolean)
-                .join(", ") || "N/A",
-            moibleNumber: order.addressId.mobileNumber || "",
-          }
+              fullName: order.addressId.fullName || "N/A",
+              fullAddress:
+                [
+                  order.addressId.address || "",
+                  order.addressId.house_No || "",
+                  order.addressId.floor ? `Floor ${order.addressId.floor}` : "",
+                  order.addressId.landmark || "",
+                  order.addressId.city || "",
+                  order.addressId.state || "",
+                  order.addressId.pincode || "",
+                ]
+                  .filter(Boolean)
+                  .join(", ") || "N/A",
+              moibleNumber: order.addressId.mobileNumber || "",
+            }
           : { fullName: "N/A", fullAddress: "N/A" };
 
         // Inject variant info inside items
@@ -376,9 +390,9 @@ exports.getOrders = async (req, res) => {
           addressId: formattedAddress,
           storeId: order.storeId
             ? {
-              _id: order.storeId._id || "N/A",
-              storeName: order.storeId.storeName || "N/A",
-            }
+                _id: order.storeId._id || "N/A",
+                storeName: order.storeId.storeName || "N/A",
+              }
             : null,
           city,
         };
@@ -493,13 +507,53 @@ exports.orderStatus = async (req, res) => {
 
     if (driverId) {
       const driverDoc = await driver.findOne({ _id: driverId });
-      // if (!driverDoc) return res.status(404).json({ message: "Driver not found" });
+      if (!driverDoc)
+        return res.status(404).json({ message: "Driver not found" });
 
       updateData.driver = {
         driverId: driverDoc._id,
         name: driverDoc.driverName,
-        mobileNumber: driverDoc.address.mobileNo,
+        mobileNumber: driverDoc.address?.mobileNo || "",
       };
+
+      // ✅ Fetch the order before update to get user & store info for notification
+      const orderDoc = await Order.findById(id).lean();
+      if (orderDoc) {
+        const user = await User.findById(orderDoc.userId).lean();
+        const storeData = await Store.findById(orderDoc.storeId).lean();
+
+        // 🧠 Notify user that a driver has been assigned
+        if (user?.fcmToken && user.fcmToken !== "null") {
+          await sendNotification(
+            user.fcmToken,
+            "🚗 Driver Assigned!",
+            `Your order #${orderDoc.orderId} has been assigned to driver ${driverDoc.driverName}.`,
+            "/dashboard1",
+            {
+              orderId: orderDoc.orderId,
+              driverName: driverDoc.driverName,
+              driverMobile: driverDoc.address?.mobileNo || "",
+              storeName: storeData?.storeName || "Fivlia",
+            },
+            "default"
+          );
+        }
+
+        // 🧠 Optionally notify the store as well
+        if (storeData?.fcmTokenMobile) {
+          await sendNotification(
+            storeData.fcmTokenMobile,
+            "Driver Assigned 🚗",
+            `Driver ${driverDoc.driverName} has been assigned for order #${orderDoc.orderId}.`,
+            "/dashboard1",
+            {
+              orderId: orderDoc.orderId,
+              driverName: driverDoc.driverName,
+            },
+            "default"
+          );
+        }
+      }
     }
 
     // 1. Update order status
@@ -516,9 +570,13 @@ exports.orderStatus = async (req, res) => {
 
     if (status === "Delivered" && updatedOrder.driver?.driverId) {
       if (updatedOrder.deliverStatus) {
-        console.log(`Order ${updatedOrder.orderId} already processed for delivery.`);
+        console.log(
+          `Order ${updatedOrder.orderId} already processed for delivery.`
+        );
       } else {
-        console.log(`Processing delivery logic for order ${updatedOrder.orderId}...`);
+        console.log(
+          `Processing delivery logic for order ${updatedOrder.orderId}...`
+        );
         await Assign.findOneAndDelete({
           driverId: updatedOrder.driver.driverId,
           orderId: updatedOrder.orderId,
@@ -559,17 +617,17 @@ exports.orderStatus = async (req, res) => {
           description: store.Authorized_Store
             ? "Full amount credited (Authorized Store)"
             : `Credited after commission cut (${totalCommission.toFixed(
-              2
-            )} deducted)`,
+                2
+              )} deducted)`,
         });
 
         // 🏛️ Credit Admin Wallet (only if commission exists)
         if (!store.Authorized_Store && totalCommission > 0) {
           const lastAmount = await admin_transaction
-            .findById("6899c9b7eeb3a6cd3a142237")
+            .findById("68ea20d2c05a14a96c12788d")
             .lean();
           const updatedWallet = await admin_transaction.findByIdAndUpdate(
-            "6899c9b7eeb3a6cd3a142237",
+            "68ea20d2c05a14a96c12788d",
             { $inc: { wallet: totalCommission } },
             { new: true }
           );
@@ -603,16 +661,16 @@ exports.orderStatus = async (req, res) => {
           deliverStatus: true,
         });
 
-       if (store?.fcmTokenMobile) {
-        await sendNotification(
-          store.fcmTokenMobile,
-          "Order Delivered 🎉",
-          `Driver delivered order #${updatedOrder.orderId}.`,
-          "/dashboard1",
-          { orderId: updatedOrder.orderId },
-          "default"
-        );
-      }
+        if (store?.fcmTokenMobile) {
+          await sendNotification(
+            store.fcmTokenMobile,
+            "Order Delivered 🎉",
+            `Driver delivered order #${updatedOrder.orderId}.`,
+            "/dashboard1",
+            { orderId: updatedOrder.orderId },
+            "default"
+          );
+        }
 
         try {
           await generateAndSendThermalInvoice(updatedOrder.orderId);
@@ -621,315 +679,318 @@ exports.orderStatus = async (req, res) => {
         }
       }
     }
-      const user = await User.findById(updatedOrder.userId).lean();
-      const statusInfo = await Status.findOne({ statusTitle: status });
+    const user = await User.findById(updatedOrder.userId).lean();
+    const statusInfo = await Status.findOne({ statusTitle: status });
 
-      // 3. Send notification if FCM token valid and status exists
-      if (user?.fcmToken && user.fcmToken !== "null" && statusInfo?.statusTitle) {
-        console.log(122626)
-        await sendNotification(
-          user.fcmToken,
-          `📦 Order #${updatedOrder.orderId} - ${statusInfo.statusTitle}`,
-          `Your order is now marked as ${statusInfo.statusTitle}`,
-          "/dashboard1",
-          {
-            image: statusInfo.image || "",
-            orderId: updatedOrder.orderId,
-            statusCode: statusInfo.statusCode,
-          },
-          "default"
-        );
-      }
-
-      return res
-        .status(200)
-        .json({ message: "Order Status Updated", update: updatedOrder });
-    } catch (error) {
-      console.error("Order status error:", error.message);
-      return res
-        .status(500)
-        .json({ message: "Server Error", error: error.message });
-    }
-  };
-
-  exports.deliveryStatus = async (req, res) => {
-    try {
-      const { statusTitle, status } = req.body;
-
-      const lastStatus = await deliveryStatus.findOne().sort({ statusCode: -1 });
-
-      let nextStatusCode = "100"; // default first code
-      if (lastStatus && !isNaN(parseInt(lastStatus.statusCode))) {
-        nextStatusCode = (parseInt(lastStatus.statusCode) + 1).toString();
-      }
-      const rawImagePath = req.files?.image?.[0]?.key || "";
-      const image = rawImagePath ? `/${rawImagePath}` : "";
-      const newStatus = await deliveryStatus.create({
-        statusCode: nextStatusCode,
-        statusTitle,
-        status,
-        image,
-      });
-      return res.status(200).json({ message: "New Status Created", newStatus });
-    } catch (error) {
-      console.error("Get orders error:", error.message);
-      return res
-        .status(500)
-        .json({ message: "Server Error", error: error.message });
-    }
-  };
-  exports.updatedeliveryStatus = async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { statusCode, statusTitle, status } = req.body;
-      const rawImagePath = req.files?.image?.[0]?.key || "";
-      const image = rawImagePath ? `/${rawImagePath}` : "";
-      const newStatus = await deliveryStatus.findByIdAndUpdate(id, {
-        statusCode,
-        statusTitle,
-        image,
-        status,
-      });
-      return res.status(200).json({ message: "Status Updated", newStatus });
-    } catch (error) {
-      console.error("Get orders error:", error.message);
-      return res
-        .status(500)
-        .json({ message: "Server Error", error: error.message });
-    }
-  };
-
-  exports.getdeliveryStatus = async (req, res) => {
-    try {
-      const Status = await deliveryStatus.find();
-      return res.status(200).json({ message: "Delivery Status", Status });
-    } catch (error) {
-      console.error("Get orders error:", error.message);
-      return res
-        .status(500)
-        .json({ message: "Server Error", error: error.message });
-    }
-  };
-  // routes/testRoute.js or controller
-  exports.test = async (req, res) => {
-    try {
-      const token =
-        "d4HVM3utRw6dS3eK8J0qUN:APA91bEyK6IHXVqttY8xbhEqckbtvehYD4QaF6LaVzRTuC1Wk0fnCiMTaRNMsV0Sobm9WkDeD0rPnnuQ8SNhtdqO6YcLMvZL1hNBaX3r3Zl2tV8X9UGcOag";
-
-      const response = await sendPushNotification(
-        token,
-        "🚀 Backend Test",
-        "If you received this, backend FCM works!",
-        { testMode: "true" }
+    const store = await Store.findById(updatedOrder.storeId).lean();
+    // 3. Send notification if FCM token valid and status exists
+    if (user?.fcmToken && user.fcmToken !== "null" && statusInfo?.statusTitle) {
+      console.log(122626);
+      await sendNotification(
+        user.fcmToken,
+        `📦 Order #${updatedOrder.orderId} - ${statusInfo.statusTitle}`,
+        `Your order is now marked as ${statusInfo.statusTitle} by ${
+          store.storeName || "Fivlia"
+        }`,
+        "/dashboard1",
+        {
+          image: statusInfo.image || "",
+          orderId: updatedOrder.orderId,
+          statusCode: statusInfo.statusCode,
+        },
+        "default"
       );
-
-      res.json({ message: "Notification sent", response });
-    } catch (error) {
-      console.error(error);
-      return res.status(500).json({
-        message: "❌ Failed to send notification",
-        error: error.message,
-      });
     }
-  };
 
-  exports.driver = async (req, res) => {
-    try {
-      const { driverName, status, email, password } = req.body;
-      let nextDriverId = await getNextDriverId(true);
-      const rawImagePath = req.files?.image?.[0]?.key || "";
-      const image = rawImagePath ? `/${rawImagePath}` : "";
-      const policeKey = req.files?.Police_Verification_Copy?.[0]?.key;
-      const Police_Verification_Copy = policeKey ? `/${policeKey}` : "";
-      const aadharFrontKey = req.files?.aadharCard?.[0]?.key;
-      const aadharBackKey = req.files?.aadharCard?.[1]?.key;
+    return res
+      .status(200)
+      .json({ message: "Order Status Updated", update: updatedOrder });
+  } catch (error) {
+    console.error("Order status error:", error.message);
+    return res
+      .status(500)
+      .json({ message: "Server Error", error: error.message });
+  }
+};
 
-      const dlFrontKey = req.files?.drivingLicence?.[0]?.key;
-      const dlBackKey = req.files?.drivingLicence?.[1]?.key;
+exports.deliveryStatus = async (req, res) => {
+  try {
+    const { statusTitle, status } = req.body;
 
-      const address = JSON.parse(req.body.address);
-      const totalDrivers = await driver.countDocuments();
-      const driverId = nextDriverId;
-      const newDriver = await driver.create({
-        driverId,
-        driverName,
-        status,
-        image,
-        address,
-        email,
-        password,
-        Police_Verification_Copy,
-        aadharCard: {
-          front: aadharFrontKey ? `/${aadharFrontKey}` : "",
-          back: aadharBackKey ? `/${aadharBackKey}` : "",
-        },
-        drivingLicence: {
-          front: dlFrontKey ? `/${dlFrontKey}` : "",
-          back: dlBackKey ? `/${dlBackKey}` : "",
-        },
-      });
-      return res
-        .status(200)
-        .json({ message: "Driver added successfully", newDriver });
-    } catch (error) {
-      console.error(error);
-      return res
-        .status(500)
-        .json({ message: "❌ Failed to add driver", error: error.message });
+    const lastStatus = await deliveryStatus.findOne().sort({ statusCode: -1 });
+
+    let nextStatusCode = "100"; // default first code
+    if (lastStatus && !isNaN(parseInt(lastStatus.statusCode))) {
+      nextStatusCode = (parseInt(lastStatus.statusCode) + 1).toString();
     }
-  };
+    const rawImagePath = req.files?.image?.[0]?.key || "";
+    const image = rawImagePath ? `/${rawImagePath}` : "";
+    const newStatus = await deliveryStatus.create({
+      statusCode: nextStatusCode,
+      statusTitle,
+      status,
+      image,
+    });
+    return res.status(200).json({ message: "New Status Created", newStatus });
+  } catch (error) {
+    console.error("Get orders error:", error.message);
+    return res
+      .status(500)
+      .json({ message: "Server Error", error: error.message });
+  }
+};
+exports.updatedeliveryStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { statusCode, statusTitle, status } = req.body;
+    const rawImagePath = req.files?.image?.[0]?.key || "";
+    const image = rawImagePath ? `/${rawImagePath}` : "";
+    const newStatus = await deliveryStatus.findByIdAndUpdate(id, {
+      statusCode,
+      statusTitle,
+      image,
+      status,
+    });
+    return res.status(200).json({ message: "Status Updated", newStatus });
+  } catch (error) {
+    console.error("Get orders error:", error.message);
+    return res
+      .status(500)
+      .json({ message: "Server Error", error: error.message });
+  }
+};
 
-  exports.getDriver = async (req, res) => {
-    try {
-      const Driver = await driver.find();
-      return res.status(200).json({ message: "Drivers", Driver });
-    } catch (error) {
-      console.error(error);
-      return res
-        .status(500)
-        .json({ message: "Server error", error: error.message });
-    }
-  };
+exports.getdeliveryStatus = async (req, res) => {
+  try {
+    const Status = await deliveryStatus.find();
+    return res.status(200).json({ message: "Delivery Status", Status });
+  } catch (error) {
+    console.error("Get orders error:", error.message);
+    return res
+      .status(500)
+      .json({ message: "Server Error", error: error.message });
+  }
+};
+// routes/testRoute.js or controller
+exports.test = async (req, res) => {
+  try {
+    const token =
+      "d4HVM3utRw6dS3eK8J0qUN:APA91bEyK6IHXVqttY8xbhEqckbtvehYD4QaF6LaVzRTuC1Wk0fnCiMTaRNMsV0Sobm9WkDeD0rPnnuQ8SNhtdqO6YcLMvZL1hNBaX3r3Zl2tV8X9UGcOag";
 
-  exports.editDriver = async (req, res) => {
-    try {
-      const { driverId } = req.params;
-      const { driverName, status, email, password } = req.body;
+    const response = await sendPushNotification(
+      token,
+      "🚀 Backend Test",
+      "If you received this, backend FCM works!",
+      { testMode: "true" }
+    );
 
-      let address = {};
-      if (req.body.address) {
-        try {
-          address = JSON.parse(req.body.address);
-        } catch (err) {
-          return res.status(400).json({ message: "Invalid address JSON" });
-        }
+    res.json({ message: "Notification sent", response });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      message: "❌ Failed to send notification",
+      error: error.message,
+    });
+  }
+};
+
+exports.driver = async (req, res) => {
+  try {
+    const { driverName, status, email, password } = req.body;
+    let nextDriverId = await getNextDriverId(true);
+    const rawImagePath = req.files?.image?.[0]?.key || "";
+    const image = rawImagePath ? `/${rawImagePath}` : "";
+    const policeKey = req.files?.Police_Verification_Copy?.[0]?.key;
+    const Police_Verification_Copy = policeKey ? `/${policeKey}` : "";
+    const aadharFrontKey = req.files?.aadharCard?.[0]?.key;
+    const aadharBackKey = req.files?.aadharCard?.[1]?.key;
+
+    const dlFrontKey = req.files?.drivingLicence?.[0]?.key;
+    const dlBackKey = req.files?.drivingLicence?.[1]?.key;
+
+    const address = JSON.parse(req.body.address);
+    const totalDrivers = await driver.countDocuments();
+    const driverId = nextDriverId;
+    const newDriver = await driver.create({
+      driverId,
+      driverName,
+      status,
+      image,
+      address,
+      email,
+      password,
+      Police_Verification_Copy,
+      aadharCard: {
+        front: aadharFrontKey ? `/${aadharFrontKey}` : "",
+        back: aadharBackKey ? `/${aadharBackKey}` : "",
+      },
+      drivingLicence: {
+        front: dlFrontKey ? `/${dlFrontKey}` : "",
+        back: dlBackKey ? `/${dlBackKey}` : "",
+      },
+    });
+    return res
+      .status(200)
+      .json({ message: "Driver added successfully", newDriver });
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(500)
+      .json({ message: "❌ Failed to add driver", error: error.message });
+  }
+};
+
+exports.getDriver = async (req, res) => {
+  try {
+    const Driver = await driver.find();
+    return res.status(200).json({ message: "Drivers", Driver });
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(500)
+      .json({ message: "Server error", error: error.message });
+  }
+};
+
+exports.editDriver = async (req, res) => {
+  try {
+    const { driverId } = req.params;
+    const { driverName, status, email, password } = req.body;
+
+    let address = {};
+    if (req.body.address) {
+      try {
+        address = JSON.parse(req.body.address);
+      } catch (err) {
+        return res.status(400).json({ message: "Invalid address JSON" });
       }
-      const rawImagePath = req.files?.image?.[0]?.key || "";
-      const image = rawImagePath ? `/${rawImagePath}` : "";
-      const policeKey = req.files?.Police_Verification_Copy?.[0]?.key;
-      const Police_Verification_Copy = policeKey ? `/${policeKey}` : "";
-      const aadharFrontKey = req.files?.aadharCard?.[0]?.key;
-      const aadharBackKey = req.files?.aadharCard?.[1]?.key;
+    }
+    const rawImagePath = req.files?.image?.[0]?.key || "";
+    const image = rawImagePath ? `/${rawImagePath}` : "";
+    const policeKey = req.files?.Police_Verification_Copy?.[0]?.key;
+    const Police_Verification_Copy = policeKey ? `/${policeKey}` : "";
+    const aadharFrontKey = req.files?.aadharCard?.[0]?.key;
+    const aadharBackKey = req.files?.aadharCard?.[1]?.key;
 
-      const dlFrontKey = req.files?.drivingLicence?.[0]?.key;
-      const dlBackKey = req.files?.drivingLicence?.[1]?.key;
+    const dlFrontKey = req.files?.drivingLicence?.[0]?.key;
+    const dlBackKey = req.files?.drivingLicence?.[1]?.key;
 
-      const updateData = {
-        ...(driverName && { driverName }),
-        status,
-        ...(email && { email }),
-        ...(password && { password }),
-        ...(image && { image }),
-        ...(Police_Verification_Copy && {
-          Police_Verification_Copy,
-        }),
-        ...(aadharFrontKey &&
-          aadharBackKey && {
+    const updateData = {
+      ...(driverName && { driverName }),
+      status,
+      ...(email && { email }),
+      ...(password && { password }),
+      ...(image && { image }),
+      ...(Police_Verification_Copy && {
+        Police_Verification_Copy,
+      }),
+      ...(aadharFrontKey &&
+        aadharBackKey && {
           aadharCard: {
             front: aadharFrontKey ? `/${aadharFrontKey}` : "",
             back: aadharBackKey ? `/${aadharBackKey}` : "",
           },
         }),
-        ...(dlFrontKey &&
-          dlBackKey && {
+      ...(dlFrontKey &&
+        dlBackKey && {
           drivingLicence: {
             front: dlFrontKey ? `/${dlFrontKey}` : "",
             back: dlBackKey ? `/${dlBackKey}` : "",
           },
         }),
-        ...(req.body.address ? { address: JSON.parse(req.body.address) } : {}),
-      };
+      ...(req.body.address ? { address: JSON.parse(req.body.address) } : {}),
+    };
 
-      const edit = await driver.findByIdAndUpdate(driverId, updateData, {
-        new: true,
-      });
+    const edit = await driver.findByIdAndUpdate(driverId, updateData, {
+      new: true,
+    });
 
-      return res.status(200).json({ message: "Driver Updated", edit });
-    } catch (error) {
-      console.error(error);
-      return res
-        .status(500)
-        .json({ message: "Server error", error: error.message });
+    return res.status(200).json({ message: "Driver Updated", edit });
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(500)
+      .json({ message: "Server error", error: error.message });
+  }
+};
+
+exports.getNotification = async (req, res) => {
+  try {
+    const notifications = await Notification.find().sort({ createdAt: -1 });
+    return res.status(200).json({ message: "✅ Notifications", notifications });
+  } catch (error) {
+    console.error("❌ Get Notification Error:", error);
+    return res
+      .status(500)
+      .json({ message: "❌ Failed to fetch notifications" });
+  }
+};
+
+exports.notification = async (req, res) => {
+  try {
+    const { title, description, city } = req.body;
+    const rawImagePath = req.files?.image?.[0]?.key || "";
+    const image = rawImagePath ? `/${rawImagePath}` : "";
+    // console.log(image);
+    const newNotification = await Notification.create({
+      title,
+      description,
+      image,
+      city,
+    });
+
+    return res.status(200).json({
+      message: "✅ Notification created successfully",
+      notification: newNotification,
+    });
+  } catch (error) {
+    console.error("❌ Notification error:", error.message);
+    return res.status(500).json({
+      message: "❌ Failed to create notification",
+      error: error.message,
+    });
+  }
+};
+
+exports.editNotification = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, description, city } = req.body;
+    const rawImagePath = req.files?.image?.[0]?.key || "";
+    const updateData = { title, description, city };
+
+    if (rawImagePath) {
+      updateData.image = `/${rawImagePath}`;
     }
-  };
+    const newNotification = await Notification.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true }
+    );
 
-  exports.getNotification = async (req, res) => {
-    try {
-      const notifications = await Notification.find().sort({ createdAt: -1 });
-      return res.status(200).json({ message: "✅ Notifications", notifications });
-    } catch (error) {
-      console.error("❌ Get Notification Error:", error);
-      return res
-        .status(500)
-        .json({ message: "❌ Failed to fetch notifications" });
-    }
-  };
+    return res.status(200).json({
+      message: "✅ Notification updated successfully",
+      notification: newNotification,
+    });
+  } catch (error) {
+    console.error("❌ Notification error:", error.message);
+    return res.status(500).json({
+      message: "❌ Failed to create notification",
+      error: error.message,
+    });
+  }
+};
 
-  exports.notification = async (req, res) => {
-    try {
-      const { title, description, city } = req.body;
-      const rawImagePath = req.files?.image?.[0]?.key || "";
-      const image = rawImagePath ? `/${rawImagePath}` : "";
-      // console.log(image);
-      const newNotification = await Notification.create({
-        title,
-        description,
-        image,
-        city,
-      });
-
-      return res.status(200).json({
-        message: "✅ Notification created successfully",
-        notification: newNotification,
-      });
-    } catch (error) {
-      console.error("❌ Notification error:", error.message);
-      return res.status(500).json({
-        message: "❌ Failed to create notification",
-        error: error.message,
-      });
-    }
-  };
-
-  exports.editNotification = async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { title, description, city } = req.body;
-      const rawImagePath = req.files?.image?.[0]?.key || "";
-      const updateData = { title, description, city };
-
-      if (rawImagePath) {
-        updateData.image = `/${rawImagePath}`;
-      }
-      const newNotification = await Notification.findByIdAndUpdate(
-        id,
-        updateData,
-        { new: true }
-      );
-
-      return res.status(200).json({
-        message: "✅ Notification updated successfully",
-        notification: newNotification,
-      });
-    } catch (error) {
-      console.error("❌ Notification error:", error.message);
-      return res.status(500).json({
-        message: "❌ Failed to create notification",
-        error: error.message,
-      });
-    }
-  };
-
-  exports.deleteNotification = async (req, res) => {
-    try {
-      const { id } = req.params;
-      const deleteNotification = await Notification.findByIdAndDelete(id);
-      return res.status(200).json({ message: "✅ Notification deleted" });
-    } catch (error) {
-      console.error("❌ Notification error:", error.message);
-      return res.status(500).json({
-        message: "❌ Failed to create notification",
-        error: error.message,
-      });
-    }
-  };
+exports.deleteNotification = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleteNotification = await Notification.findByIdAndDelete(id);
+    return res.status(200).json({ message: "✅ Notification deleted" });
+  } catch (error) {
+    console.error("❌ Notification error:", error.message);
+    return res.status(500).json({
+      message: "❌ Failed to create notification",
+      error: error.message,
+    });
+  }
+};

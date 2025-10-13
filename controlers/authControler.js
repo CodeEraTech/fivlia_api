@@ -92,6 +92,7 @@ exports.updateProfile = async (req, res) => {
 exports.Login = async (req,res) => {
   try {
     let { mobileNumber, userId, fcmToken,website } = req.body;
+    console.log("fcmToken", fcmToken)
 const setting = await SettingAdmin.findOne()
 const authSettings = setting?.Auth?.[0] || {};
     const firebaseStatus = authSettings.firebase?.status;
@@ -99,7 +100,7 @@ const authSettings = setting?.Auth?.[0] || {};
      let otp = mobileNumber === "+919999999999" ? 123456 : Math.floor(100000 + Math.random() * 900000);
 
   if(whatsappStatus || website === true){
-
+console.log("fcmToken", fcmToken)
     if (fcmToken && fcmToken !== "null") {
         await User.updateOne(
           { mobileNumber },
@@ -169,7 +170,7 @@ const authSettings = setting?.Auth?.[0] || {};
     }
 
     const exist = await User.findOne({ mobileNumber: formattedNumber });
-    console.log(exist);
+    // console.log(exist);
 
     await User.updateOne({ mobileNumber: formattedNumber }, { $set: { userId, fcmToken } });
 
@@ -222,7 +223,7 @@ exports.signin = async (req,res) => {
     }
 
     const exist = await User.findOne({ mobileNumber: formattedNumber });
-    console.log(exist);
+    // console.log(exist);
 
     await User.updateOne({ mobileNumber: formattedNumber }, { $set: { userId, fcmToken } });
 

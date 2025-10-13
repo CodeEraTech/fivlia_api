@@ -126,8 +126,8 @@ const getDeliveryEstimate = async (req, res) => {
     );
 
     const filtered = results.filter(Boolean);
-    console.log("results", results);
-    console.log("filtered", filtered);
+    // console.log("results", results);
+    // console.log("filtered", filtered);
     if (filtered.length === 0) {
       return res.json({ status: false,result: 0, filtered });
     }

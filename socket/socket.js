@@ -1,4 +1,4 @@
-const { driverSocketMap } = require('../utils/driverSocketMap');
+const { driverSocketMap,sellerSocketMap } = require('../utils/driverSocketMap');
 const {updateDriverStatus} = require('../controlers/driverControler')
 module.exports = (io) => {
   io.on('connection', (socket) => {
@@ -28,7 +28,27 @@ module.exports = (io) => {
       } else {
         socket.emit('statusUpdateError', { message: result.message, error: result.error });
       }
-    });   
+    });
+
+    socket.on("joinSeller", (payload) => {
+      if (typeof payload === "string") {
+        try {
+          payload = JSON.parse(payload);
+        } catch (e) {
+          console.error("Failed to parse payload:", payload);
+          return;
+        }
+      }
+
+      const { storeId } = payload || {};
+      if (!storeId) return;
+
+      sellerSocketMap.set(storeId, socket);
+      console.log("🏪 Seller connected:", storeId);
+      console.log("🧠 sellerSocketMap:", [...sellerSocketMap.keys()]);
+
+      socket.emit("joinedSellerRoom", { message: "Seller joined successfully", storeId });
+    });
    
 socket.on('disconnect', async () => {
   for (const [driverId, s] of driverSocketMap.entries()) {
@@ -45,6 +65,14 @@ socket.on('disconnect', async () => {
       break;
     }
   }
+  for (const [storeId, s] of sellerSocketMap.entries()) {
+        if (s.id === socket.id) {
+          sellerSocketMap.delete(storeId);
+          console.log(`❌ Seller ${storeId} disconnected`);
+          io.emit("sellerDisconnected", { storeId });
+          break;
+        }
+      }
 });
   });
 };

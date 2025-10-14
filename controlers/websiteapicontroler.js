@@ -1522,6 +1522,8 @@ exports.getAllSellerProducts = async (req, res) => {
           variants: variantsWithStock,
           inventory: inventoryWithStock,
           status: productStockEntries.some((s) => s.status) ?? false,
+          storeId: seller._id,
+          storeName: seller.storeName,
         };
       })
     );

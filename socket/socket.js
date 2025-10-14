@@ -1,4 +1,4 @@
-const { driverSocketMap,sellerSocketMap } = require('../utils/driverSocketMap');
+const { driverSocketMap,sellerSocketMap,adminSocketMap } = require('../utils/driverSocketMap');
 const {updateDriverStatus} = require('../controlers/driverControler')
 module.exports = (io) => {
   io.on('connection', (socket) => {
@@ -49,31 +49,24 @@ module.exports = (io) => {
 
       socket.emit("joinedSellerRoom", { message: "Seller joined successfully", storeId });
     });
+    socket.on("joinAdmin", () => {
+      adminSocketMap.set("admin", socket); // single admin or can use adminId
+      console.log("👑 Admin connected");
+      socket.emit("joinedAdminRoom", { message: "Admin joined successfully" });
+    });
    
-socket.on('disconnect', async () => {
-  for (const [driverId, s] of driverSocketMap.entries()) {
-    if (s.id === socket.id) {
-      driverSocketMap.delete(driverId);
-      console.log(`❌ Driver ${driverId} disconnected`);
-      
-      // Optional: Mark driver offline in DB
-    //   await updateDriverStatus(driverId, 'offline');
-
-      // Optional: Notify others (admin panel / frontend sockets)
-      io.emit('driverDisconnected', { driverId });
-
-      break;
-    }
-  }
-  for (const [storeId, s] of sellerSocketMap.entries()) {
-        if (s.id === socket.id) {
-          sellerSocketMap.delete(storeId);
-          console.log(`❌ Seller ${storeId} disconnected`);
-          io.emit("sellerDisconnected", { storeId });
-          break;
-        }
+    socket.on('disconnect', () => {
+      for (const [driverId, s] of driverSocketMap.entries()) {
+        if (s.id === socket.id) driverSocketMap.delete(driverId);
       }
-});
+      for (const [storeId, s] of sellerSocketMap.entries()) {
+        if (s.id === socket.id) sellerSocketMap.delete(storeId);
+      }
+      for (const [adminId, s] of adminSocketMap.entries()) {
+        if (s.id === socket.id) adminSocketMap.delete(adminId);
+      }
+    });
   });
 };
+
 

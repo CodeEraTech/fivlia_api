@@ -15,7 +15,7 @@ const Assign = require("../modals/driverModals/assignments");
 const sendNotification = require("../firebase/pushnotification");
 const Store = require("../modals/store");
 const { getStoresWithinRadius } = require("../config/google");
-const { sellerSocketMap } = require("../utils/driverSocketMap");
+const { sellerSocketMap,adminSocketMap } = require("../utils/driverSocketMap");
 const {
   generateAndSendThermalInvoice,
   generateStoreInvoiceId,
@@ -188,13 +188,20 @@ exports.placeOrder = async (req, res) => {
         );
    
   const sellerSocket = sellerSocketMap.get(sellerDoc._id.toString());
-  if (sellerSocket) {
-    sellerSocket.emit("storeOrder", { orderId: newOrder.orderId });
-    console.log(`🟢 Sent new order event to seller ${sellerDoc._id}`);
-  } else {
-    console.log(`⚪ Seller ${sellerDoc._id} not connected`);
+  if (sellerSocket) sellerSocket.emit("storeOrder", { orderId: newOrder.orderId });
+
+  // ✅ Emit to admin as well
+  const adminSocket = adminSocketMap.get("admin");
+  if (adminSocket) {
+    adminSocket.emit("storeOrder", {
+      orderId: newOrder.orderId,
+      storeId: sellerDoc._id,
+      totalPrice: newOrder.totalPrice,
+    });
+    console.log(`👑 Sent new order to admin`);
   }
 }
+
 
 
       return res
@@ -305,12 +312,18 @@ exports.verifyPayment = async (req, res) => {
         `New Order #${newOrder.orderId} Received`,
         `You’ve received a new order worth ₹${newOrder.totalPrice}. Please confirm and prepare for dispatch.`
       );
-   const sellerSocket = sellerSocketMap.get(sellerDoc._id.toString());
-  if (sellerSocket) {
-    sellerSocket.emit("newOrder", { orderId: newOrder.orderId });
-    console.log(`🟢 Sent new order event to seller ${sellerDoc._id}`);
-  } else {
-    console.log(`⚪ Seller ${sellerDoc._id} not connected`);
+  const sellerSocket = sellerSocketMap.get(sellerDoc._id.toString());
+  if (sellerSocket) sellerSocket.emit("storeOrder", { orderId: newOrder.orderId });
+
+  // ✅ Emit to admin as well
+  const adminSocket = adminSocketMap.get("admin");
+  if (adminSocket) {
+    adminSocket.emit("storeOrder", {
+      orderId: newOrder.orderId,
+      storeId: sellerDoc._id,
+      totalPrice: newOrder.totalPrice,
+    });
+    console.log(`👑 Sent new order to admin`);
   }
 }
 

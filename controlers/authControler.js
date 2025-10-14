@@ -359,7 +359,8 @@ exports.verifyOtp = async (req, res) => {
   try {
     const { mobileNumber, otp } = req.body;
     // Find OTP in DB
-    const otpRecord = await OtpModel.findOne( {mobileNumber} );
+    const otpRecord = await OtpModel.findOne( {mobileNumber,otp} );
+    console.log('otpRecord',otpRecord)
     if (!otpRecord) {
       return res.status(400).json({ message: 'Invalid OTP' });
     }

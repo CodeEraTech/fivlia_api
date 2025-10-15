@@ -97,6 +97,7 @@ const setting = await SettingAdmin.findOne()
 const authSettings = setting?.Auth?.[0] || {};
     const firebaseStatus = authSettings.firebase?.status;
     const whatsappStatus = authSettings.whatsApp?.status;
+    const smsStatus = authSettings.whatsAppBulk?.status;
      let otp = mobileNumber === "+919999999999" ? 123456 : Math.floor(100000 + Math.random() * 900000);
 
   if(whatsappStatus || website === true){
@@ -135,7 +136,37 @@ console.log("fcmToken", fcmToken)
         return res.status(200).json({ message: 'OTP sent via WhatsApp' });
       });
       return;
-    } 
+    }
+    else if(smsStatus || website === true){
+console.log("fcmToken", fcmToken)
+    if (fcmToken && fcmToken !== "null") {
+        await User.updateOne(
+          { mobileNumber },
+          { $set: { fcmToken } },
+          { upsert: true }
+        );
+      }
+
+    const axios = require('axios');
+    const params = {
+        api_key: authSettings.whatsAppBulk.apiKey,
+        instance_key: authSettings.whatsAppBulk.instanceKey,
+        numbers: mobileNumber,
+        name: 'customer',
+        message: `Welcome to Fivlia!\nYour OTP is ${otp}. Do not share it with anyone.`,
+        type: 0
+    };
+
+    try {
+        const response = await axios.get('https://whatsappbulkapi.com/api/send', { params });
+        await OtpModel.create({ mobileNumber, otp, expiresAt: Date.now() + 5 * 60 * 1000 });
+        return res.status(200).json({ message: 'OTP sent via WhatsApp', data: response.data });
+    } catch (error) {
+        console.error("WhatsApp API error:", error.message);
+        return res.status(500).json({ message: 'Failed to send OTP via WhatsApp', error: error.message });
+    }
+} 
+
    else if(firebaseStatus)
 {
     if (!mobileNumber || !userId || !fcmToken) {

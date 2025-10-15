@@ -137,7 +137,7 @@ console.log("fcmToken", fcmToken)
       });
       return;
     }
-    else if(smsStatus || website === true){
+    else if(smsStatus){
 console.log("fcmToken", fcmToken)
     if (fcmToken && fcmToken !== "null") {
         await User.updateOne(

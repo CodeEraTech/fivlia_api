@@ -1,15 +1,20 @@
-const User = require('../modals/User');
-const seller = require('../modals/sellerModals/seller')
-const request = require('request');
-const jwt = require('jsonwebtoken');
-const admin = require('../firebase/firebase');
-const {SettingAdmin} = require('../modals/setting')
+const User = require("../modals/User");
+const seller = require("../modals/sellerModals/seller");
+const request = require("request");
+const jwt = require("jsonwebtoken");
+const admin = require("../firebase/firebase");
+const { SettingAdmin } = require("../modals/setting");
+const { whatsappOtp } = require("../config/whatsappsender");
 const mongoose = require("mongoose");
-const OtpModel = require("../modals/otp")
-const sendVerificationEmail = require('../config/nodeMailer'); 
-const {storeRegistrationTemplate} = require('../utils/emailTemplates')
-const Login = mongoose.model("Login", new mongoose.Schema({}, { strict: false }), "Login");
-require('dotenv').config()
+const OtpModel = require("../modals/otp");
+const sendVerificationEmail = require("../config/nodeMailer");
+const { storeRegistrationTemplate } = require("../utils/emailTemplates");
+const Login = mongoose.model(
+  "Login",
+  new mongoose.Schema({}, { strict: false }),
+  "Login"
+);
+require("dotenv").config();
 // exports.sign = async (req,res) => {
 //     const{mobileNumber}=req.body
 //     const exist = User.find({mobileNumber})
@@ -21,21 +26,20 @@ require('dotenv').config()
 // if()
 // }
 
-
-exports.users = async (req,res) => {
-    try {
-    const user=await Login.find()
-    res.json(user)
-     } catch (error) {
-        console.error(error);
-        res.status(500).json({message:"Error"})
-    }
-}
+exports.users = async (req, res) => {
+  try {
+    const user = await Login.find();
+    res.json(user);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error" });
+  }
+};
 
 exports.addUser = async (req, res) => {
   try {
     const { name, password, mobileNumber, email, state, city, zone } = req.body;
-     const rawImagePath = req.files?.image?.[0]?.key || "";
+    const rawImagePath = req.files?.image?.[0]?.key || "";
     const image = rawImagePath ? `/${rawImagePath}` : "";
     const newUser = await User.create({
       name,
@@ -45,19 +49,18 @@ exports.addUser = async (req, res) => {
       state,
       image,
       city,
-      zone
+      zone,
     });
 
     return res.status(200).json({
-      message: 'User added successfully',
-      data: newUser
+      message: "User added successfully",
+      data: newUser,
     });
-
   } catch (error) {
-    console.error('Add User Error =>', error);
+    console.error("Add User Error =>", error);
     return res.status(500).json({
-      message: 'An error occurred while adding the user',
-      error: error.message
+      message: "An error occurred while adding the user",
+      error: error.message,
     });
   }
 };
@@ -66,175 +69,159 @@ exports.updateProfile = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const {name,password,mobileNumber,email,state,city,Address} = req.body;
-  const rawImagePath = req.files?.image?.[0]?.key || "";
+    const { name, password, mobileNumber, email, state, city, Address } =
+      req.body;
+    const rawImagePath = req.files?.image?.[0]?.key || "";
     const image = rawImagePath ? `/${rawImagePath}` : "";
-    const updatedUser = await User.findByIdAndUpdate(userId,
-      {$set: {name,password,mobileNumber,email,state,city,image,Address}},{ new: true });
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        $set: {
+          name,
+          password,
+          mobileNumber,
+          email,
+          state,
+          city,
+          image,
+          Address,
+        },
+      },
+      { new: true }
+    );
 
     if (!updatedUser) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: "User not found" });
     }
 
     return res.status(200).json({
-      message: 'Profile updated successfully',
-      user: updatedUser
+      message: "Profile updated successfully",
+      user: updatedUser,
     });
-
   } catch (error) {
-    console.error('Update Profile Error =>', error);
+    console.error("Update Profile Error =>", error);
     return res.status(500).json({
-      message: 'An error occurred while updating the profile',
-      error: error.message
+      message: "An error occurred while updating the profile",
+      error: error.message,
     });
   }
 };
-exports.Login = async (req,res) => {
+exports.Login = async (req, res) => {
   try {
-    let { mobileNumber, userId, fcmToken,website } = req.body;
-    console.log("fcmToken", fcmToken)
-const setting = await SettingAdmin.findOne()
-const authSettings = setting?.Auth?.[0] || {};
+    let { mobileNumber, userId, fcmToken, website } = req.body;
+    console.log("fcmToken", fcmToken);
+    const setting = await SettingAdmin.findOne();
+    const authSettings = setting?.Auth?.[0] || {};
     const firebaseStatus = authSettings.firebase?.status;
     const whatsappStatus = authSettings.whatsApp?.status;
     const smsStatus = authSettings.whatsAppBulk?.status;
-     let otp = mobileNumber === "+919999999999" ? 123456 : Math.floor(100000 + Math.random() * 900000);
+    let otp =
+      mobileNumber === "+919999999999"
+        ? 123456
+        : Math.floor(100000 + Math.random() * 900000);
 
-  if(whatsappStatus){
-console.log("fcmToken", fcmToken)
-    if (fcmToken && fcmToken !== "null") {
+    if (whatsappStatus) {
+      console.log("fcmToken", fcmToken);
+      if (fcmToken && fcmToken !== "null") {
         await User.updateOne(
           { mobileNumber },
           { $set: { fcmToken } },
           { upsert: true }
         );
       }
-
-      if (mobileNumber === "+919999999999") {
-        await OtpModel.create({ mobileNumber, otp, expiresAt: Date.now() + 5 * 60 * 1000 });
-        return res.status(200).json({ message: 'OTP sent via WhatsApp', otp });
-        }
-    
-
- var options = {
-        method: 'POST',
-        url: 'https://msggo.in/wapp/public/api/create-message',
-        headers: {},
-        formData: {
-          'appkey': authSettings.whatsApp.appKey,
-          'authkey': authSettings.whatsApp.authKey,
-          'to': mobileNumber,
-          'message': `Welcome to Fivlia - Delivery in Minutes!\nYour OTP is ${otp}. Do not share it with anyone.`,
-           }
-      };
-      request(options, async function (error, response) {
-        if (error) {
-          console.error(error);
-          return res.status(500).json({ message: 'Failed to send OTP via WhatsApp' });
-        }
-        await OtpModel.create({ mobileNumber, otp, expiresAt: Date.now() + 5 * 60 * 1000 });
-        return res.status(200).json({ message: 'OTP sent via WhatsApp' });
-      });
-      return;
-    }
-    else if(smsStatus || website === true){
-console.log("fcmToken", fcmToken)
-    if (fcmToken && fcmToken !== "null") {
-        await User.updateOne(
-          { mobileNumber },
-          { $set: { fcmToken } },
-          { upsert: true }
-        );
+      const response = await whatsappOtp(mobileNumber, otp, authSettings);
+      console.log(response.data);
+      return res
+        .status(200)
+        .json({ message: "OTP sent via WhatsApp", data: response.data });
+    } else if (firebaseStatus) {
+      console.log(3434899);
+      if (!mobileNumber || !userId || !fcmToken) {
+        return res
+          .status(400)
+          .json({ message: "Pls Provide All Credentials", status: 2 });
       }
 
-    const axios = require('axios');
-    const params = {
-        api_key: authSettings.whatsAppBulk.apiKey,
-        instance_key: authSettings.whatsAppBulk.instanceKey,
-        numbers: mobileNumber,
-        name: 'customer',
-        message: `Welcome to Fivlia!\nYour OTP is ${otp}. Do not share it with anyone.`,
-        type: 0
-    };
+      if (mobileNumber.startsWith("+91")) {
+        mobileNumber = mobileNumber.slice(3);
+      } else if (mobileNumber.startsWith("91") && mobileNumber.length === 12) {
+        mobileNumber = mobileNumber.slice(2);
+      }
 
-    try {
-        const response = await axios.get('https://whatsappbulkapi.com/api/send', { params });
-        await OtpModel.create({ mobileNumber, otp, expiresAt: Date.now() + 5 * 60 * 1000 });
-        return res.status(200).json({ message: 'OTP sent via WhatsApp', data: response.data });
-    } catch (error) {
-        console.error("WhatsApp API error:", error.message);
-        return res.status(500).json({ message: 'Failed to send OTP via WhatsApp', error: error.message });
-    }
-} 
+      if (!/^[6-9]\d{9}$/.test(mobileNumber)) {
+        return res
+          .status(400)
+          .json({ status: 2, message: "Invalid mobile number format" });
+      }
 
-   else if(firebaseStatus === true)
-{
-  console.log(3434899)
-    if (!mobileNumber || !userId || !fcmToken) {
-      return res.status(400).json({ message: "Pls Provide All Credentials", status: 2 });
-    }
+      const formattedNumber = `+91${mobileNumber}`;
 
-    if (mobileNumber.startsWith('+91')) {
-      mobileNumber = mobileNumber.slice(3);
-    } else if (mobileNumber.startsWith('91') && mobileNumber.length === 12) {
-      mobileNumber = mobileNumber.slice(2);
-    }
+      let firebaseUser;
+      try {
+        firebaseUser = await admin.auth().getUser(userId);
+      } catch (err) {
+        return res.status(404).json({
+          status: 2,
+          message: "Firebase UID not found",
+          error: err.message,
+        });
+      }
 
-    if (!/^[6-9]\d{9}$/.test(mobileNumber)) {
-      return res.status(400).json({ status: 2, message: 'Invalid mobile number format' });
-    }
+      if (!firebaseUser || firebaseUser.phoneNumber !== formattedNumber) {
+        return res
+          .status(401)
+          .json({
+            status: 2,
+            message: "Firebase UID and mobile number do not match",
+          });
+      }
 
-    const formattedNumber = `+91${mobileNumber}`;
+      const exist = await User.findOne({ mobileNumber: formattedNumber });
+      // console.log(exist);
 
-    let firebaseUser;
-    try {
-      firebaseUser = await admin.auth().getUser(userId);
-    } catch (err) {
-      return res.status(404).json({
-        status: 2,
-        message: "Firebase UID not found",
-        error: err.message,
-      });
-    }
+      await User.updateOne(
+        { mobileNumber: formattedNumber },
+        { $set: { userId, fcmToken } }
+      );
 
-    if (!firebaseUser || firebaseUser.phoneNumber !== formattedNumber) {
-      return res.status(401).json({ status: 2, message: "Firebase UID and mobile number do not match" });
-    }
-
-    const exist = await User.findOne({ mobileNumber: formattedNumber });
-    // console.log(exist);
-
-    await User.updateOne({ mobileNumber: formattedNumber }, { $set: { userId, fcmToken } });
-
-    const token = jwt.sign({ _id: exist._id }, process.env.jwtSecretKey);
-    return res.status(200).json({ status: 1, message: "Login Successfully", token });
-    }
-    else {
-      return res.status(400).json({ message: 'No OTP provider enabled in settings' });
+      const token = jwt.sign({ _id: exist._id }, process.env.jwtSecretKey);
+      return res
+        .status(200)
+        .json({ status: 1, message: "Login Successfully", token });
+    } else {
+      return res
+        .status(400)
+        .json({ message: "No OTP provider enabled in settings" });
     }
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ status: 2, message: "Error in login", error: error.message });
+    return res
+      .status(500)
+      .json({ status: 2, message: "Error in login", error: error.message });
   }
 };
 
-exports.signin = async (req,res) => {
+exports.signin = async (req, res) => {
   try {
     let { mobileNumber, userId, fcmToken } = req.body;
 
     if (!mobileNumber || !userId || !fcmToken) {
-      return res.status(400).json({status: false, message: "Pls Provide All Credentials"});
+      return res
+        .status(400)
+        .json({ status: false, message: "Pls Provide All Credentials" });
     }
 
     // Clean mobile number
-    if (mobileNumber.startsWith('+91')) {
+    if (mobileNumber.startsWith("+91")) {
       mobileNumber = mobileNumber.slice(3);
-    } else if (mobileNumber.startsWith('91') && mobileNumber.length === 12) {
+    } else if (mobileNumber.startsWith("91") && mobileNumber.length === 12) {
       mobileNumber = mobileNumber.slice(2);
     }
 
     if (!/^[6-9]\d{9}$/.test(mobileNumber)) {
-      return res.status(400).json({ status: false, message: 'Invalid mobile number format' });
+      return res
+        .status(400)
+        .json({ status: false, message: "Invalid mobile number format" });
     }
 
     const formattedNumber = `+91${mobileNumber}`;
@@ -251,19 +238,31 @@ exports.signin = async (req,res) => {
     }
 
     if (!firebaseUser || firebaseUser.phoneNumber !== formattedNumber) {
-      return res.status(401).json({ status: false, message: "Firebase UID and mobile number do not match" });
+      return res
+        .status(401)
+        .json({
+          status: false,
+          message: "Firebase UID and mobile number do not match",
+        });
     }
 
     const exist = await User.findOne({ mobileNumber: formattedNumber });
     // console.log(exist);
 
-    await User.updateOne({ mobileNumber: formattedNumber }, { $set: { userId, fcmToken } });
+    await User.updateOne(
+      { mobileNumber: formattedNumber },
+      { $set: { userId, fcmToken } }
+    );
 
     const token = jwt.sign({ _id: exist._id }, process.env.jwtSecretKey);
-    return res.status(200).json({ status: true, message: "Login Successfully", token });
+    return res
+      .status(200)
+      .json({ status: true, message: "Login Successfully", token });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ status: false, message: "Error in login", error: error.message });
+    return res
+      .status(500)
+      .json({ status: false, message: "Error in login", error: error.message });
   }
 };
 
@@ -278,46 +277,34 @@ exports.register = async (req, res) => {
 
     if (whatsappStatus) {
       // WhatsApp OTP logic
-      var options = {
-        method: 'POST',
-        url: 'https://msggo.in/wapp/public/api/create-message',
-        headers: {},
-        formData: {
-          'appkey': authSettings.whatsApp.appKey,
-          'authkey': authSettings.whatsApp.authKey,
-          'to': mobileNumber,
-          'message': `Welcome to Fivlia - Delivery in Minutes!
-Your OTP is ${otp}. Do not share it with anyone.`
-        }
-      };
-      request(options, async function (error, response) {
-        if (error) {
-          console.error(error);
-          return res.status(500).json({ message: 'Failed to send OTP via WhatsApp' });
-        }
-        await OtpModel.create({ mobileNumber, otp, expiresAt: Date.now() + 5 * 60 * 1000 });
-        return res.status(200).json({ message: 'OTP sent via WhatsApp', otp });
-      });
-      return;
+       const response = await whatsappOtp(mobileNumber, otp, authSettings);
+      console.log(response.data);
+      return res
+        .status(200)
+        .json({ message: "OTP sent via WhatsApp", data: response.data });
     }
 
     // Existing registration logic (for Firebase or fallback)
     if (!mobileNumber) {
-      return res.status(400).json({status: false, message: "Please provide all credentials"});
+      return res
+        .status(400)
+        .json({ status: false, message: "Please provide all credentials" });
     }
 
     // Remove non-digit characters from mobile
-    mobileNumber = mobileNumber.replace(/\D/g, '');
+    mobileNumber = mobileNumber.replace(/\D/g, "");
 
-    if (mobileNumber.startsWith('+91')) {
+    if (mobileNumber.startsWith("+91")) {
       mobileNumber = mobileNumber.slice(3);
-    } else if (mobileNumber.startsWith('91') && mobileNumber.length === 12) {
+    } else if (mobileNumber.startsWith("91") && mobileNumber.length === 12) {
       mobileNumber = mobileNumber.slice(2);
     }
 
     // Validate format: must start with 6-9 and be exactly 10 digits
     if (!/^[6-9]\d{9}$/.test(mobileNumber)) {
-      return res.status(400).json({ status: false, message: 'Invalid mobile number format' });
+      return res
+        .status(400)
+        .json({ status: false, message: "Invalid mobile number format" });
     }
 
     // Format number with +91
@@ -338,7 +325,6 @@ Your OTP is ${otp}. Do not share it with anyone.`
       message: "Login Successfully",
       token,
     });
-
   } catch (error) {
     console.error(error);
     return res.status(500).json({
@@ -354,19 +340,23 @@ exports.verifyMobile = async (req, res) => {
     let { mobileNumber } = req.body;
 
     if (!mobileNumber) {
-      return res.status(400).json({ status: 2, message: 'Mobile number is required' });
+      return res
+        .status(400)
+        .json({ status: 2, message: "Mobile number is required" });
     }
 
     // Clean the number: remove +91 or 91 if present
-    if (mobileNumber.startsWith('+91')) {
+    if (mobileNumber.startsWith("+91")) {
       mobileNumber = mobileNumber.slice(3);
-    } else if (mobileNumber.startsWith('91') && mobileNumber.length === 12) {
+    } else if (mobileNumber.startsWith("91") && mobileNumber.length === 12) {
       mobileNumber = mobileNumber.slice(2);
     }
 
     // Now validate if it's proper Indian format (starts 6-9 and 10 digits)
     if (!/^[6-9]\d{9}$/.test(mobileNumber)) {
-      return res.status(400).json({ status: 2, message: 'Invalid mobile number format' });
+      return res
+        .status(400)
+        .json({ status: 2, message: "Invalid mobile number format" });
     }
 
     // Format with +91 to match DB
@@ -374,16 +364,17 @@ exports.verifyMobile = async (req, res) => {
 
     // Check if user exists
     const exist = await User.findOne({ mobileNumber: formattedNumber });
-    console.log('Formatted:', formattedNumber, 'User:', exist);
+    console.log("Formatted:", formattedNumber, "User:", exist);
 
     if (!exist) {
-      return res.status(200).json({ status: 0, message: 'User Not Found' });
+      return res.status(200).json({ status: 0, message: "User Not Found" });
     }
 
-    return res.status(200).json({ status: 1, message: 'User Found' });
-
+    return res.status(200).json({ status: 1, message: "User Found" });
   } catch (error) {
-    return res.status(500).json({ status: 2, message: 'Server Error', error: error.message });
+    return res
+      .status(500)
+      .json({ status: 2, message: "Server Error", error: error.message });
   }
 };
 
@@ -391,24 +382,22 @@ exports.verifyOtp = async (req, res) => {
   try {
     const { mobileNumber, otp } = req.body;
     // Find OTP in DB
-    const otpRecord = await OtpModel.findOne( {mobileNumber,otp} );
-    console.log('otpRecord',otpRecord)
+    const otpRecord = await OtpModel.findOne({ mobileNumber, otp });
+    console.log("otpRecord", otpRecord);
     if (!otpRecord) {
-      return res.status(400).json({ message: 'Invalid OTP' });
+      return res.status(400).json({ message: "Invalid OTP" });
     }
     let token;
-    const exist = await User.findOne({mobileNumber})
-    if(!exist){
-    const newUser = await User.create({mobileNumber});
+    const exist = await User.findOne({ mobileNumber });
+    if (!exist) {
+      const newUser = await User.create({ mobileNumber });
       await OtpModel.deleteOne({ _id: otpRecord._id });
       token = jwt.sign({ _id: newUser._id }, process.env.jwtSecretKey);
-      return res.status(200).json({ message: 'Login successful', token });
-    }
-
-    else{
-    await OtpModel.deleteOne({ _id: otpRecord._id });
-    token = jwt.sign({ _id: exist._id }, process.env.jwtSecretKey);
-    return res.status(200).json({ message: 'Login successful', token });
+      return res.status(200).json({ message: "Login successful", token });
+    } else {
+      await OtpModel.deleteOne({ _id: otpRecord._id });
+      token = jwt.sign({ _id: exist._id }, process.env.jwtSecretKey);
+      return res.status(200).json({ message: "Login successful", token });
     }
   } catch (error) {
     console.error(error);
@@ -416,13 +405,15 @@ exports.verifyOtp = async (req, res) => {
   }
 };
 
-exports.deleteAccount = async (req,res) => {
+exports.deleteAccount = async (req, res) => {
   try {
-    const {id} =req.user
-    const user =await User.findByIdAndDelete(id)
-    return res.status(200).json({message:"Account Deleted Successfuly",user})
+    const { id } = req.user;
+    const user = await User.findByIdAndDelete(id);
+    return res
+      .status(200)
+      .json({ message: "Account Deleted Successfuly", user });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "An error occurred" });
   }
-}
+};

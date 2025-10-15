@@ -1,14 +1,16 @@
-git status
-On branch main
-Changes not staged for commit:
-  (use "git add <file>..." to update what will be committed)
-  (use "git restore <file>..." to discard changes in working directory)
-        modified:   controlers/orderControler.js
-        modified:   controlers/websiteapicontroler.js
-        modified:   modals/setting.js
-        modified:   package.json
-        modified:   socket/socket.js
-        modified:   utils/driverSocketMap.js
-
-no changes added to commit (use "git add" and/or "git commit -a")      
-PS D:\adminPanel\beckend> 
+स्थिर संदेश: {
+    अनुप्रयोग: {
+        केवल_पढ़ने_योग्य नाम: पाठ;
+        केवल_पढ़ने_योग्य विकल्प: {
+            एपीआई_कुंजी?: पाठ;
+            प्रमाणीकरण_डोमेन?: पाठ;
+            डाटाबेस_URL?: पाठ;
+            परियोजना_आईडी?: पाठ;
+            संग्रह_बकेट?: पाठ;
+            संदेश_प्रेषक_आईडी?: पाठ;
+            अनुप्रयोग_आईडी?: पाठ;
+            मापन_आईडी?: पाठ;
+        };
+        स्वचालित_डेटा_संग्रह_सक्षम: बूलियन;
+    };
+};

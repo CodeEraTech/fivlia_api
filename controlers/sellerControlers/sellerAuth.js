@@ -57,7 +57,7 @@ exports.addSeller = async (req, res) => {
       try {
         await whatsappOtp({
           otp,
-          PhoneNumber,
+          mobileNumber:PhoneNumber,
           authSettings,
         });
         await OtpModel.create({

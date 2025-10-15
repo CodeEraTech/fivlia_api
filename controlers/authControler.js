@@ -100,7 +100,7 @@ const authSettings = setting?.Auth?.[0] || {};
     const smsStatus = authSettings.whatsAppBulk?.status;
      let otp = mobileNumber === "+919999999999" ? 123456 : Math.floor(100000 + Math.random() * 900000);
 
-  if(whatsappStatus || website === true){
+  if(whatsappStatus){
 console.log("fcmToken", fcmToken)
     if (fcmToken && fcmToken !== "null") {
         await User.updateOne(
@@ -137,7 +137,7 @@ console.log("fcmToken", fcmToken)
       });
       return;
     }
-    else if(smsStatus){
+    else if(smsStatus || website === true){
 console.log("fcmToken", fcmToken)
     if (fcmToken && fcmToken !== "null") {
         await User.updateOne(
@@ -167,8 +167,9 @@ console.log("fcmToken", fcmToken)
     }
 } 
 
-   else if(firebaseStatus)
+   else if(firebaseStatus === true)
 {
+  console.log(3434899)
     if (!mobileNumber || !userId || !fcmToken) {
       return res.status(400).json({ message: "Pls Provide All Credentials", status: 2 });
     }

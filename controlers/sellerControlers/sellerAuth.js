@@ -60,13 +60,7 @@ exports.addSeller = async (req, res) => {
           mobileNumber:PhoneNumber,
           authSettings,
         });
-        await OtpModel.create({
-          email,
-          otpEmail,
-          mobileNumber: PhoneNumber,
-          otp,
-          expiresAt: Date.now() + 30 * 60 * 1000,
-        });
+
         await sendVerificationEmail(
           email,
           "Welcome to Fivlia – Your store is under verification",
@@ -123,33 +117,7 @@ exports.addSeller = async (req, res) => {
       fullAddress,
     });
 
-    var options = {
-      method: "POST",
-      url: "https://msggo.in/wapp/public/api/create-message",
-      headers: {},
-      formData: {
-        appkey: authSettings.whatsApp.appKey,
-        authkey: authSettings.whatsApp.authKey,
-        to: PhoneNumber,
-        message: `Welcome to Fivlia - Delivery in Minutes!\nYour OTP is ${otp}. Do not share it with anyone.\n\nThis OTP is valid for 30 minutes.`,
-      },
-    };
-
-    request(options, async function (error, response) {
-      if (error) {
-        console.error(error);
-        return res
-          .status(500)
-          .json({ message: "Failed to send OTP via WhatsApp" });
-      }
-      await OtpModel.create({
-        email,
-        otpEmail,
-        mobileNumber: PhoneNumber,
-        otp,
-        expiresAt: Date.now() + 30 * 60 * 1000,
-      });
-    });
+    await whatsappOtp({mobileNumber, otp, authSettings});
     await sendVerificationEmail(
       email,
       "Welcome to Fivlia – Your store is under verification",
@@ -169,32 +137,10 @@ exports.sendOtp = async (req, res) => {
     const otp = crypto.randomInt(100000, 999999).toString();
     const setting = await SettingAdmin.findOne();
     const authSettings = setting?.Auth?.[0] || {};
-    var options = {
-      method: "POST",
-      url: "https://msggo.in/wapp/public/api/create-message",
-      headers: {},
-      formData: {
-        appkey: authSettings.whatsApp.appKey,
-        authkey: authSettings.whatsApp.authKey,
-        to: PhoneNumber,
-        message: `Welcome to Fivlia - Delivery in Minutes!\nYour OTP is ${otp}. Do not share it with anyone.\n\nThis OTP is valid for 30 minutes.`,
-      },
-    };
+    await whatsappOtp({mobileNumber, otp, authSettings});
 
-    request(options, async function (error, response) {
-      if (error) {
-        console.error(error);
-        return res
-          .status(500)
-          .json({ message: "Failed to send OTP via WhatsApp" });
-      }
-      await OtpModel.create({
-        mobileNumber: PhoneNumber,
-        otp,
-        expiresAt: Date.now() + 30 * 60 * 1000,
-      });
-      return res.status(200).json({ message: "OTP sent via WhatsApp", otp });
-    });
+    return res.status(200).json({ message: "OTP sent via WhatsApp", otp });
+
   } catch (error) {
     console.error(error);
     return res.status(500).json({ ResponseMsg: "An Error Occured" });

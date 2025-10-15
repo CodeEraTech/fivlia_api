@@ -129,7 +129,7 @@ exports.Login = async (req, res) => {
           { upsert: true }
         );
       }
-      const response = await whatsappOtp(mobileNumber, otp, authSettings);
+      const response = await whatsappOtp({mobileNumber, otp, authSettings});
       console.log(response.data);
       return res
         .status(200)

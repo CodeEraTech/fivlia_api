@@ -21,7 +21,7 @@
 // })
 // }
 
-const whatsappOtp = async(mobileNumber,otp,authSettings) => {
+const whatsappOtp = async({mobileNumber,otp,authSettings}) => {
     const axios = require('axios');
     const params = {
         api_key: "y6SJdAQ3AO",
@@ -39,4 +39,5 @@ const whatsappOtp = async(mobileNumber,otp,authSettings) => {
         console.error("WhatsApp API error:", error.message);
     }
   }
+  
 module.exports={whatsappOtp}

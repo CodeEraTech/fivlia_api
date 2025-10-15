@@ -8,6 +8,7 @@ const request = require("request");
 const { getAgenda } = require("../config/agenda");
 const Address = require("../modals/Address");
 const mongoose = require("mongoose");
+const { whatsappOtp } = require("../config/whatsappsender");
 const OtpModel = require("../modals/otp");
 const admin = require("../firebase/firebase");
 const admin_transaction = require("../modals/adminTranaction");
@@ -107,25 +108,7 @@ exports.driverOrderStatus = async (req, res) => {
       const generatedOtp = Math.floor(100000 + Math.random() * 900000);
       const mobileNumber = user.mobileNumber;
 
-      const options = {
-        method: "POST",
-        url: "https://msggo.in/wapp/public/api/create-message",
-        headers: {},
-        formData: {
-          appkey: authSettings.whatsApp.appKey,
-          authkey: authSettings.whatsApp.authKey,
-          to: mobileNumber,
-          message: `Welcome to Fivlia - Delivery in Minutes!\nYour OTP is ${generatedOtp}. Do not share it with anyone.`,
-        },
-      };
-
-      request(options, async function (error, response) {
-        if (error) {
-          console.error(error);
-          return res
-            .status(500)
-            .json({ message: "Failed to send OTP via WhatsApp" });
-        }
+      await whatsappOtp({mobileNumber, otp:generatedOtp, authSettings});
 
         await OtpModel.findOneAndUpdate(
           { mobileNumber, orderId },
@@ -144,9 +127,6 @@ exports.driverOrderStatus = async (req, res) => {
           otp: generatedOtp,
           statusUpdate,
         });
-      });
-
-      return;
     }
 
     if (orderStatus === "Delivered") {

@@ -8,6 +8,10 @@ const driverSchema = new mongoose.Schema({
    email:String,
    password:String,
    wallet:Number,
+   vehicleType:String,
+   vehicleRegistrationNumber:String,
+   drivingLicenseNumber:String,
+   approveStatus: { type: String, enum: ['pending_admin_approval', 'approved', 'rejected'] },
    address:{
     city:String,
     mobileNo:String,

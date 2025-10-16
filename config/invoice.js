@@ -6,6 +6,7 @@ const { v4: uuidv4 } = require("uuid");
 const { SettingAdmin } = require("../modals/setting");
 const Store = require("../modals/store");
 const { Order } = require("../modals/order");
+const { shortenUrl } = require("../utils/shortUrl");
 const User = require("../modals/User");
 const Product = require("../modals/Product"); // Add this line
 const request = require("request"); // for msggo.in
@@ -58,17 +59,19 @@ exports.generateThermalInvoice = async (orderId) => {
     // Generate the URL
     const pdfUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
 
+    const shortUrl = await shortenUrl(pdfUrl);
+
     // Save PDF URL to database
     await Order.findOneAndUpdate(
       { orderId },
-      { $set: { thermalInvoice: pdfUrl } }
+      { $set: { thermalInvoice: shortUrl } }
     );
 
     console.log(
       "Thermal invoice PDF generated and uploaded for order:",
       orderId
     );
-    return pdfUrl;
+    return shortUrl;
   } catch (err) {
     console.error("Thermal invoice generation error:", err);
     throw err;

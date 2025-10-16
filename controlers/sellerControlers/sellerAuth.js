@@ -1,5 +1,5 @@
 const seller = require("../../modals/store");
-const sendNotification = require("../../firebase/pushnotification")
+const sendNotification = require("../../firebase/pushnotification");
 const { SettingAdmin } = require("../../modals/setting");
 const { ZoneData } = require("../../modals/cityZone");
 const sendVerificationEmail = require("../../config/nodeMailer");
@@ -15,6 +15,7 @@ const sellerProduct = require("../../modals/sellerModals/sellerProduct");
 const store_transaction = require("../../modals/storeTransaction");
 const { requestId } = require("../../config/counter");
 const { whatsappOtp } = require("../../config/whatsappsender");
+const { sendMessages } = require("../../utils/sendMessages");
 
 exports.addSeller = async (req, res) => {
   try {
@@ -55,10 +56,15 @@ exports.addSeller = async (req, res) => {
       }
       // If email or phone exists but not verified, send OTP
       try {
-        await whatsappOtp({
+        const time = 2;
+        const type = "login";
+        const message = `Your OTP for ${type} is ${otp}. Valid for ${time} minutes.\nDo not share it.\n\nFivlia - Delivery in Minutes!`;
+        await sendMessages(PhoneNumber, message);
+        await OtpModel.create({
+          email,
+          mobileNumber: PhoneNumber,
           otp,
-          mobileNumber:PhoneNumber,
-          authSettings,
+          expiresAt: Date.now() + 2 * 60 * 1000,
         });
 
         await sendVerificationEmail(
@@ -117,7 +123,17 @@ exports.addSeller = async (req, res) => {
       fullAddress,
     });
 
-    await whatsappOtp({mobileNumber, otp, authSettings});
+    const time = 2;
+    const type = "login";
+    const message = `Your OTP for ${type} is ${otp}. Valid for ${time} minutes.\nDo not share it.\n\nFivlia - Delivery in Minutes!`;
+    await sendMessages(PhoneNumber, message);
+    await OtpModel.create({
+      email,
+      mobileNumber: PhoneNumber,
+      otp,
+      expiresAt: Date.now() + 2 * 60 * 1000,
+    });
+
     await sendVerificationEmail(
       email,
       "Welcome to Fivlia – Your store is under verification",
@@ -135,12 +151,18 @@ exports.sendOtp = async (req, res) => {
   try {
     const { PhoneNumber } = req.body;
     const otp = crypto.randomInt(100000, 999999).toString();
-    const setting = await SettingAdmin.findOne();
-    const authSettings = setting?.Auth?.[0] || {};
-    await whatsappOtp({mobileNumber, otp, authSettings});
+    const time = 2;
+    const type = "login";
+    const message = `Your OTP for ${type} is ${otp}. Valid for ${time} minutes.\nDo not share it.\n\nFivlia - Delivery in Minutes!`;
+    await sendMessages(PhoneNumber, message);
+    await OtpModel.create({
+      email,
+      mobileNumber: PhoneNumber,
+      otp,
+      expiresAt: Date.now() + 2 * 60 * 1000,
+    });
 
-    return res.status(200).json({ message: "OTP sent via WhatsApp", otp });
-
+    return res.status(200).json({ message: "OTP sent via WhatsApp"});
   } catch (error) {
     console.error(error);
     return res.status(500).json({ ResponseMsg: "An Error Occured" });
@@ -149,25 +171,44 @@ exports.sendOtp = async (req, res) => {
 
 exports.getSellerRequest = async (req, res) => {
   try {
-    const [requests, locationRequests,imageRequest, productRequest, brandRequest] =
-      await Promise.all([
-        seller.find({ approveStatus: "pending_admin_approval" }).sort({ createdAt: -1 }),
-        seller.find({ "pendingAddressUpdate.status": "pending" }).sort({ createdAt: -1 }),
-      seller.find({"pendingAdvertisementImages.status": "pending","pendingAdvertisementImages.image.0": { $exists: true }}).select("storeName email PhoneNumber ownerName zone pendingAdvertisementImages").sort({ createdAt: -1 }),
-        Products.find({ sellerProductStatus: "pending_admin_approval" }).sort({ createdAt: -1 }),
-        Products.find({ sellerProductStatus: "submit_brand_approval" }).sort({ createdAt: -1 }),
-      ]);
+    const [
+      requests,
+      locationRequests,
+      imageRequest,
+      productRequest,
+      brandRequest,
+    ] = await Promise.all([
+      seller
+        .find({ approveStatus: "pending_admin_approval" })
+        .sort({ createdAt: -1 }),
+      seller
+        .find({ "pendingAddressUpdate.status": "pending" })
+        .sort({ createdAt: -1 }),
+      seller
+        .find({
+          "pendingAdvertisementImages.status": "pending",
+          "pendingAdvertisementImages.image.0": { $exists: true },
+        })
+        .select(
+          "storeName email PhoneNumber ownerName zone pendingAdvertisementImages"
+        )
+        .sort({ createdAt: -1 }),
+      Products.find({ sellerProductStatus: "pending_admin_approval" }).sort({
+        createdAt: -1,
+      }),
+      Products.find({ sellerProductStatus: "submit_brand_approval" }).sort({
+        createdAt: -1,
+      }),
+    ]);
 
-    return res
-      .status(200)
-      .json({
-        message: "Seller Approval Requests",
-        requests,
-        locationRequests,
-        imageRequest,
-        productRequest,
-        brandRequest,
-      });
+    return res.status(200).json({
+      message: "Seller Approval Requests",
+      requests,
+      locationRequests,
+      imageRequest,
+      productRequest,
+      brandRequest,
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ ResponseMsg: "An Error Occured" });
@@ -296,16 +337,22 @@ exports.getSeller = async (req, res) => {
   }
 };
 
-const notifySeller = async (sellerDoc, title, body,clickAction = "/dashboard1") => {
+const notifySeller = async (
+  sellerDoc,
+  title,
+  body,
+  clickAction = "/dashboard1"
+) => {
   const tokens = [sellerDoc.fcmToken, sellerDoc.fcmTokenMobile].filter(Boolean);
   for (const token of tokens) {
-    await sendNotification(token, title, body,clickAction = "/dashboard1");
+    await sendNotification(token, title, body, (clickAction = "/dashboard1"));
   }
 };
 
 exports.acceptDeclineRequest = async (req, res) => {
   try {
-    const { approval, id, productId, isImage, isLocation, description } = req.body;
+    const { approval, id, productId, isImage, isLocation, description } =
+      req.body;
 
     // ---------- PRODUCT APPROVAL ----------
     if (productId) {
@@ -365,7 +412,8 @@ exports.acceptDeclineRequest = async (req, res) => {
     // ---------- LOCATION UPDATE ----------
     if (isLocation) {
       const sellerDoc = await seller.findById(id);
-      if (!sellerDoc) return res.status(404).json({ message: "Seller not found" });
+      if (!sellerDoc)
+        return res.status(404).json({ message: "Seller not found" });
 
       let updatedData;
 
@@ -414,7 +462,8 @@ exports.acceptDeclineRequest = async (req, res) => {
     // ---------- IMAGE UPDATE ----------
     if (isImage) {
       const sellerDoc = await seller.findById(id);
-      if (!sellerDoc) return res.status(404).json({ message: "Seller not found" });
+      if (!sellerDoc)
+        return res.status(404).json({ message: "Seller not found" });
 
       let updatedData;
 
@@ -423,7 +472,9 @@ exports.acceptDeclineRequest = async (req, res) => {
 
         await seller.findByIdAndUpdate(id, {
           $set: {
-            advertisementImages: pendingImages.filter(img => img && img !== ""),
+            advertisementImages: pendingImages.filter(
+              (img) => img && img !== ""
+            ),
           },
           $unset: { pendingAdvertisementImages: "" },
         });
@@ -477,7 +528,6 @@ exports.acceptDeclineRequest = async (req, res) => {
     return res
       .status(200)
       .json({ message: `Seller application ${approval}`, application });
-
   } catch (error) {
     console.error("❌ Error in acceptDeclineRequest:", error);
     return res.status(500).json({ message: "Server Error" });
@@ -486,7 +536,8 @@ exports.acceptDeclineRequest = async (req, res) => {
 
 exports.verifyOtpSeller = async (req, res) => {
   try {
-    const { email, otpEmail, PhoneNumber, otp, type, fcmToken,token} = req.body;
+    const { email, otpEmail, PhoneNumber, otp, type, fcmToken, token } =
+      req.body;
 
     if (!PhoneNumber && !email) {
       return res
@@ -512,30 +563,34 @@ exports.verifyOtpSeller = async (req, res) => {
         return res.status(400).json({ message: "Invalid OTP" });
       }
 
-  if (token && typeof token === 'string' && token.trim() !== '') {
-  if (sellerDoc.fcmTokenMobile !== token) {
-    sellerDoc.fcmTokenMobile = token;
-    await sellerDoc.save();
-  }
-  }
+      if (token && typeof token === "string" && token.trim() !== "") {
+        if (sellerDoc.fcmTokenMobile !== token) {
+          sellerDoc.fcmTokenMobile = token;
+          await sellerDoc.save();
+        }
+      }
 
-  if (fcmToken && typeof fcmToken === 'string' && fcmToken.trim() !== '') {
-  if (sellerDoc.fcmToken !== fcmToken) {
-    sellerDoc.fcmToken = fcmToken;
-    await sellerDoc.save();
-  }
-  }
+      if (fcmToken && typeof fcmToken === "string" && fcmToken.trim() !== "") {
+        if (sellerDoc.fcmToken !== fcmToken) {
+          sellerDoc.fcmToken = fcmToken;
+          await sellerDoc.save();
+        }
+      }
 
-      const jwttoken = jwt.sign({ _id: sellerDoc._id }, process.env.jwtSecretKey, {
-        expiresIn: "1d",
-      });
+      const jwttoken = jwt.sign(
+        { _id: sellerDoc._id },
+        process.env.jwtSecretKey,
+        {
+          expiresIn: "1d",
+        }
+      );
       await OtpModel.deleteOne({ _id: otpRecord._id });
 
       return res.status(200).json({
         message: "Login successful",
         sellerId: sellerDoc._id,
         storeName: sellerDoc.storeName,
-        token:jwttoken,
+        token: jwttoken,
       });
     }
     // 1️⃣ Find OTP record
@@ -657,15 +712,15 @@ exports.editSellerProfile = async (req, res) => {
     if (req.files?.image?.[0]) {
       updateFields.image = `/${req.files.image?.[0].key}`;
     }
-     if (req.files?.file?.[0]) {
+    if (req.files?.file?.[0]) {
       updateFields.sellerSignature = `/${req.files.file?.[0].key}`;
     }
     if (req.files?.MultipleImage?.length > 0) {
-  updateFields.pendingAdvertisementImages = {
-    image: req.files.MultipleImage.map(file => `/${file.key}`),
-    status: 'pending'
-  };
-}
+      updateFields.pendingAdvertisementImages = {
+        image: req.files.MultipleImage.map((file) => `/${file.key}`),
+        status: "pending",
+      };
+    }
 
     if (PhoneNumber) updateFields.PhoneNumber = PhoneNumber;
     if (gstNumber) updateFields.gstNumber = gstNumber;
@@ -779,7 +834,7 @@ exports.sellerWithdrawalRequest = async (req, res) => {
         .status(400)
         .json({ message: `Minimum withdrawal amount is ₹${minWithdrawal}` });
     }
-let request = await requestId(true);
+    let request = await requestId(true);
     const pendingWithdrawals = await store_transaction.aggregate([
       { $match: { storeId: storeData._id, status: "Pending", type: "debit" } },
       { $group: { _id: null, totalPending: { $sum: "$amount" } } },
@@ -789,12 +844,9 @@ let request = await requestId(true);
 
     // Check if requested amount + pending exceeds wallet
     if (amount + totalPending > storeData.wallet) {
-      return res
-        .status(400)
-        .json({
-          message:
-            "Insufficient wallet balance considering pending withdrawals",
-        });
+      return res.status(400).json({
+        message: "Insufficient wallet balance considering pending withdrawals",
+      });
     }
 
     // Check if a pending withdrawal already exists
@@ -812,10 +864,10 @@ let request = await requestId(true);
     } else {
       // Create new withdrawal request
       withdrawal = await store_transaction.create({
-        requestId:request,
+        requestId: request,
         storeId: storeData._id,
         amount,
-        currentAmount:storeData.wallet,
+        currentAmount: storeData.wallet,
         type: "debit",
         description: `Withdrawal request of ₹${amount} by seller`,
         status: "Pending",

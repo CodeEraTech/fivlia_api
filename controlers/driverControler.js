@@ -14,6 +14,8 @@ const admin = require("../firebase/firebase");
 const admin_transaction = require("../modals/adminTranaction");
 const store_transaction = require("../modals/storeTransaction");
 const { FeeInvoiceId } = require("../config/counter");
+const { sendMessages } = require("../utils/sendMessages");
+
 const {
   generateAndSendThermalInvoice,
   generateStoreInvoiceId,
@@ -108,25 +110,29 @@ exports.driverOrderStatus = async (req, res) => {
       const generatedOtp = Math.floor(100000 + Math.random() * 900000);
       const mobileNumber = user.mobileNumber;
 
-      await whatsappOtp({mobileNumber, otp:generatedOtp, authSettings});
+      const time = 2;
+      const type = "delivery";
+      const message = `Your OTP for ${type} is ${generatedOtp}. Valid for ${time} minutes.\nDo not share it.\n\nFivlia - Delivery in Minutes!`;
 
-        await OtpModel.findOneAndUpdate(
-          { mobileNumber, orderId },
-          { otp: generatedOtp, expiresAt: Date.now() + 60 * 60 * 1000 },
-          { upsert: true, new: true }
-        );
+      await sendMessages(mobileNumber, message);
 
-        const statusUpdate = await Order.findOneAndUpdate(
-          { orderId },
-          { orderStatus },
-          { new: true }
-        );
+      await OtpModel.findOneAndUpdate(
+        { mobileNumber, orderId },
+        { otp: generatedOtp, expiresAt: Date.now() + 2 * 60 * 1000 },
+        { upsert: true, new: true }
+      );
 
-        return res.status(200).json({
-          message: `OTP sent via WhatsApp to ${mobileNumber}`,
-          otp: generatedOtp,
-          statusUpdate,
-        });
+      const statusUpdate = await Order.findOneAndUpdate(
+        { orderId },
+        { orderStatus },
+        { new: true }
+      );
+
+      return res.status(200).json({
+        message: `OTP sent via WhatsApp to ${mobileNumber}`,
+        otp: generatedOtp,
+        statusUpdate,
+      });
     }
 
     if (orderStatus === "Delivered") {
@@ -541,12 +547,9 @@ exports.withdrawalRequest = async (req, res) => {
 
     // Check if requested amount + pending exceeds wallet
     if (amount + totalPending > driverData.wallet) {
-      return res
-        .status(400)
-        .json({
-          message:
-            "Insufficient wallet balance considering pending withdrawals",
-        });
+      return res.status(400).json({
+        message: "Insufficient wallet balance considering pending withdrawals",
+      });
     }
 
     // Check if a pending withdrawal already exists

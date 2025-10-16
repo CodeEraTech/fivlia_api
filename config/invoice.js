@@ -11,6 +11,7 @@ const Product = require("../modals/Product"); // Add this line
 const request = require("request"); // for msggo.in
 const { FeeInvoiceId } = require("./counter");
 const moment = require("moment");
+const { sendMessages } = require("../utils/sendMessages");
 
 // Generate PDF Thermal Invoice and upload to AWS
 exports.generateThermalInvoice = async (orderId) => {
@@ -584,32 +585,9 @@ exports.generateAndSendThermalInvoice = async (orderId) => {
     const order = await Order.findOne({ orderId }).populate("userId");
     const user = order.userId;
 
-    const setting = await SettingAdmin.findOne();
-    const authSettings = setting?.Auth?.[0] || {};
-
-    const message = `🎉 Your Fivlia order #${orderId} has been delivered!\n\n📋 INVOICE:\nDownload your invoice: ${pdfUrl}\n\nThank you for choosing Fivlia! 🌟\n\nOrder Details:\n- Total: Rs. ${order.totalPrice}\n- Payment: ${order.paymentStatus}\n\nRate your experience on our app! ⭐`;
-
-    const options = {
-      method: "POST",
-      url: "https://msggo.in/wapp/public/api/create-message",
-      headers: {},
-      formData: {
-        appkey: authSettings.whatsApp.appKey,
-        authkey: authSettings.whatsApp.authKey,
-        to: user.mobileNumber,
-        message: message,
-      },
-    };
-
-    request(options, (error, response) => {
-      if (error) {
-        console.error("WhatsApp delivery notification failed:", error);
-      } else {
-        console.log(
-          `WhatsApp delivery notification sent with PDF invoice to ${user.mobileNumber}`
-        );
-      }
-    });
+    const message = `Your Fivlia order #${orderId} has been delivered! 🌟\nInvoice: ${pdfUrl}\nTotal: ₹${order.totalPrice} | Payment: ${order.paymentStatus}\nThank you for choosing Fivlia - Delivery in Minutes! 🚀\n\nRate your experience on our app! 📱`;
+    
+    await sendMessages(user.mobileNumber, message);
 
     return {
       success: true,

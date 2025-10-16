@@ -13,6 +13,7 @@ const crypto = require("crypto");
 const store_transaction = require("../modals/storeTransaction");
 const { SettingAdmin } = require("../modals/setting");
 const { whatsappOtp } = require("../config/whatsappsender");
+const { sendMessages } = require("../utils/sendMessages");
 // const sendVerificationEmail = require("../config/nodeMailer");
 
 exports.storeLogin = async (req, res) => {
@@ -43,7 +44,7 @@ exports.storeLogin = async (req, res) => {
         email,
         mobileNumber: PhoneNumber,
         otp,
-        expiresAt: Date.now() + 30 * 60 * 1000,
+        expiresAt: Date.now() + 2 * 60 * 1000,
       });
       if (email) {
         await sendVerificationEmail(
@@ -55,7 +56,10 @@ exports.storeLogin = async (req, res) => {
       }
 
       if (PhoneNumber) {
-        await whatsappOtp({mobileNumber:PhoneNumber, otp, authSettings});
+        const time = 2;
+        const type = "login";
+        const message = `Your OTP for ${type} is ${otp}. Valid for ${time} minutes.\nDo not share it.\n\nFivlia - Delivery in Minutes!`;
+        await sendMessages(PhoneNumber, message);
       }
       return res.status(200).json({ message: "OTP sent via WhatsApp" });
     }

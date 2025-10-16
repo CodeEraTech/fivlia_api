@@ -9,6 +9,7 @@ const mongoose = require("mongoose");
 const OtpModel = require("../modals/otp");
 const sendVerificationEmail = require("../config/nodeMailer");
 const { storeRegistrationTemplate } = require("../utils/emailTemplates");
+const { sendMessages } = require("../utils/sendMessages");
 const Login = mongoose.model(
   "Login",
   new mongoose.Schema({}, { strict: false }),
@@ -106,98 +107,56 @@ exports.updateProfile = async (req, res) => {
     });
   }
 };
+
 exports.Login = async (req, res) => {
   try {
-    let { mobileNumber, userId, fcmToken, website } = req.body;
-    console.log("fcmToken", fcmToken);
-    const setting = await SettingAdmin.findOne();
-    const authSettings = setting?.Auth?.[0] || {};
-    const firebaseStatus = authSettings.firebase?.status;
-    const whatsappStatus = authSettings.whatsApp?.status;
-    const smsStatus = authSettings.whatsAppBulk?.status;
-    let otp =
+    let { mobileNumber, fcmToken } = req.body;
+
+    if (!mobileNumber) {
+      return res.status(400).json({ message: "Mobile number is required" });
+    }
+
+    const otp =
       mobileNumber === "+919999999999"
         ? 123456
         : Math.floor(100000 + Math.random() * 900000);
+    const time = 2;
+    const type = "login";
+    const message = `Your OTP for ${type} is ${otp}. Valid for ${time} minutes.\nDo not share it.\n\nFivlia - Delivery in Minutes!`;
 
-    if (whatsappStatus) {
-      console.log("fcmToken", fcmToken);
-      if (fcmToken && fcmToken !== "null") {
-        await User.updateOne(
-          { mobileNumber },
-          { $set: { fcmToken } },
-          { upsert: true }
-        );
-      }
-      const response = await whatsappOtp({mobileNumber, otp, authSettings});
-      console.log(response.data);
-      return res
-        .status(200)
-        .json({ message: "OTP sent via WhatsApp", data: response.data });
-    } else if (firebaseStatus) {
-      console.log(3434899);
-      if (!mobileNumber || !userId || !fcmToken) {
-        return res
-          .status(400)
-          .json({ message: "Pls Provide All Credentials", status: 2 });
-      }
-
-      if (mobileNumber.startsWith("+91")) {
-        mobileNumber = mobileNumber.slice(3);
-      } else if (mobileNumber.startsWith("91") && mobileNumber.length === 12) {
-        mobileNumber = mobileNumber.slice(2);
-      }
-
-      if (!/^[6-9]\d{9}$/.test(mobileNumber)) {
-        return res
-          .status(400)
-          .json({ status: 2, message: "Invalid mobile number format" });
-      }
-
-      const formattedNumber = `+91${mobileNumber}`;
-
-      let firebaseUser;
-      try {
-        firebaseUser = await admin.auth().getUser(userId);
-      } catch (err) {
-        return res.status(404).json({
-          status: 2,
-          message: "Firebase UID not found",
-          error: err.message,
-        });
-      }
-
-      if (!firebaseUser || firebaseUser.phoneNumber !== formattedNumber) {
-        return res
-          .status(401)
-          .json({
-            status: 2,
-            message: "Firebase UID and mobile number do not match",
-          });
-      }
-
-      const exist = await User.findOne({ mobileNumber: formattedNumber });
-      // console.log(exist);
-
+    if (fcmToken && fcmToken !== "null") {
       await User.updateOne(
-        { mobileNumber: formattedNumber },
-        { $set: { userId, fcmToken } }
+        { mobileNumber },
+        { $set: { fcmToken } },
+        { upsert: true }
       );
+    }
 
-      const token = jwt.sign({ _id: exist._id }, process.env.jwtSecretKey);
-      return res
-        .status(200)
-        .json({ status: 1, message: "Login Successfully", token });
-    } else {
-      return res
-        .status(400)
-        .json({ message: "No OTP provider enabled in settings" });
+    try {
+      const response = await sendMessages(mobileNumber, message);
+      await OtpModel.create({
+        mobileNumber,
+        otp,
+        expiresAt: Date.now() + 2 * 60 * 1000,
+      });
+      return res.status(200).json({
+        status: 1,
+        message: "OTP sent successfully",
+        // data: response,
+      });
+    } catch (err) {
+      return res.status(500).json({
+        status: 2,
+        message: "Failed to send OTP",
+        error: err.message,
+      });
     }
   } catch (error) {
-    console.error(error);
-    return res
-      .status(500)
-      .json({ status: 2, message: "Error in login", error: error.message });
+    return res.status(500).json({
+      status: 2,
+      message: "Error in login",
+      error: error.message,
+    });
   }
 };
 
@@ -238,12 +197,10 @@ exports.signin = async (req, res) => {
     }
 
     if (!firebaseUser || firebaseUser.phoneNumber !== formattedNumber) {
-      return res
-        .status(401)
-        .json({
-          status: false,
-          message: "Firebase UID and mobile number do not match",
-        });
+      return res.status(401).json({
+        status: false,
+        message: "Firebase UID and mobile number do not match",
+      });
     }
 
     const exist = await User.findOne({ mobileNumber: formattedNumber });
@@ -277,7 +234,7 @@ exports.register = async (req, res) => {
 
     if (whatsappStatus) {
       // WhatsApp OTP logic
-       const response = await whatsappOtp(mobileNumber, otp, authSettings);
+      const response = await whatsappOtp(mobileNumber, otp, authSettings);
       console.log(response.data);
       return res
         .status(200)

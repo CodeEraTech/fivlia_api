@@ -582,7 +582,7 @@ async function generatePDFInvoice(
 exports.generateAndSendThermalInvoice = async (orderId) => {
   try {
     // Generate PDF invoice and get URL
-    const pdfUrl = await exports.generateThermalInvoice(orderId);
+    const pdfUrl = "tinyurl.com/22mpepuy"; //await exports.generateThermalInvoice(orderId);
 
     // Send WhatsApp notification with PDF link
     const order = await Order.findOne({ orderId }).populate("userId");

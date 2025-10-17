@@ -24,9 +24,9 @@ module.exports = (agenda) => {
 
       await Order.findOneAndUpdate({ orderId }, { invoiceUrl });
 
-      const message = `Your Fivlia order #${orderId} has been delivered! 🌟\nInvoice: ${pdfUrl}\nTotal: ₹${order.totalPrice} | Payment: ${order.paymentStatus}\nThank you for choosing Fivlia - Delivery in Minutes! 🚀\n\nRate your experience on our app! 📱`;
+      const message = `Your Fivlia order #${orderId} has been delivered! Invoice: ${pdfUrl} Download Invoice: ${order.storeInvoiceId} Total Amount: ${order.totalPrice} Thank you for choosing Fivlia - Delivery in Minutes! Rate your experience on our app!`;
 
-      await sendMessages(user.mobileNumber, message);
+      await sendMessages(user.mobileNumber, message, "1707176060687281700");
     } catch (err) {
       console.error("Agenda job error:", err);
     }

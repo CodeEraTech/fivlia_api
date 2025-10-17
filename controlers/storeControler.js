@@ -56,10 +56,8 @@ exports.storeLogin = async (req, res) => {
       }
 
       if (PhoneNumber) {
-        const time = 2;
-        const type = "login";
-        const message = `Your OTP for ${type} is ${otp}. Valid for ${time} minutes.\nDo not share it.\n\nFivlia - Delivery in Minutes!`;
-        await sendMessages(PhoneNumber, message);
+        const message = `Dear Customer Your Fivlia Login OTP code is ${otp}. Valid for 5 minutes. Do not share with others Fivlia - Delivery in Minutes!`;
+        await sendMessages(PhoneNumber, message, "1707176060665820902");
       }
       return res.status(200).json({ message: "OTP sent via WhatsApp" });
     }

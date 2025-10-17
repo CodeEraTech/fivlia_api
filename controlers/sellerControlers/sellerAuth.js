@@ -56,10 +56,9 @@ exports.addSeller = async (req, res) => {
       }
       // If email or phone exists but not verified, send OTP
       try {
-        const time = 2;
-        const type = "login";
-        const message = `Your OTP for ${type} is ${otp}. Valid for ${time} minutes.\nDo not share it.\n\nFivlia - Delivery in Minutes!`;
-        await sendMessages(PhoneNumber, message);
+        const message = `Dear Customer Your Fivlia Registration OTP code is ${otp}. Valid for 5 minutes. Do not share with others Fivlia - Delivery in Minutes!`;
+
+        await sendMessages(PhoneNumber, message, "1707176060659474352");
         await OtpModel.create({
           email,
           mobileNumber: PhoneNumber,
@@ -123,10 +122,9 @@ exports.addSeller = async (req, res) => {
       fullAddress,
     });
 
-    const time = 2;
-    const type = "login";
-    const message = `Your OTP for ${type} is ${otp}. Valid for ${time} minutes.\nDo not share it.\n\nFivlia - Delivery in Minutes!`;
-    await sendMessages(PhoneNumber, message);
+    const message = `Dear Customer Your Fivlia Registration OTP code is ${otp}. Valid for 5 minutes. Do not share with others Fivlia - Delivery in Minutes!`;
+
+    await sendMessages(PhoneNumber, message, "1707176060659474352");
     await OtpModel.create({
       email,
       mobileNumber: PhoneNumber,
@@ -151,10 +149,10 @@ exports.sendOtp = async (req, res) => {
   try {
     const { PhoneNumber } = req.body;
     const otp = crypto.randomInt(100000, 999999).toString();
-    const time = 2;
-    const type = "login";
-    const message = `Your OTP for ${type} is ${otp}. Valid for ${time} minutes.\nDo not share it.\n\nFivlia - Delivery in Minutes!`;
-    await sendMessages(PhoneNumber, message);
+
+    const message = `Dear Customer Your Fivlia Login OTP code is ${otp}. Valid for 5 minutes. Do not share with others Fivlia - Delivery in Minutes!`;
+
+    await sendMessages(PhoneNumber, message, "1707176060665820902");
     await OtpModel.create({
       email,
       mobileNumber: PhoneNumber,
@@ -162,7 +160,7 @@ exports.sendOtp = async (req, res) => {
       expiresAt: Date.now() + 2 * 60 * 1000,
     });
 
-    return res.status(200).json({ message: "OTP sent via WhatsApp"});
+    return res.status(200).json({ message: "OTP sent via WhatsApp" });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ ResponseMsg: "An Error Occured" });

@@ -110,11 +110,9 @@ exports.driverOrderStatus = async (req, res) => {
       const generatedOtp = Math.floor(100000 + Math.random() * 900000);
       const mobileNumber = user.mobileNumber;
 
-      const time = 2;
-      const type = "delivery";
-      const message = `Your OTP for ${type} is ${generatedOtp}. Valid for ${time} minutes.\nDo not share it.\n\nFivlia - Delivery in Minutes!`;
+      const message = `Dear Customer. Your Fivlia Delivery OTP code is ${generatedOtp}. Valid for 5 minutes. Do not share with others Fivlia - Delivery in Minutes!`;
 
-      await sendMessages(mobileNumber, message);
+      await sendMessages(mobileNumber, message, "1707176060670565835");
 
       await OtpModel.findOneAndUpdate(
         { mobileNumber, orderId },

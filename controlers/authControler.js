@@ -120,9 +120,7 @@ exports.Login = async (req, res) => {
       mobileNumber === "+919999999999"
         ? 123456
         : Math.floor(100000 + Math.random() * 900000);
-    const time = 2;
-    const type = "login";
-    const message = `Your OTP for ${type} is ${otp}. Valid for ${time} minutes.\nDo not share it.\n\nFivlia - Delivery in Minutes!`;
+    const message = `Dear Customer Your Fivlia Login OTP code is ${otp}. Valid for 5 minutes. Do not share with others Fivlia - Delivery in Minutes!`;
 
     if (fcmToken && fcmToken !== "null") {
       await User.updateOne(
@@ -133,7 +131,11 @@ exports.Login = async (req, res) => {
     }
 
     try {
-      const response = await sendMessages(mobileNumber, message);
+      const response = await sendMessages(
+        mobileNumber,
+        message,
+        "1707176060665820902"
+      );
       await OtpModel.create({
         mobileNumber,
         otp,

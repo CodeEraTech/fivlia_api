@@ -1,3 +1,12 @@
+(use "git restore <file>..." to discard changes in working directory)
+        modified:   config/whatsappsender.js
+        modified:   controlers/authControler.js
+        modified:   controlers/driverControler.js
+        modified:   controlers/sellerControlers/sellerAuth.js
+        modified:   controlers/storeControler.js
+
+
+
 स्थिर संदेश: {
     अनुप्रयोग: {
         केवल_पढ़ने_योग्य नाम: पाठ;

@@ -52,7 +52,7 @@ exports.getEvent = async (req, res) =>{
 
     if(role==='admin'){
         const AllEvent = await Event.find();
-        res.json(AllEvent)
+        return res.json(AllEvent)
     }
 
    const activeEvent = await Event.findOne({ eventStatus: true }).sort({ startTime: 1 });

@@ -9,7 +9,7 @@ const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fet
  */
 const getDistanceMatrix = async (origins, destinations,apiKey) => {
   try {
-          console.log('Ola API key in fuction:', apiKey);
+          // console.log('Ola API key in fuction:', apiKey);
     if (!apiKey) {
       throw new Error('No API key provided to getDistanceMatrix');
     }

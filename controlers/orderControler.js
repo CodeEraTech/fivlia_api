@@ -309,19 +309,19 @@ exports.verifyPayment = async (req, res) => {
     if (sellerDoc) {
       await notifySeller(
         sellerDoc,
-        `New Order #${newOrder.orderId} Received`,
-        `You’ve received a new order worth ₹${newOrder.totalPrice}. Please confirm and prepare for dispatch.`
+        `New Order #${finalOrder.orderId} Received`,
+        `You’ve received a new order worth ₹${finalOrder.totalPrice}. Please confirm and prepare for dispatch.`
       );
   const sellerSocket = sellerSocketMap.get(sellerDoc._id.toString());
-  if (sellerSocket) sellerSocket.emit("storeOrder", { orderId: newOrder.orderId });
+  if (sellerSocket) sellerSocket.emit("storeOrder", { orderId: finalOrder.orderId });
 
   // ✅ Emit to admin as well
   const adminSocket = adminSocketMap.get("admin");
   if (adminSocket) {
     adminSocket.emit("storeOrder", {
-      orderId: newOrder.orderId,
+      orderId: finalOrder.orderId,
       storeId: sellerDoc._id,
-      totalPrice: newOrder.totalPrice,
+      totalPrice: finalOrder.totalPrice,
     });
     console.log(`👑 Sent new order to admin`);
   }

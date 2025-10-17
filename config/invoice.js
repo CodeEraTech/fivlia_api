@@ -588,7 +588,7 @@ exports.generateAndSendThermalInvoice = async (orderId) => {
     const order = await Order.findOne({ orderId }).populate("userId");
     const user = order.userId;
 
-    const message = `Your Fivlia order #${orderId} has been delivered! Invoice: ${pdfUrl} Download Invoice: ${order.storeInvoiceId} Total Amount: ${order.totalPrice} Thank you for choosing Fivlia - Delivery in Minutes! Rate your experience on our app!`;
+    const message = `Your Fivlia order ${orderId} has been delivered! Invoice: ${pdfUrl} Download Invoice: ${order.storeInvoiceId} Total Amount: ${order.totalPrice} Thank you for choosing Fivlia - Delivery in Minutes! Rate your experience on our app!`;
 
     const response = await sendMessages(user.mobileNumber, message, "1707176060687281700");
 console.log(response,34783487);

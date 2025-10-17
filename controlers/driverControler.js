@@ -127,7 +127,7 @@ exports.driverOrderStatus = async (req, res) => {
       );
 
       return res.status(200).json({
-        message: `OTP sent via WhatsApp to ${mobileNumber}`,
+        message: `OTP sent to ${mobileNumber}`,
         otp: generatedOtp,
         statusUpdate,
       });

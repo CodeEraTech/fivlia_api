@@ -582,7 +582,13 @@ async function generatePDFInvoice(
 exports.generateAndSendThermalInvoice = async (orderId) => {
   try {
     // Generate PDF invoice and get URL
-    const pdfUrl = "tinyurl.com/22mpepuy"; //await exports.generateThermalInvoice(orderId);
+    let pdfUrl = await exports.generateThermalInvoice(orderId);
+
+    if (pdfUrl.startsWith("http://")) {
+      pdfUrl = pdfUrl.replace("http://", "");
+    } else if (pdfUrl.startsWith("https://")) {
+      pdfUrl = pdfUrl.replace("https://", "");
+    }
 
     // Send WhatsApp notification with PDF link
     const order = await Order.findOne({ orderId }).populate("userId");
@@ -590,8 +596,12 @@ exports.generateAndSendThermalInvoice = async (orderId) => {
 
     const message = `Your Fivlia order ${orderId} has been delivered! Invoice: ${pdfUrl} Download Invoice: ${order.storeInvoiceId} Total Amount: ${order.totalPrice} Thank you for choosing Fivlia - Delivery in Minutes! Rate your experience on our app!`;
 
-    const response = await sendMessages(user.mobileNumber, message, "1707176060687281700");
-console.log(response,34783487);
+    const response = await sendMessages(
+      user.mobileNumber,
+      message,
+      "1707176060687281700"
+    );
+    console.log(response, 34783487);
     return {
       success: true,
       message: "Thermal invoice PDF generated and sent via WhatsApp",

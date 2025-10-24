@@ -74,4 +74,39 @@ const otpTemplate = (otp) => `
 `;
 
 
-module.exports = { storeRegistrationTemplate, otpTemplate };
+const contactUsTemplate = (firstName, lastName, email, phone, message) => `
+<html>
+  <body style="margin:0; padding:20px; background-color:#ffffff; font-family: Arial, Helvetica, sans-serif; color:#333;">
+    
+    <!-- Header -->
+    <h1 style="color:#30574e; font-weight:bold; font-size:26px; letter-spacing:0.1em; text-align:center; margin-bottom:20px;">
+      FIVLIA
+    </h1>
+
+    <!-- Title -->
+    <h2 style="text-align:center; color:#222; margin-bottom:10px;">
+      New Contact Request
+    </h2>
+
+    <!-- Info Box -->
+    <div style="background:#f5f5f5; border-radius:8px; padding:20px; max-width:600px; margin:0 auto;">
+      <p><strong>Name:</strong> ${firstName} ${lastName}</p>
+      <p><strong>Email:</strong> ${email}</p>
+      <p><strong>Phone:</strong> ${phone}</p>
+      <p><strong>Message:</strong></p>
+      <p style="background:#fff; padding:10px; border-radius:6px; border:1px solid #ddd;">
+        ${message}
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <p style="text-align:center; font-size:13px; color:#999; margin-top:30px;">
+      This message was automatically sent from the Fivlia website.
+    </p>
+
+  </body>
+</html>
+`;
+
+
+module.exports = { storeRegistrationTemplate, otpTemplate,contactUsTemplate };

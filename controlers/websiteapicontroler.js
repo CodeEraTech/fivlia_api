@@ -19,6 +19,8 @@ const page = require("../modals/pages");
 const Store = require("../modals/store");
 const { lte } = require("zod/v4-mini");
 const Rating = require("../modals/rating");
+const {sendMailContact} = require("../config/nodeMailer");
+const { contactUsTemplate } = require("../utils/emailTemplates");
 
 exports.forwebbestselling = async (req, res) => {
   try {
@@ -1435,6 +1437,12 @@ exports.contactUs = async (req, res) => {
       phone,
       message,
     });
+    
+   await sendMailContact(
+              "goutam.kathuria@gmail.com",
+              "New Contact Request",
+              contactUsTemplate(firstName,lastName,email,phone,message)
+            );
     return res.status(200).json({ message: "Request Submitted" });
   } catch (error) {
     //console.error("Error updating status:", error);

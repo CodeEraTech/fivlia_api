@@ -26,4 +26,14 @@ const sendVerificationEmail = async (to, firstName, lastName, storeName) => {
   });
 };
 
-module.exports = sendVerificationEmail;
+const sendMailContact = async (to, subject, htmlContent) => {
+  await transporter.sendMail({
+    from: "Fivlia <fivliaindia@gmail.com>",
+    to,
+    subject,
+    html: htmlContent,
+  });
+};
+
+
+module.exports = {sendVerificationEmail, sendMailContact};

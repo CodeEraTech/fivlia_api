@@ -312,17 +312,21 @@ exports.recommedProduct = async (req, res) => {
     // 3️⃣ Extract all allowed category IDs
     let allowedCategoryIds = [];
     if (seller.sellerCategories?.length) {
+
+        allowedCategoryIds = seller.sellerCategories.flatMap(
+        cat => cat.categoryId).filter(Boolean)
+
       // Unofficial sellers: subCategories + subSubCategories
-      allowedCategoryIds = seller.sellerCategories.flatMap(
-        (cat) =>
-          cat.subCategories?.flatMap((sub) =>
-            [
-              ...(sub.subSubCategories?.map((ssc) => ssc.subSubCategoryId) ||
-                []),
-              sub.subCategoryId,
-            ].filter(Boolean)
-          ) || []
-      );
+      // allowedCategoryIds = seller.sellerCategories.flatMap(
+      //   (cat) =>
+      //     cat.subCategories?.flatMap((sub) =>
+      //       [
+      //         ...(sub.subSubCategories?.map((ssc) => ssc.subSubCategoryId) ||
+      //           []),
+      //         sub.subCategoryId,
+      //       ].filter(Boolean)
+      //     ) || []
+      // );
     } else if (seller.Category?.length) {
       // Official store: main categories
       allowedCategoryIds = seller.Category;
@@ -339,12 +343,11 @@ exports.recommedProduct = async (req, res) => {
     const matchQuery = {
       _id: { $nin: cartItems.map((c) => c.productId) },
       $or: [
-        { "subSubCategory._id": { $in: allowedCategoryIds } },
-        { "subCategory._id": { $in: allowedCategoryIds } },
+        // { "subSubCategory._id": { $in: allowedCategoryIds } },
+        // { "subCategory._id": { $in: allowedCategoryIds } },
         { "category._id": { $in: allowedCategoryIds } },
       ],
     };
-
     // 5️⃣ Aggregate recommended products with stock info
     const recommendedProducts = await Products.aggregate([
       { $match: matchQuery },

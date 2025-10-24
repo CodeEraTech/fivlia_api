@@ -26,9 +26,10 @@ const sendVerificationEmail = async (to, firstName, lastName, storeName) => {
   });
 };
 
-const sendMailContact = async (to, subject, htmlContent) => {
+const sendMailContact = async (to, subject,userEmail, htmlContent) => {
   await transporter.sendMail({
     from: "Fivlia <fivliaindia@gmail.com>",
+    replyTo: userEmail,
     to,
     subject,
     html: htmlContent,

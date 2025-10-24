@@ -1439,7 +1439,8 @@ exports.contactUs = async (req, res) => {
     });
     
    await sendMailContact(
-              "support@fivlia.in",
+              "fivliaindia@gmail.com",
+              email,
               "New Contact Request",
               contactUsTemplate(firstName,lastName,email,phone,message)
             );

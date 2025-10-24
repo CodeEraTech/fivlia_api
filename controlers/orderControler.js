@@ -827,7 +827,7 @@ exports.test = async (req, res) => {
 
 exports.driver = async (req, res) => {
   try {
-    const { driverName, status, email, password } = req.body;
+    const { driverName, status, email, approveStatus, password } = req.body;
     let nextDriverId = await getNextDriverId(true);
     const rawImagePath = req.files?.image?.[0]?.key || "";
     const image = rawImagePath ? `/${rawImagePath}` : "";
@@ -850,6 +850,7 @@ exports.driver = async (req, res) => {
       address,
       email,
       password,
+      approveStatus,
       Police_Verification_Copy,
       aadharCard: {
         front: aadharFrontKey ? `/${aadharFrontKey}` : "",

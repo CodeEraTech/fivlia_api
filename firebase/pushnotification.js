@@ -23,7 +23,7 @@ async function sendNotification(fcmToken, title, body, clickAction = "/dashboard
         payload: {
           aps: {
             alert: { title, body },
-            sound: soundType === "default" ? "default" : soundType,
+            sound: soundType === "default" ? "default" : "custom_sound.wav",
           },
         },
       },

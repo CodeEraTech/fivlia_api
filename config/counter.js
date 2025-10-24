@@ -22,11 +22,11 @@ async function FeeInvoiceId(increment = true) {
       { $inc: { seq: 1 } },
       { new: true, upsert: true }
     );
-    return `FIV${counter.seq.toString().padStart(3, '0')}`;
+    return `FIV${counter.seq}`;
   } else {
     const counter = await Counter.findById('feeInvoiceId');
     const seq = counter ? counter.seq + 1 : 1;
-    return `FIV${seq.toString().padStart(3, '0')}`;
+    return `FIV${seq}`;
   }
 }
 

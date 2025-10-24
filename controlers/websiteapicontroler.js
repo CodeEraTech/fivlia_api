@@ -1541,6 +1541,12 @@ exports.getAllSellerProducts = async (req, res) => {
       _id: { $in: categoryIds },
     }).lean();
 
+      productsWithStock.sort((a, b) => {
+      const aQty = a.inventory?.some((i) => i.quantity > 0) ? 1 : 0;
+      const bQty = b.inventory?.some((i) => i.quantity > 0) ? 1 : 0;
+      return bQty - aQty;
+    });
+
     return res.status(200).json({
       sellerImage: seller.advertisementImages?.length
         ? seller.advertisementImages

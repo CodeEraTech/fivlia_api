@@ -63,6 +63,7 @@ exports.addSeller = async (req, res) => {
           email,
           mobileNumber: PhoneNumber,
           otp,
+          otpEmail,
           expiresAt: Date.now() + 2 * 60 * 1000,
         });
 

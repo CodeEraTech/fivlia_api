@@ -4,6 +4,7 @@ const Products = require("../modals/Product");
 const Store = require("../modals/store");
 const User = require("../modals/User");
 const stock = require("../modals/StoreStock");
+const mongoose = require('mongoose');
 const haversine = require("haversine-distance");
 
 exports.addCart = async (req, res) => {
@@ -301,6 +302,14 @@ exports.recommedProduct = async (req, res) => {
     if (!cartItems.length) {
       return res.status(404).json({ message: "Cart is empty" });
     }
+   
+    const cartProductIds = cartItems.map(c => c.productId);
+
+    const cartProducts = await Products.find({ _id: { $in: cartProductIds } }).lean();
+
+    if (!cartProducts.length) {
+      return res.status(304).json({ message: "Cart products not found" });
+    }
 
     // 2️⃣ Get seller of first cart item
     const firstCartItem = cartItems[0];
@@ -313,9 +322,16 @@ exports.recommedProduct = async (req, res) => {
     let allowedCategoryIds = [];
     if (seller.sellerCategories?.length) {
 
-        allowedCategoryIds = seller.sellerCategories.flatMap(
-        cat => cat.categoryId).filter(Boolean)
+        const sellerCategoryIds = seller.sellerCategories
+        .map(cat => cat.categoryId.toString())
+        .filter(Boolean);
 
+        const filteredCartCategories = cartProducts
+        .flatMap(p => p.category || []) // cart product category array
+        .filter(c => sellerCategoryIds.includes(c._id.toString())) // only seller categories
+        .map(c => c._id.toString());
+
+         allowedCategoryIds = [...new Set(filteredCartCategories.map(id =>new mongoose.Types.ObjectId(id)))];
       // Unofficial sellers: subCategories + subSubCategories
       // allowedCategoryIds = seller.sellerCategories.flatMap(
       //   (cat) =>
@@ -339,9 +355,10 @@ exports.recommedProduct = async (req, res) => {
       });
     }
 
+    console.log('allowedCategoryIds',allowedCategoryIds)
     // 4️⃣ Build query to exclude products already in cart
     const matchQuery = {
-      _id: { $nin: cartItems.map((c) => c.productId) },
+      _id: { $nin: cartProductIds},
       $or: [
         // { "subSubCategory._id": { $in: allowedCategoryIds } },
         // { "subCategory._id": { $in: allowedCategoryIds } },

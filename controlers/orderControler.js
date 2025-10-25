@@ -874,7 +874,7 @@ exports.driver = async (req, res) => {
 
 exports.getDriver = async (req, res) => {
   try {
-    const Driver = await driver.find();
+    const Driver = await driver.find({approveStatus:{$ne:"pending_admin_approval"}});
     return res.status(200).json({ message: "Drivers", Driver });
   } catch (error) {
     console.error(error);

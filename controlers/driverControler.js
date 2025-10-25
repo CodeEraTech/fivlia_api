@@ -585,3 +585,13 @@ exports.withdrawalRequest = async (req, res) => {
       .json({ message: "Server error", error: error.message });
   }
 };
+
+exports.getDriverRequest = async (req, res) => {
+  try {
+    const requests = await driver.find({ approveStatus: "pending_admin_approval" }).sort({ createdAt: -1 })
+    return res.status(200).json({message: "Driver Approval Requests",requests});
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ ResponseMsg: "An Error Occured" });
+  }
+};

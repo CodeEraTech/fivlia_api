@@ -39,6 +39,7 @@ const {
   editProfile,
   deleteDriver,
   withdrawalRequest,
+  getDriverRequest,
 } = require("../controlers/driverControler");
 
 const {
@@ -323,7 +324,7 @@ router.get("/adminTranaction", adminTranaction);
 router.get("/getFeatureProduct", verifyToken, getFeatureProduct);
 router.get("/getStoreTransaction/:storeId", getStoreTransaction);
 router.get("/getStoreCategory", getStoreCategory);
-
+router.get("/getDriverRequest", getDriverRequest);
 //website
 router.get("/website/bestSelling", forwebbestselling);
 router.get("/website/getProduct", forwebgetProduct);

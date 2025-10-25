@@ -1,3 +1,4 @@
+const driver = require("../../modals/driver");
 const seller = require("../../modals/store");
 const sendNotification = require("../../firebase/pushnotification");
 const { SettingAdmin } = require("../../modals/setting");
@@ -351,7 +352,7 @@ const notifySeller = async (
 
 exports.acceptDeclineRequest = async (req, res) => {
   try {
-    const { approval, id, productId, isImage, isLocation, description } =
+    const {type, approval, id, productId, isImage, isLocation, description } =
       req.body;
 
     // ---------- PRODUCT APPROVAL ----------
@@ -509,6 +510,26 @@ exports.acceptDeclineRequest = async (req, res) => {
       });
     }
 
+    if (type === 'driver') {
+    const application = await driver.findByIdAndUpdate(
+      id,
+      { approveStatus: approval },
+      { new: true }
+    );
+
+    const sellerDoc = await driver.findById(id);
+    if (sellerDoc) {
+      await notifySeller(
+        sellerDoc,
+        `Driver Application ${approval}`,
+        `Your Driver application has been ${approval}.`
+      );
+    }
+
+    return res
+      .status(200)
+      .json({ message: `Driver application ${approval}`, application });
+    }
     // ---------- SELLER APPLICATION APPROVAL ----------
     const application = await seller.findByIdAndUpdate(
       id,

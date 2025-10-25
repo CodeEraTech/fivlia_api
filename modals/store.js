@@ -10,7 +10,7 @@ const storeScheema = new mongoose.Schema({
     zone: [{ _id: { type: mongoose.Schema.ObjectId, ref: 'Locations' }, name: String, title: String, latitude: Number, longitude: Number, range: Number }],
     Latitude: String,
     Longitude: String,
-    status: { type: Boolean, default: true },
+    status: { type: Boolean, default: false },
     Description: String,
     wallet: Number,
     Authorized_Store: { type: Boolean, default: true },

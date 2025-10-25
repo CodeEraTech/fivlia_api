@@ -1,4 +1,4 @@
-const { driverSocketMap,sellerSocketMap,adminSocketMap } = require('../utils/driverSocketMap');
+const { driverSocketMap,sellerSocketMap,adminSocketMap,userSocketMap } = require('../utils/driverSocketMap');
 const {updateDriverStatus} = require('../controlers/driverControler')
 module.exports = (io) => {
   io.on('connection', (socket) => {
@@ -49,12 +49,22 @@ module.exports = (io) => {
 
       socket.emit("joinedSellerRoom", { message: "Seller joined successfully", storeId });
     });
+
     socket.on("joinAdmin", () => {
       adminSocketMap.set("admin", socket); // single admin or can use adminId
       console.log("👑 Admin connected");
       socket.emit("joinedAdminRoom", { message: "Admin joined successfully" });
     });
-   
+
+    socket.on('joinUser', (payload) => {
+      if (typeof payload === 'string') payload = JSON.parse(payload);
+      const { userId } = payload;
+      if (!userId) return;
+      userSocketMap.set(userId, socket);
+      console.log('👤 User connected:', userId);
+      socket.emit('joinedUserRoom', { message: 'User joined successfully', userId });
+    });
+
     socket.on('disconnect', () => {
       for (const [driverId, s] of driverSocketMap.entries()) {
         if (s.id === socket.id) driverSocketMap.delete(driverId);
@@ -64,6 +74,9 @@ module.exports = (io) => {
       }
       for (const [adminId, s] of adminSocketMap.entries()) {
         if (s.id === socket.id) adminSocketMap.delete(adminId);
+      }
+      for (const [userId, s] of userSocketMap.entries()) {
+        if (s.id === socket.id) userSocketMap.delete(userId);
       }
     });
   });

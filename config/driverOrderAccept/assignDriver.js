@@ -87,7 +87,7 @@ if (retryCount >= MAX_RETRY_COUNT) {
 
   if (availableDrivers.length === 0) {
     console.info(`😕 No available drivers to broadcast for order ${orderId}`);
-    return;
+    // return;
   }
 
   const cleanupAllListeners = () => {

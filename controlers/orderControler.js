@@ -470,6 +470,7 @@ exports.getOrderDetails = async (req, res) => {
 
         driverInfo = {
           driverId: driverInfo.driverId || "",
+          Id: driverInfo._id || "",
           name: driverInfo.driverName || "",
           mobileNo: driverInfo.address?.mobileNo || "",
         };

@@ -128,16 +128,16 @@ exports.driverOrderStatus = async (req, res) => {
         { new: true }
       );
 
-      if (activeIntervals.has(orderId)) {
-        clearInterval(activeIntervals.get(orderId));
-        activeIntervals.delete(orderId);
-      }
-      await sendDriverLocationToUser(order.driver.driverId, orderId);
-      const intervalId = setInterval(() => {
-        sendDriverLocationToUser(order.driver.driverId, orderId);
-      }, 5 * 60 * 1000);
+      // if (activeIntervals.has(orderId)) {
+      //   clearInterval(activeIntervals.get(orderId));
+      //   activeIntervals.delete(orderId);
+      // }
+      // await sendDriverLocationToUser(order.driver.driverId, orderId);
+      // const intervalId = setInterval(() => {
+      //   sendDriverLocationToUser(order.driver.driverId, orderId);
+      // }, 5 * 60 * 1000);
 
-      activeIntervals.set(orderId, intervalId);
+      // activeIntervals.set(orderId, intervalId);
 
       return res.status(200).json({
         message: `OTP sent to ${mobileNumber}`,
@@ -229,11 +229,11 @@ exports.driverOrderStatus = async (req, res) => {
       await OtpModel.deleteOne({ _id: otpRecord._id });
       await Assign.deleteOne({ orderId: orderId, orderStatus: "Accepted" });
 
-      if (activeIntervals.has(orderId)) {
-        clearInterval(activeIntervals.get(orderId));
-        activeIntervals.delete(orderId);
-        console.log(`🛑 Stopped location interval for order ${orderId}`);
-      }
+      // if (activeIntervals.has(orderId)) {
+      //   clearInterval(activeIntervals.get(orderId));
+      //   activeIntervals.delete(orderId);
+      //   console.log(`🛑 Stopped location interval for order ${orderId}`);
+      // }
       // ✅ Generate Thermal Invoice
       try {
         await generateAndSendThermalInvoice(orderId);

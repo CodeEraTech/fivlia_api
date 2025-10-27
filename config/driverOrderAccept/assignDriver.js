@@ -20,7 +20,6 @@ const assignWithBroadcast = async (order, drivers) => {
     console.warn(`⚠️ Order ${orderId} already assigned. Aborting broadcast.`);
     return;
   }
-console.log('drivers',drivers)
   const retryCount = retryTracker.get(orderId) || 0;
 if (retryCount >= MAX_RETRY_COUNT) {
   await Order.findOneAndUpdate({ orderId }, { orderStatus: "Cancelled" });
@@ -85,7 +84,6 @@ if (retryCount >= MAX_RETRY_COUNT) {
     (driver) => !rejectedDrivers.has(driver._id.toString())
   );
 
-  console.log('availableDrivers',availableDrivers)
 
   if (availableDrivers.length === 0) {
     console.info(`😕 No available drivers to broadcast for order ${orderId}`);

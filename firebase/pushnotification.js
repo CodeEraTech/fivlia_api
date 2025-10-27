@@ -46,7 +46,7 @@ async function sendNotification(fcmToken, title, body, clickAction = "/dashboard
       },
     });
 
-    console.log("✅ Notification sent:", response.data);
+    console.log("✅ Notification sent");
   } catch (err) {
     console.error("❌ Sending error:", err.response?.data || err.message);
   }

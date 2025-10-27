@@ -32,6 +32,41 @@ const {
 } = require("../utils/razorpayService");
 
 const MAX_DISTANCE_METERS = 5000;
+const MAX_ATTEMPTS = 10; // retry 10 times (for example, every 30s = 5 minutes total)
+const RETRY_INTERVAL = 5000;
+
+// Helper: send repeated notifications until accepted
+const repeatNotifyStore = async (orderId, storeDoc, attempt = 1) => {
+  try {
+    const order = await Order.findOne({ orderId });
+    if (!order) return console.log(`⚠️ Order ${orderId} not found`);
+
+    // If store already accepted, stop retrying
+    if (order.orderStatus === "Accepted") {
+      console.log(`✅ Store accepted order ${orderId}, stopping retries`);
+      return;
+    }
+
+    // Otherwise, send notification again
+    await notifySeller(
+      storeDoc,
+      `⏰ Reminder: New Order #${order.orderId} still pending`,
+      `You have a pending order worth ₹${order.totalPrice}. Please accept or reject it.`
+    );
+
+    console.log(`🔁 Reminder sent to store ${storeDoc._id} for order ${orderId} (attempt ${attempt})`);
+
+    // Schedule next retry if not accepted yet
+    if (attempt < MAX_ATTEMPTS) {
+      setTimeout(() => repeatNotifyStore(orderId, storeDoc, attempt + 1), RETRY_INTERVAL);
+    } else {
+      console.log(`🚫 Max retries reached for order ${orderId}`);
+    }
+
+  } catch (err) {
+    console.error(`Error in repeatNotifyStore:`, err);
+  }
+};
 
 const notifySeller = async (
   sellerDoc,
@@ -108,7 +143,6 @@ exports.placeOrder = async (req, res) => {
       (store) => store._id.toString() === storeId.toString()
     );
 
-    console.log("storeExistsInZone",storeExistsInZone)
     if (!storeExistsInZone) {
       return res.status(400).json({
         message: "This store does not deliver to your address location.",
@@ -187,6 +221,8 @@ exports.placeOrder = async (req, res) => {
           `You’ve received a new order worth ₹${newOrder.totalPrice}. Please confirm and prepare for dispatch.`
         );
    
+        repeatNotifyStore(newOrder.orderId, sellerDoc);
+
   const sellerSocket = sellerSocketMap.get(sellerDoc._id.toString());
   if (sellerSocket) sellerSocket.emit("storeOrder", { orderId: newOrder.orderId });
 
@@ -733,7 +769,6 @@ exports.orderStatus = async (req, res) => {
     const store = await Store.findById(updatedOrder.storeId).lean();
     // 3. Send notification if FCM token valid and status exists
     if (user?.fcmToken && user.fcmToken !== "null" && statusInfo?.statusTitle) {
-      console.log(122626);
       await sendNotification(
         user.fcmToken,
         `📦 Order #${updatedOrder.orderId} - ${statusInfo.statusTitle}`,

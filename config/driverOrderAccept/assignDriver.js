@@ -20,7 +20,7 @@ const assignWithBroadcast = async (order, drivers) => {
     console.warn(`⚠️ Order ${orderId} already assigned. Aborting broadcast.`);
     return;
   }
-
+console.log('drivers',drivers)
   const retryCount = retryTracker.get(orderId) || 0;
 if (retryCount >= MAX_RETRY_COUNT) {
   await Order.findOneAndUpdate({ orderId }, { orderStatus: "Cancelled" });
@@ -80,9 +80,12 @@ if (retryCount >= MAX_RETRY_COUNT) {
   const orderUser = await User.findOne({ _id: order.userId }).lean();
 
   const rejectedDrivers = rejectedDriversMap.get(orderId) || new Set();
+  
   const availableDrivers = drivers.filter(
     (driver) => !rejectedDrivers.has(driver._id.toString())
   );
+
+  console.log('availableDrivers',availableDrivers)
 
   if (availableDrivers.length === 0) {
     console.info(`😕 No available drivers to broadcast for order ${orderId}`);
@@ -101,61 +104,68 @@ if (retryCount >= MAX_RETRY_COUNT) {
   };
 
   const broadcastOrder = () => {
-    console.log(
-      `📢 Broadcasting order ${orderId} to ${availableDrivers.length} drivers...`
-    );
+  console.log(
+    `📢 Broadcasting order ${orderId} to ${availableDrivers.length} drivers...`
+  );
 
-    availableDrivers.forEach((driver) => {
-      const driverId = driver._id.toString();
-      const socket = driverSocketMap.get(driverId);
+  // 🔹 Step 1: Send FCM to ALL available drivers (socket or not)
+  availableDrivers.forEach((driver) => {
+    const driverId = driver._id.toString();
 
-      if (!socket) {
-        console.warn(`❌ No active socket for driver ${driverId}`);
-        return;
-      }
-
-      const orderWithLocation = {
-        ...(order.toObject ? order.toObject() : order),
-        storeName: orderStore.storeName,
-
-        storeLat: orderStore.Latitude,
-        storeLng: orderStore.Longitude,
-        
-        userLat: orderUser.location.latitude,
-        userLng: orderUser.location.longitude,
-      };
-
-      socket.emit("newOrder", {
-        order: orderWithLocation,
-        driverId,
-        timeLeft: TIMEOUT_MS / 1000,
-      });
-
-      console.log(`✅ Sent order ${orderId} to driver ${driverId}`);
-
-      if (driver.fcmToken) {
-        admin
-          .messaging()
-          .send({
-            token: driver.fcmToken,
+    if (driver.fcmToken) {
+      admin
+        .messaging()
+        .send({
+          token: driver.fcmToken,
+          notification: {
+            title: "New Order Request 🚗",
+            body: `Order #${orderId} is waiting for your response`,
+          },
+          android: {
             notification: {
-              title: "New Order Request",
-              body: `Order ${orderId} is waiting for your response`,
+              channelId: "custom_sound_channel",
+              sound: "custom_sound",
             },
-            android: {
-              notification: {
-                channelId: "custom_sound_channel",
-                sound: "custom_sound",
-              },
-            },
-            data: {
-              orderId,
-              timeLeft: (TIMEOUT_MS / 1000).toString(),
-              screen: "TodayOrderScreen",
-            },
-          })
-          .catch((err) => console.error("Push error:", err));
-      }
+          },
+          data: {
+            orderId,
+            timeLeft: (TIMEOUT_MS / 1000).toString(),
+            screen: "TodayOrderScreen",
+          },
+        })
+        .then(() => {
+          console.log(`📩 Push sent to driver ${driverId}`);
+        })
+        .catch((err) => console.error("Push error:", err));
+    }
+  });
+
+  // 🔹 Step 2: Emit socket event only for online drivers
+  availableDrivers.forEach((driver) => {
+    const driverId = driver._id.toString();
+    const socket = driverSocketMap.get(driverId);
+
+    if (!socket) {
+      console.log(`📱 Driver ${driverId} offline, push-only mode`);
+      return;
+    }
+
+    const orderWithLocation = {
+      ...(order.toObject ? order.toObject() : order),
+      storeName: orderStore.storeName,
+      storeLat: orderStore.Latitude,
+      storeLng: orderStore.Longitude,
+      userLat: orderUser.location.latitude,
+      userLng: orderUser.location.longitude,
+    };
+
+    socket.emit("newOrder", {
+      order: orderWithLocation,
+      driverId,
+      timeLeft: TIMEOUT_MS / 1000,
+    });
+
+    console.log(`✅ Socket order ${orderId} sent to driver ${driverId}`);
 
       // --- Accept Handler ---
       const handleAccept = async ({

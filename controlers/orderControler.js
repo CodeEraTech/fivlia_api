@@ -474,6 +474,22 @@ exports.getOrderDetails = async (req, res) => {
           mobileNo: driverInfo.address?.mobileNo || "",
         };
       }
+      let storeLocation = null;
+      if (order.storeId) {
+        const storeData = await Store.findById(order.storeId, {
+          Latitude: 1,
+          Longitude: 1,
+        }).lean();
+
+        if (storeData) {
+          storeLocation =
+            storeData.location || {
+              Latitude: storeData.Latitude || null,
+              Longitude: storeData.Longitude || null,
+            };
+        }
+      }
+
 
       if (settings && order.totalPrice > settings.freeDeliveryLimit) {
         order.deliveryCharges = 0;
@@ -500,7 +516,6 @@ exports.getOrderDetails = async (req, res) => {
           };
         })
       );
-
       // 4. Push combined data
       results.push({
         orderId: order.orderId,
@@ -513,6 +528,7 @@ exports.getOrderDetails = async (req, res) => {
         items: itemsWithDetails,
         address,
         driver: driverInfo,
+        storeLocation,
         createdAt: order.createdAt,
       });
     }

@@ -1,428 +1,291 @@
-const { Cart, Discount } = require("../modals/cart");
-const { ZoneData } = require("../modals/cityZone");
-const Products = require("../modals/Product");
-const Store = require("../modals/store");
-const User = require("../modals/User");
-const stock = require("../modals/StoreStock");
-const haversine = require("haversine-distance");
+const { driverSocketMap } = require("../../utils/driverSocketMap");
+const Assign = require("../../modals/driverModals/assignments");
+const Address = require('../../modals/Address');
+const { Order } = require("../../modals/order");
+const admin = require("../../firebase/firebase");
+const Store = require("../../modals/store");
+const User = require("../../modals/User");
 
-exports.addCart = async (req, res) => {
+const assignedOrders = new Set();
+const rejectedDriversMap = new Map();
+const retryTracker = new Map();
+
+const MAX_RETRY_COUNT = 30;
+const TIMEOUT_MS = 10000;
+
+const assignWithBroadcast = async (order, drivers) => {
+  const orderId = order.orderId.toString();
+
+  if (assignedOrders.has(orderId)) {
+    console.warn(`⚠️ Order ${orderId} already assigned. Aborting broadcast.`);
+    return;
+  }
+
+  const retryCount = retryTracker.get(orderId) || 0;
+if (retryCount >= MAX_RETRY_COUNT) {
+  await Order.findOneAndUpdate({ orderId }, { orderStatus: "Cancelled" });
+  console.error(`🚫 Max retry attempts reached for order ${orderId}.`);
+
   try {
-    const userId = req.user;
-    const { quantity, productId, storeId, varientId, clearCart } = req.body;
+    const orderData = await Order.findOne({ orderId })
+      .populate("userId")
+      .populate("storeId")
+      .lean();
 
-    if (!storeId) {
-      return res.status(400).json({ message: "storeId not found." });
-    }
+    if (orderData) {
+      const { userId: user, storeId: store } = orderData;
 
-    if (!productId || !varientId || !quantity) {
-      return res
-        .status(400)
-        .json({ message: "Missing product or variant info." });
-    }
+      // ===== send to user =====
+      if (user?.fcmToken) {
+        await admin.messaging().send({
+          token: user.fcmToken,
+          notification: {
+            title: "Order Cancelled ❌",
+            body: `Your order #${orderId} was cancelled as no driver accepted.`,
+          },
+          android: {
+            notification: { channelId: "default_channel", sound: "default" },
+          },
+          data: { type: "cancelled", orderId },
+        });
+      }
 
-    // Clear cart if requested
-    if (clearCart === "true") {
-      await Cart.deleteMany({ userId });
-    }
-
-    // Get user location
-    const user = await User.findOne(userId).lean();
-    const userLat = parseFloat(user?.location?.latitude);
-    const userLng = parseFloat(user?.location?.longitude);
-
-    if (!userLat || !userLng) {
-      return res.status(400).json({ message: "User location not available." });
-    }
-
-    // Fetch active zones
-    const zoneDocs = await ZoneData.find({});
-    const activeZones = zoneDocs.flatMap((doc) =>
-      doc.zones.filter((z) => z.status === true)
-    );
-
-    const matchedZone = activeZones.find((zone) => {
-      if (!zone.latitude || !zone.longitude || !zone.range) return false;
-      const distance = haversine(
-        { lat: userLat, lon: userLng },
-        { lat: zone.latitude, lon: zone.longitude }
-      );
-      return distance <= zone.range;
-    });
-
-    if (!matchedZone) {
-      return res
-        .status(400)
-        .json({ message: "No active zone found for your location." });
-    }
-
-    const paymentOption = matchedZone.cashOnDelivery === true;
-
-    // Single-store cart policy
-    const cartItems = await Cart.find({ userId }).lean();
-    if (cartItems.length > 0) {
-      const existingStoreId = cartItems[0].storeId?.toString();
-      if (existingStoreId !== storeId) {
-        return res.status(200).json({
-          message: `You can only add products from one store at a time.`,
-          errorType: "multiple_stores_in_cart",
+      // ===== send to store =====
+      if (store?.fcmTokenMobile) {
+        await admin.messaging().send({
+          token: store.fcmTokenMobile,
+          notification: {
+            title: "Order Cancelled ❌",
+            body: `Order #${orderId} got cancelled (no driver accepted).`,
+          },
+          android: {
+            notification: { channelId: "default_channel", sound: "default" },
+          },
+          data: { type: "cancelled", orderId },
         });
       }
     }
-
-    // Check product
-    const product = await Products.findOne({ _id: productId }).lean();
-    if (!product) {
-      return res.status(400).json({ message: "Product is unavailable." });
-    }
-
-    // Check stock entry
-    const stockDoc = await stock
-      .findOne({
-        storeId,
-        "stock.productId": productId,
-        "stock.variantId": varientId,
-      })
-      .lean();
-
-    let stockEntry;
-    if (stockDoc?.stock?.length) {
-      stockEntry = stockDoc.stock.find(
-        (s) =>
-          s.productId.toString() === productId.toString() &&
-          s.variantId.toString() === varientId.toString()
-      );
-    }
-
-    if (!stockEntry || stockEntry.quantity < quantity) {
-      return res.status(400).json({
-        message:
-          "Product variant is out of stock or requested quantity is unavailable.",
-      });
-    }
-
-    const name = product.productName;
-    const image = product.productThumbnailUrl;
-    const tax = product.tax || "0%"; // fallback if not present
-    let price = stockEntry?.price;
-    let mrp = stockEntry?.mrp;
-
-    // Fallback to product.variants if price or mrp is missing
-    if (!price || !mrp) {
-      const matchedVariant = product.variants?.find(
-        (v) => v._id?.toString() === varientId?.toString()
-      );
-
-      if (matchedVariant) {
-        price = matchedVariant.sell_price;
-        mrp = matchedVariant.mrp;
-      }
-    }
-
-    // Final fallback to avoid undefined values (optional)
-    if (!price || !mrp) {
-      return res.status(400).json({
-        message: "Price/MRP could not be determined for the selected variant.",
-      });
-    }
-
-    // Remove old cart entry for same product
-    await Cart.deleteOne({
-      userId,
-      productId,
-    });
-
-    // Create new cart item
-    const cartItem = await Cart.create({
-      name,
-      image,
-      quantity,
-      price,
-      mrp,
-      tax,
-      productId,
-      varientId,
-      userId,
-      storeId,
-      paymentOption,
-    });
-
-    return res.status(200).json({
-      message: "Item added to cart.",
-      item: cartItem,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      message: "An error occurred!",
-      error: error.message,
-    });
+  } catch (e) {
+    console.error("⚠️ Auto-cancel push error:", e);
   }
-};
+  return;
+}
 
-exports.getCart = async (req, res) => {
-  try {
-    const { id } = req.user;
+  retryTracker.set(orderId, retryCount + 1);
 
-    // Fetch cart items and user data
-    const [items, user] = await Promise.all([
-      Cart.find({ userId: id }),
-      User.findById(id),
-    ]);
+  let orderAssigned = false;
+  const respondedDrivers = new Set();
 
-    if (!items || items.length === 0) {
-      return res.status(204).json({ status: false, message: "Cart Is Empty." });
-    }
-    if (!user) {
-      return res
-        .status(404)
-        .json({ status: false, message: "User not found." });
-    }
+  const orderStore = await Store.findOne({ _id: order.storeId }).lean();
+  const orderUser = await User.findOne({ _id: order.userId }).lean();
 
-    const storeId = items[0]?.storeId;
+  const rejectedDrivers = rejectedDriversMap.get(orderId) || new Set();
+  const availableDrivers = drivers.filter(
+    (driver) => !rejectedDrivers.has(driver._id.toString())
+  );
 
-    let storeZone = await Store.findById(storeId);
+  if (availableDrivers.length === 0) {
+    console.info(`😕 No available drivers to broadcast for order ${orderId}`);
+    return;
+  }
 
-    storeZone = storeZone.zone[0];
+  const cleanupAllListeners = () => {
+    availableDrivers.forEach((driver) => {
+      const driverId = driver._id.toString();
+      const socket = driverSocketMap.get(driverId);
+      if (socket && typeof socket.__cleanupOrder === "function") {
+        socket.__cleanupOrder();
+        delete socket.__cleanupOrder;
+      }
+    });
+  };
 
-    const zoneData = await ZoneData.findOne({ "zones._id": storeZone._id });
-
-    const zone = zoneData.zones.find(
-      (z) => z._id.toString() === storeZone._id.toString()
+  const broadcastOrder = () => {
+    console.log(
+      `📢 Broadcasting order ${orderId} to ${availableDrivers.length} drivers...`
     );
 
-    const cashOnDelivery = zone?.cashOnDelivery || false;
-    // Fetch stock data for the store
-    const stockDoc = await stock.findOne({ storeId });
-    if (!stockDoc) {
-      return res.status(200).json({
-        status: false,
-        message: "No stock data found for the store.",
-        items,
+    availableDrivers.forEach((driver) => {
+      const driverId = driver._id.toString();
+      const socket = driverSocketMap.get(driverId);
+
+      if (!socket) {
+        console.warn(`❌ No active socket for driver ${driverId}`);
+        return;
+      }
+
+      const orderWithLocation = {
+        ...(order.toObject ? order.toObject() : order),
+        storeName: orderStore.storeName,
+
+        storeLat: orderStore.Latitude,
+        storeLng: orderStore.Longitude,
+        
+        userLat: orderUser.location.latitude,
+        userLng: orderUser.location.longitude,
+      };
+
+      socket.emit("newOrder", {
+        order: orderWithLocation,
+        driverId,
+        timeLeft: TIMEOUT_MS / 1000,
       });
-    }
-    // Map stock data for quick lookup
-    const stockMap = new Map();
-    stockDoc.stock.forEach((s) => {
-      const key = `${s.productId.toString()}_${s.variantId.toString()}`;
-      stockMap.set(key, s.quantity);
-    });
 
-    // Add stock information to each cart item
-    const updatedItems = items.map((cartItem) => {
-      const key = `${cartItem.productId}_${cartItem.varientId}`;
-      const availableQty = stockMap.get(key) || 0;
+      console.log(`✅ Sent order ${orderId} to driver ${driverId}`);
 
-      return {
-        ...cartItem.toObject(),
-        stock: availableQty,
+      if (driver.fcmToken) {
+        admin
+          .messaging()
+          .send({
+            token: driver.fcmToken,
+            notification: {
+              title: "New Order Request",
+              body: `Order ${orderId} is waiting for your response`,
+            },
+            android: {
+              notification: {
+                channelId: "custom_sound_channel",
+                sound: "custom_sound",
+              },
+            },
+            data: {
+              orderId,
+              timeLeft: (TIMEOUT_MS / 1000).toString(),
+              screen: "TodayOrderScreen",
+            },
+          })
+          .catch((err) => console.error("Push error:", err));
+      }
+
+      // --- Accept Handler ---
+      const handleAccept = async ({
+        driverId: incomingDriverId,
+        orderId: incomingOrderId,
+      }) => {
+        if (
+          incomingOrderId !== orderId ||
+          incomingDriverId !== driverId ||
+          orderAssigned
+        )
+          return;
+
+        // Atomic DB update to prevent race condition
+        const updateResult = await Order.findOneAndUpdate(
+          { orderId, "driver.driverId": { $exists: false } },
+          {
+            driver: {
+              driverId,
+              name: driver.driverName,
+              mobileNumber: driver.address?.mobileNo,
+            },
+            orderStatus: "Going to Pickup",
+          },
+          { new: true }
+        );
+
+        if (!updateResult) {
+          socket.emit("orderAlreadyAccepted", { orderId });
+          console.warn(`🉑 orderAlreadyAccepted for ${driverId} - ${orderId}`);
+          return;
+        }
+
+        assignedOrders.add(orderId);
+        orderAssigned = true;
+
+        console.log(`🎉 Driver ${driverId} accepted order ${orderId}`);
+
+        await Assign.updateOne(
+          { driverId, orderId },
+          { $set: { orderStatus: "Accepted" } },
+          { upsert: true }
+        );
+
+        availableDrivers.forEach((d) => {
+          const otherSocket = driverSocketMap.get(d._id.toString());
+          if (d._id.toString() !== driverId && otherSocket) {
+            otherSocket.emit("orderTaken", { orderId });
+          }
+        });
+
+        cleanupAllListeners();
+      };
+
+      // --- Reject Handler ---
+      const handleReject = async ({
+        driverId: incomingDriverId,
+        orderId: incomingOrderId,
+      }) => {
+        if (
+          incomingOrderId !== orderId ||
+          incomingDriverId !== driverId ||
+          orderAssigned
+        )
+          return;
+
+        respondedDrivers.add(driverId);
+        rejectedDrivers.add(driverId);
+
+        await Assign.updateOne(
+          { driverId, orderId },
+          { $set: { orderStatus: "Rejected" } },
+          { upsert: true }
+        );
+
+        console.log(`❌ Driver ${driverId} rejected order ${orderId}`);
+      };
+
+      // Attach Listeners
+      socket.once("acceptOrder", handleAccept);
+      socket.once("rejectOrder", handleReject);
+      socket.once("disconnect", () => {
+        socket.__cleanupOrder?.();
+      });
+
+      socket.__cleanupOrder = () => {
+        socket.off("acceptOrder", handleAccept);
+        socket.off("rejectOrder", handleReject);
       };
     });
+  };
 
-    return res.status(200).json({
-      status: true,
-      message: "Cart items fetched successfully.",
-      items: updatedItems,
-      paymentOption: cashOnDelivery,
-      StoreID: storeId,
-    });
-  } catch (error) {
-    console.error("❌ Error in getCart:", error);
-    return res.status(500).json({
-      status: false,
-      message: "An error occurred while fetching cart items.",
-      error: error.message,
-    });
-  }
-};
+  broadcastOrder();
 
-exports.discount = async (req, res) => {
-  try {
-    const { description, value, head } = req.body;
-    const newDiscount = await Discount.create({ description, value, head });
-    return res.status(200).json({ message: "New Discount:", newDiscount });
-  } catch (error) {
-    console.error(error);
-    return res
-      .status(500)
-      .json({ message: "An error occured!", error: error.message });
-  }
-};
-exports.getDicount = async (req, res) => {
-  try {
-    const discount = await Discount.find();
-    return res.status(200).json({ message: "New Discounts:", discount });
-  } catch (error) {
-    console.error(error);
-    return res
-      .status(500)
-      .json({ message: "An error occured!", error: error.message });
-  }
-};
-exports.quantity = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { quantity } = req.body;
+  setTimeout(async () => {
+    const existingOrder = await Order.findOne({ orderId }).lean();
 
-    const updated_cart = await Cart.findByIdAndUpdate(
-      id,
-      { quantity },
-      { new: true }
-    );
+    const isStillUnassigned =
+      !orderAssigned &&
+      !assignedOrders.has(orderId) &&
+      (!existingOrder?.driver ||
+        existingOrder?.orderStatus !== "Going to Pickup");
 
-    return res.status(200).json({ message: "New Quantity:", updated_cart });
-  } catch (error) {
-    console.error(error);
-    return res
-      .status(500)
-      .json({ message: "An error occured!", error: error.message });
-  }
-};
+    if (isStillUnassigned) {
+      const allDriverIds = new Set(drivers.map((d) => d._id.toString()));
+      const allRejectedOrNoResponse =
+        rejectedDrivers.size === allDriverIds.size ||
+        respondedDrivers.size === 0;
 
-exports.deleteCart = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const cart = await Cart.findByIdAndDelete(id);
+      if (allRejectedOrNoResponse) {
+        console.info(
+          `🔁 All drivers rejected or no response for order ${orderId}. Retrying with all drivers...`
+        );
+        rejectedDriversMap.set(orderId, new Set());
+      } else {
+        console.info(
+          `⏱️ No driver accepted order ${orderId}. Retrying with remaining drivers...`
+        );
+        rejectedDriversMap.set(orderId, rejectedDrivers);
+      }
 
-    return res.status(200).json({ message: "Cart Item Removed:", cart });
-  } catch (error) {
-    console.error(error);
-    return res
-      .status(500)
-      .json({ message: "An error occured!", error: error.message });
-  }
-};
-
-exports.recommedProduct = async (req, res) => {
-  try {
-    const userId = req.user._id;
-
-    // 1️⃣ Get cart items
-    const cartItems = await Cart.find({ userId }).lean();
-    if (!cartItems.length) {
-      return res.status(404).json({ message: "Cart is empty" });
+      cleanupAllListeners();
+      //assignWithBroadcast(order, drivers);
+      const autoAssignDriver = require("./AutoAssignDriver");
+      autoAssignDriver(existingOrder._id);
+    } else {
+      console.log(`✅ Order ${orderId} assigned. Cleaning up.`);
+      cleanupAllListeners();
     }
-
-    // 2️⃣ Get seller of first cart item
-    const firstCartItem = cartItems[0];
-    const seller = await Store.findById(firstCartItem.storeId).lean();
-    if (!seller) {
-      return res.status(404).json({ message: "Seller not found" });
-    }
-
-    // 3️⃣ Extract all allowed category IDs
-    let allowedCategoryIds = [];
-    if (seller.sellerCategories?.length) {
-
-        allowedCategoryIds = seller.sellerCategories.flatMap(
-        cat => cat.categoryId).filter(Boolean)
-
-      // Unofficial sellers: subCategories + subSubCategories
-      // allowedCategoryIds = seller.sellerCategories.flatMap(
-      //   (cat) =>
-      //     cat.subCategories?.flatMap((sub) =>
-      //       [
-      //         ...(sub.subSubCategories?.map((ssc) => ssc.subSubCategoryId) ||
-      //           []),
-      //         sub.subCategoryId,
-      //       ].filter(Boolean)
-      //     ) || []
-      // );
-    } else if (seller.Category?.length) {
-      // Official store: main categories
-      allowedCategoryIds = seller.Category;
-    }
-
-    if (!allowedCategoryIds.length) {
-      return res.status(200).json({
-        message: "No recommended products found",
-        relatedProducts: [],
-      });
-    }
-
-    // 4️⃣ Build query to exclude products already in cart
-    const matchQuery = {
-      _id: { $nin: cartItems.map((c) => c.productId) },
-      $or: [
-        // { "subSubCategory._id": { $in: allowedCategoryIds } },
-        // { "subCategory._id": { $in: allowedCategoryIds } },
-        { "category._id": { $in: allowedCategoryIds } },
-      ],
-    };
-    // 5️⃣ Aggregate recommended products with stock info
-    const recommendedProducts = await Products.aggregate([
-      { $match: matchQuery },
-      { $limit: 50 },
-      {
-        $lookup: {
-          from: "stocks",
-          let: { productId: "$_id", variants: "$variants" },
-          pipeline: [
-            { $match: { storeId: seller._id } },
-            { $unwind: "$stock" },
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $gt: ["$stock.quantity", 0] }, // only include stock > 0
-                    {
-                      $or: [
-                        {
-                          $in: [
-                            "$stock.variantId",
-                            {
-                              $ifNull: [
-                                {
-                                  $map: {
-                                    input: "$$variants",
-                                    as: "v",
-                                    in: "$$v._id",
-                                  },
-                                },
-                                [],
-                              ],
-                            },
-                          ],
-                        },
-                        { $eq: ["$stock.productId", "$$productId"] },
-                      ],
-                    },
-                  ],
-                },
-              },
-            },
-            {
-              $project: {
-                _id: "$stock._id",
-                variantId: "$stock.variantId",
-                quantity: "$stock.quantity",
-                price: "$stock.price",
-                mrp: "$stock.mrp",
-              },
-            },
-          ],
-          as: "inventory",
-        },
-      },
-      {
-        $addFields: {
-          maxQuantity: { $ifNull: [{ $max: "$inventory.quantity" }, 0] },
-          storeId: seller._id,
-          storeName: seller.storeName,
-        },
-      },
-      { $match: { maxQuantity: { $gt: 0 } } }, // filter products with no stock
-      { $sort: { maxQuantity: -1 } },
-      { $project: { maxQuantity: 0 } }, // remove temporary field
-    ]);
-
-    return res.status(200).json({
-      message: "Recommended products fetched successfully",
-      relatedProducts: recommendedProducts,
-    });
-  } catch (error) {
-    console.error("❌ Error in recommedProduct:", error);
-    return res
-      .status(500)
-      .json({ message: "An error occurred!", error: error.message });
-  }
+  }, TIMEOUT_MS);
 };
+
+module.exports = assignWithBroadcast;

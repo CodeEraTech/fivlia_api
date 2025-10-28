@@ -23,6 +23,9 @@ const {
   getAllSellerProducts,
   getCategoryCounts,
   getTopSeller,
+  addBlog,
+  editBlog,
+  getBlog
 } = require("../controlers/websiteapicontroler");
 
 const {
@@ -243,7 +246,7 @@ router.post("/verifyPayment", verifyPayment);
 router.post("/filter", filter);
 router.post("/createStore", upload, createStore);
 router.post("/Product/bulk", upload, bulkProductUpload),
-  router.put("/adminSetting", upload, adminSetting);
+router.put("/adminSetting", upload, adminSetting);
 router.post("/addFilter", addFilter);
 router.post("/address", verifyToken, addAddress);
 router.post("/updateStock/:productId", updateStock);
@@ -364,6 +367,9 @@ router.get("/send-test-notification", test);
 router.get("/getdeliveryStatus", getdeliveryStatus);
 router.get("/GetSubSubCategories/:subcatId", GetSubSubCategories);
 router.get("/GetSubCategories/:categoryId", GetSubCategories);
+router.get("/getBlog", getBlog);
+router.post("/addBlog",upload, addBlog);
+router.put("/editBlog/:id",upload, editBlog);
 router.post("/getEvent", getEvent);
 router.post("/addEvent", upload, addEvent);
 router.put("/editEvent/:id", upload, editEvent);

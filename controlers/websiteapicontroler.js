@@ -19,8 +19,10 @@ const page = require("../modals/pages");
 const Store = require("../modals/store");
 const { lte } = require("zod/v4-mini");
 const Rating = require("../modals/rating");
-const {sendMailContact} = require("../config/nodeMailer");
+const { sendMailContact } = require("../config/nodeMailer");
 const { contactUsTemplate } = require("../utils/emailTemplates");
+const Blog = require("../modals/blog");
+
 
 exports.forwebbestselling = async (req, res) => {
   try {
@@ -1437,13 +1439,13 @@ exports.contactUs = async (req, res) => {
       phone,
       message,
     });
-    
-   await sendMailContact(
-              ["fivliaindia@gmail.com", "support@fivlia.in"],
-              "New Contact Request",
-              email,
-              contactUsTemplate(firstName,lastName,email,phone,message)
-            );
+
+    await sendMailContact(
+      ["fivliaindia@gmail.com", "support@fivlia.in"],
+      "New Contact Request",
+      email,
+      contactUsTemplate(firstName, lastName, email, phone, message)
+    );
     return res.status(200).json({ message: "Request Submitted" });
   } catch (error) {
     //console.error("Error updating status:", error);
@@ -1542,7 +1544,7 @@ exports.getAllSellerProducts = async (req, res) => {
       _id: { $in: categoryIds },
     }).lean();
 
-      productsWithStock.sort((a, b) => {
+    productsWithStock.sort((a, b) => {
       const aQty = a.inventory?.some((i) => i.quantity > 0) ? 1 : 0;
       const bQty = b.inventory?.some((i) => i.quantity > 0) ? 1 : 0;
       return bQty - aQty;
@@ -1610,3 +1612,140 @@ exports.getTopSeller = async (req, res) => {
     return res.status(500).json({ message: "Something went wrong." });
   }
 };
+
+exports.addBlog = async (req, res) => {
+  try {
+    const {
+      title,
+      content,
+      category,
+      tags,
+      author,
+      metaTitle,
+      metaDescription,
+      status,
+    } = req.body;
+
+    const image = `/${req.files.image?.[0].key}`
+    if (!title || !content) {
+      return res
+        .status(400)
+        .json({ message: "Title and content are required." });
+    }
+
+    const blog = new Blog({
+      title,
+      content,
+      category,
+      tags,
+      image,
+      author,
+      image,
+      metaTitle: metaTitle || title,
+      metaDescription:
+        metaDescription ||
+        content.substring(0, 155).replace(/<[^>]+>/g, "") + "...",
+      status,
+    });
+
+    await blog.save();
+
+    return res.status(201).json({
+      message: "Blog added successfully.",
+      blog,
+    });
+  } catch (error) {
+    console.error("Server Error:", error);
+    return res.status(500).json({ message: "Something went wrong." });
+  }
+};
+
+exports.getBlog = async (req, res) => {
+  try {
+    const { slug, type, page = 1, limit = 10 } = req.query; // default pagination values
+    const isAdmin = type === "admin";
+    const query = isAdmin ? {} : { status: "published" };
+
+    // ✅ If slug is provided → fetch a single blog
+    if (slug) {
+      const blog = await Blog.findOne({ slug, ...query });
+      if (!blog) {
+        return res.status(404).json({ message: "Blog not found." });
+      }
+      return res.status(200).json({
+        message: "Blog fetched successfully.",
+        blog,
+      });
+    }
+
+    // ✅ If slug not provided → fetch paginated blogs
+    const skip = (Number(page) - 1) * Number(limit);
+    const [blogs, totalCount] = await Promise.all([
+      Blog.find(query).sort({ createdAt: -1 }).skip(skip).limit(Number(limit)),
+      Blog.countDocuments(query),
+    ]);
+
+    const totalPages = Math.ceil(totalCount / limit);
+
+    return res.status(200).json({
+      message: "Blogs fetched successfully.",
+      currentPage: Number(page),
+      totalPages,
+      totalCount,
+      blogs,
+    });
+  } catch (error) {
+    console.error("Server Error:", error);
+    return res.status(500).json({ message: "Something went wrong." });
+  }
+};
+
+exports.editBlog = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const {
+      title,
+      content,
+      category,
+      tags,
+      author,
+      metaTitle,
+      metaDescription,
+      status,
+    } = req.body;
+
+    const updateFields = {};
+
+    // ✅ Add only the provided fields
+    if (title) updateFields.title = title;
+    if (content) updateFields.content = content;
+    if (category) updateFields.category = category;
+    if (tags) updateFields.tags = tags;
+    if (author) updateFields.author = author;
+    if (metaTitle) updateFields.metaTitle = metaTitle;
+    if (metaDescription) updateFields.metaDescription = metaDescription;
+    if (status) updateFields.status = status;
+
+    // ✅ Handle image (if provided)
+    if (req.files?.image?.[0]?.key) {
+      updateFields.image = `/${req.files.image[0].key}`;
+    }
+
+    // ✅ Update only the given fields
+    const blog = await Blog.findByIdAndUpdate(id, { $set: updateFields }, { new: true });
+
+    if (!blog) {
+      return res.status(404).json({ message: "Blog not found." });
+    }
+
+    return res.status(200).json({
+      message: "Blog updated successfully.",
+      blog,
+    });
+  } catch (error) {
+    console.error("Server Error:", error);
+    return res.status(500).json({ message: "Something went wrong." });
+  }
+};
+

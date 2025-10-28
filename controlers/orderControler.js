@@ -7,6 +7,7 @@ const User = require("../modals/User");
 const Status = require("../modals/deliveryStatus");
 const { SettingAdmin } = require("../modals/setting");
 const Address = require("../modals/Address");
+const BulkOrderRequest = require("../modals/bulkOrderRequest");
 const stock = require("../modals/StoreStock");
 const admin_transaction = require("../modals/adminTranaction");
 const store_transaction = require("../modals/storeTransaction");
@@ -1078,3 +1079,15 @@ exports.deleteNotification = async (req, res) => {
     });
   }
 };
+
+exports.bulkOrder = async (req, res) => {
+  try{
+    const {productId} = req.params
+    const userId = req.user
+
+    await BulkOrderRequest.create({productId,userId})
+    return res.status(200).json({message:"Request Submited"})
+  }catch(error){
+    console.error('error', error)
+    return res.status(500).json({message: "Something went wrong", error: error.message})}
+}

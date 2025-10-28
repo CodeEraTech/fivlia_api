@@ -145,6 +145,7 @@ const {
   editNotification,
   deleteNotification,
   getNotification,
+  bulkOrder
 } = require("../controlers/orderControler");
 
 const {
@@ -242,6 +243,7 @@ router.post("/addAtribute", addAtribute);
 router.post("/unit", unit);
 router.post("/addCart", upload, verifyToken, addCart);
 router.post("/placeOrder", placeOrder);
+router.post("/bulkOrder/:productId",verifyToken, bulkOrder);
 router.post("/verifyPayment", verifyPayment);
 router.post("/filter", filter);
 router.post("/createStore", upload, createStore);

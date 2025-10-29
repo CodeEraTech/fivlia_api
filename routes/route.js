@@ -3,6 +3,8 @@ const upload = require("../midllerware/multer");
 const router = express.Router();
 const verifyToken = require("../midllerware/authToken");
 
+//seo
+const {createSitemap,getSitemap} = require("../controlers/seoControler");
 //invoice
 const { generateThermalInvoiceController } = require("../config/invoice");
 //website
@@ -231,6 +233,10 @@ const {
 } = require("../controlers/areaControler");
 
 router.put("/withdrawal/:id/:action/:type", upload, withdrawal);
+
+//siteMap
+router.post("/createSitemap", createSitemap);
+router.get("/getSitemap", getSitemap);
 
 router.post("/Login", Login);
 router.post("/verifyOtp", verifyOtp);

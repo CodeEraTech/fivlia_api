@@ -1102,7 +1102,7 @@ exports.getBulkOrders = async (req, res) => {
       })
       .populate({
         path: "productId",
-        select: "title productThumbnailUrl sell_price variants slug", // choose what to show
+        select: "productName productThumbnailUrl sell_price variants slug", // choose what to show
       })
       .sort({ createdAt: -1 }) // latest first
       .lean();

@@ -146,7 +146,8 @@ const {
   editNotification,
   deleteNotification,
   getNotification,
-  bulkOrder
+  bulkOrder,
+  getBulkOrders
 } = require("../controlers/orderControler");
 
 const {
@@ -372,6 +373,7 @@ router.get("/getMainCategory", getMainCategory);
 router.get("/getDeliveryEstimate", verifyToken, getDeliveryEstimate);
 router.get("/getDeliveryEstimateForWebsite", getDeliveryEstimateForWebsite);
 router.get("/send-test-notification", test);
+router.get("/getBulkOrders", getBulkOrders);
 router.get("/getdeliveryStatus", getdeliveryStatus);
 router.get("/GetSubSubCategories/:subcatId", GetSubSubCategories);
 router.get("/GetSubCategories/:categoryId", GetSubCategories);

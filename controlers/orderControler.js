@@ -1091,3 +1091,63 @@ exports.bulkOrder = async (req, res) => {
     console.error('error', error)
     return res.status(500).json({message: "Something went wrong", error: error.message})}
 }
+
+exports.getBulkOrders = async (req, res) => {
+  try {
+    // ✅ Fetch all bulk orders and populate user + product info
+    const orders = await BulkOrderRequest.find()
+      .populate({
+        path: "userId",
+        select: "name email phone", // choose what to show
+      })
+      .populate({
+        path: "productId",
+        select: "title productThumbnailUrl sell_price variants slug", // choose what to show
+      })
+      .sort({ createdAt: -1 }) // latest first
+      .lean();
+
+    if (!orders.length) {
+      return res.status(200).json({
+        message: "No bulk orders found",
+        orders: [],
+      });
+    }
+
+    const formattedOrders = orders.map((order) => ({
+      _id: order._id,
+      status: order.status,
+      createdAt: order.createdAt,
+      user: order.userId
+        ? {
+            id: order.userId._id,
+            name: order.userId.name || "",
+            email: order.userId.email || "",
+            mobileNumber: order.userId.mobileNumber,
+          }
+        : null,
+      product: order.productId
+        ? {
+            id: order.productId._id,
+            title: order.productId.productName,
+            slug: order.productId.slug || "",
+            image: order.productId.productThumbnailUrl || "",
+            price:order.productId.sell_price ||(Array.isArray(order.productId.variants) && order.productId.variants.length > 0
+    ? order.productId.variants[0].sell_price: "") || order.productId.sell_price || "",
+          }
+        : null,
+    }));
+
+    return res.status(200).json({
+      message: "Bulk orders fetched successfully",
+      count: formattedOrders.length,
+      orders: formattedOrders,
+    });
+  } catch (error) {
+    console.error("❌ getBulkOrders error:", error);
+    return res.status(500).json({
+      message: "Something went wrong",
+      error: error.message,
+    });
+  }
+};

@@ -1,291 +1,283 @@
-const { driverSocketMap } = require("../../utils/driverSocketMap");
-const Assign = require("../../modals/driverModals/assignments");
-const Address = require('../../modals/Address');
-const { Order } = require("../../modals/order");
-const admin = require("../../firebase/firebase");
-const Store = require("../../modals/store");
-const User = require("../../modals/User");
-
-const assignedOrders = new Set();
-const rejectedDriversMap = new Map();
-const retryTracker = new Map();
-
-const MAX_RETRY_COUNT = 30;
-const TIMEOUT_MS = 10000;
-
-const assignWithBroadcast = async (order, drivers) => {
-  const orderId = order.orderId.toString();
-
-  if (assignedOrders.has(orderId)) {
-    console.warn(`⚠️ Order ${orderId} already assigned. Aborting broadcast.`);
-    return;
-  }
-
-  const retryCount = retryTracker.get(orderId) || 0;
-if (retryCount >= MAX_RETRY_COUNT) {
-  await Order.findOneAndUpdate({ orderId }, { orderStatus: "Cancelled" });
-  console.error(`🚫 Max retry attempts reached for order ${orderId}.`);
-
+exports.forwebgetProduct = async (req, res) => {
   try {
-    const orderData = await Order.findOne({ orderId })
-      .populate("userId")
-      .populate("storeId")
-      .lean();
+    const {
+      seller,
+      category,
+      subCategory,
+      subSubCategory,
+      priceMin,
+      priceMax,
+      filterId,
+      lat,
+      lng,
+      page = 1,
+      limit = 60,
+    } = req.query;
 
-    if (orderData) {
-      const { userId: user, storeId: store } = orderData;
+    const skip = (page - 1) * limit;
 
-      // ===== send to user =====
-      if (user?.fcmToken) {
-        await admin.messaging().send({
-          token: user.fcmToken,
-          notification: {
-            title: "Order Cancelled ❌",
-            body: `Your order #${orderId} was cancelled as no driver accepted.`,
-          },
-          android: {
-            notification: { channelId: "default_channel", sound: "default" },
-          },
-          data: { type: "cancelled", orderId },
-        });
+    // 1. Get allowed stores by location
+    let allowedStores = [];
+    if (seller) {
+      const store = await Store.findById(seller).lean();
+      if (store) {
+        allowedStores = [store];
       }
-
-      // ===== send to store =====
-      if (store?.fcmTokenMobile) {
-        await admin.messaging().send({
-          token: store.fcmTokenMobile,
-          notification: {
-            title: "Order Cancelled ❌",
-            body: `Order #${orderId} got cancelled (no driver accepted).`,
-          },
-          android: {
-            notification: { channelId: "default_channel", sound: "default" },
-          },
-          data: { type: "cancelled", orderId },
-        });
-      }
+    } else {
+      const stores = await getStoresWithinRadius(lat, lng);
+      allowedStores = Array.isArray(stores?.matchedStores)
+        ? stores.matchedStores
+        : [];
     }
-  } catch (e) {
-    console.error("⚠️ Auto-cancel push error:", e);
-  }
-  return;
-}
 
-  retryTracker.set(orderId, retryCount + 1);
+    const allowedStoreIds = allowedStores.map((s) => s._id.toString());
 
-  let orderAssigned = false;
-  const respondedDrivers = new Set();
+    if (!allowedStoreIds.length) {
+      return res.status(200).json({
+        message: "No matching products found for your location.",
+        products: [],
+        filter: [],
+        count: 0,
+        totalPages: 0,
+        page: Number(page),
+        limit: Number(limit),
+      });
+    }
 
-  const orderStore = await Store.findOne({ _id: order.storeId }).lean();
-  const orderUser = await User.findOne({ _id: order.userId }).lean();
-
-  const rejectedDrivers = rejectedDriversMap.get(orderId) || new Set();
-  const availableDrivers = drivers.filter(
-    (driver) => !rejectedDrivers.has(driver._id.toString())
-  );
-
-  if (availableDrivers.length === 0) {
-    console.info(`😕 No available drivers to broadcast for order ${orderId}`);
-    return;
-  }
-
-  const cleanupAllListeners = () => {
-    availableDrivers.forEach((driver) => {
-      const driverId = driver._id.toString();
-      const socket = driverSocketMap.get(driverId);
-      if (socket && typeof socket.__cleanupOrder === "function") {
-        socket.__cleanupOrder();
-        delete socket.__cleanupOrder;
-      }
-    });
-  };
-
-  const broadcastOrder = () => {
-    console.log(
-      `📢 Broadcasting order ${orderId} to ${availableDrivers.length} drivers...`
+    // 2. Get all allowed category IDs
+    const allCategoryIds = new Set();
+    let storeCategoryIds = allowedStores.flatMap((store) =>
+      Array.isArray(store.Category)
+        ? store.Category.map((id) => id?.toString())
+        : store.Category
+        ? [store.Category.toString()]
+        : []
     );
 
-    availableDrivers.forEach((driver) => {
-      const driverId = driver._id.toString();
-      const socket = driverSocketMap.get(driverId);
+    if (storeCategoryIds.length < 1) {
+      allowedStores.forEach((store) => {
+        store.sellerCategories?.forEach((categoryObj) => {
+          if (categoryObj?.categoryId)
+            allCategoryIds.add(categoryObj.categoryId);
+          categoryObj.subCategories?.forEach((sub) => {
+            if (sub?.subCategoryId) allCategoryIds.add(sub.subCategoryId);
+            sub.subSubCategories?.forEach((ss) => {
+              if (ss?.subSubCategoryId) allCategoryIds.add(ss.subSubCategoryId);
+            });
+          });
+        });
+      });
+    } else {
+      const uniqueCatIds = [...new Set(storeCategoryIds)];
+      const categories = await Category.find({
+        _id: { $in: uniqueCatIds },
+      }).lean();
+      for (const cat of categories) {
+        allCategoryIds.add(cat._id.toString());
+        (cat.subcat || []).forEach((sub) => {
+          if (sub?._id) allCategoryIds.add(sub._id.toString());
+          (sub.subsubcat || []).forEach((ss) => {
+            if (ss?._id) allCategoryIds.add(ss._id.toString());
+          });
+        });
+      }
+    }
 
-      if (!socket) {
-        console.warn(`❌ No active socket for driver ${driverId}`);
-        return;
+    const categoryScopeIds = Array.from(allCategoryIds);
+
+    // 3. Get stock documents for current location stores
+    const stockDocs = await Stock.find({
+      storeId: { $in: allowedStoreIds },
+    }).lean();
+
+    const stockDetailMap = {};
+
+    for (const doc of stockDocs) {
+      (doc.stock || []).forEach((entry) => {
+        const key = `${entry.productId}_${entry.variantId}_${doc.storeId}`;
+        stockDetailMap[key] = entry;
+      });
+    }
+
+    // 4. Build product query
+    const productQuery = {
+      $or: [
+        { "category._id": { $in: categoryScopeIds } },
+        { "subCategory._id": { $in: categoryScopeIds } },
+        { "subSubCategory._id": { $in: categoryScopeIds } },
+      ],
+    };
+
+    if (category) {
+      const catArr = Array.isArray(category) ? category : [category];
+      productQuery.$or = [
+        { "category._id": { $in: catArr } },
+        { "subCategory._id": { $in: catArr } },
+        { "subSubCategory._id": { $in: catArr } },
+      ];
+    }
+
+    if (subCategory) {
+      const subArr = Array.isArray(subCategory) ? subCategory : [subCategory];
+      productQuery["subCategory._id"] = { $in: subArr };
+    }
+
+    if (subSubCategory) {
+      const ssArr = Array.isArray(subSubCategory)
+        ? subSubCategory
+        : [subSubCategory];
+      productQuery["subSubCategory._id"] = { $in: ssArr };
+    }
+
+    // 5. Get all products in the category scope
+    const allProducts = await Products.find(productQuery).lean();
+
+    const storeMap = {};
+    allowedStores.forEach((s) => {
+      storeMap[s._id.toString()] = s;
+    });
+
+    const enriched = [];
+
+    for (const product of allProducts) {
+      if (!Array.isArray(product.variants) || product.variants.length === 0) {
+        continue;
       }
 
-      const orderWithLocation = {
-        ...(order.toObject ? order.toObject() : order),
-        storeName: orderStore.storeName,
+      const variantOptions = [];
 
-        storeLat: orderStore.Latitude,
-        storeLng: orderStore.Longitude,
-        
-        userLat: orderUser.location.latitude,
-        userLng: orderUser.location.longitude,
+      for (const variant of product.variants) {
+        for (const storeId of allowedStoreIds) {
+          const key = `${product._id}_${variant._id}_${storeId}`;
+          const stockEntry = stockDetailMap[key];
+          const store = storeMap[storeId];
+          if (!store) continue;
+
+          const price = stockEntry?.price ?? variant.sell_price ?? 0;
+          const mrp = stockEntry?.mrp ?? variant.mrp ?? 0;
+
+          // Apply price range filters
+          if (priceMin != null && price < Number(priceMin)) continue;
+          if (priceMax != null && price > Number(priceMax)) continue;
+
+          if (filterId) {
+            const matches = (product.filter || []).some((f) =>
+              (f.selected || []).some(
+                (sel) => sel._id.toString() === filterId.toString()
+              )
+            );
+            if (!matches) continue;
+          }
+
+          variantOptions.push({
+            productId: product._id.toString(),
+            variantId: variant._id.toString(),
+            storeId: store._id.toString(),
+            storeName: store.soldBy?.storeName || store.storeName,
+            official: store.soldBy?.official || 0,
+            rating: variant.rating ?? product.rating ?? 0,
+            distance: store.distance ?? Number.MAX_SAFE_INTEGER,
+            price,
+            mrp,
+            quantity: stockEntry?.quantity ?? 0,
+          });
+        }
+      }
+
+      let finalProd = {
+        ...product,
+        storeId: null,
+        storeName: "",
+        inventory: [],
+        variants: [],
       };
 
-      socket.emit("newOrder", {
-        order: orderWithLocation,
-        driverId,
-        timeLeft: TIMEOUT_MS / 1000,
-      });
-
-      console.log(`✅ Sent order ${orderId} to driver ${driverId}`);
-
-      if (driver.fcmToken) {
-        admin
-          .messaging()
-          .send({
-            token: driver.fcmToken,
-            notification: {
-              title: "New Order Request",
-              body: `Order ${orderId} is waiting for your response`,
-            },
-            android: {
-              notification: {
-                channelId: "custom_sound_channel",
-                sound: "custom_sound",
-              },
-            },
-            data: {
-              orderId,
-              timeLeft: (TIMEOUT_MS / 1000).toString(),
-              screen: "TodayOrderScreen",
-            },
-          })
-          .catch((err) => console.error("Push error:", err));
-      }
-
-      // --- Accept Handler ---
-      const handleAccept = async ({
-        driverId: incomingDriverId,
-        orderId: incomingOrderId,
-      }) => {
-        if (
-          incomingOrderId !== orderId ||
-          incomingDriverId !== driverId ||
-          orderAssigned
-        )
-          return;
-
-        // Atomic DB update to prevent race condition
-        const updateResult = await Order.findOneAndUpdate(
-          { orderId, "driver.driverId": { $exists: false } },
-          {
-            driver: {
-              driverId,
-              name: driver.driverName,
-              mobileNumber: driver.address?.mobileNo,
-            },
-            orderStatus: "Going to Pickup",
-          },
-          { new: true }
-        );
-
-        if (!updateResult) {
-          socket.emit("orderAlreadyAccepted", { orderId });
-          console.warn(`🉑 orderAlreadyAccepted for ${driverId} - ${orderId}`);
-          return;
-        }
-
-        assignedOrders.add(orderId);
-        orderAssigned = true;
-
-        console.log(`🎉 Driver ${driverId} accepted order ${orderId}`);
-
-        await Assign.updateOne(
-          { driverId, orderId },
-          { $set: { orderStatus: "Accepted" } },
-          { upsert: true }
-        );
-
-        availableDrivers.forEach((d) => {
-          const otherSocket = driverSocketMap.get(d._id.toString());
-          if (d._id.toString() !== driverId && otherSocket) {
-            otherSocket.emit("orderTaken", { orderId });
-          }
+      if (variantOptions.length > 0) {
+        variantOptions.sort((a, b) => {
+          const aInStock = a.quantity > 0 ? 1 : 0;
+          const bInStock = b.quantity > 0 ? 1 : 0;
+          if (aInStock !== bInStock) return bInStock - aInStock;
+          if (a.official !== b.official) return b.official - a.official;
+          if (a.rating !== b.rating) return b.rating - a.rating;
+          if (a.price !== b.price) return a.price - b.price;
+          return a.distance - b.distance;
         });
 
-        cleanupAllListeners();
-      };
+        const best = variantOptions[0];
+        finalProd.storeId = best.storeId;
+        finalProd.storeName = best.storeName;
 
-      // --- Reject Handler ---
-      const handleReject = async ({
-        driverId: incomingDriverId,
-        orderId: incomingOrderId,
-      }) => {
-        if (
-          incomingOrderId !== orderId ||
-          incomingDriverId !== driverId ||
-          orderAssigned
-        )
-          return;
+        finalProd.inventory = product.variants.map((variant) => {
+          const match = variantOptions.find(
+            (opt) => opt.variantId === variant._id.toString()
+          );
+          return {
+            variantId: variant._id.toString(),
+            quantity: match?.quantity || 0,
+          };
+        });
 
-        respondedDrivers.add(driverId);
-        rejectedDrivers.add(driverId);
-
-        await Assign.updateOne(
-          { driverId, orderId },
-          { $set: { orderStatus: "Rejected" } },
-          { upsert: true }
-        );
-
-        console.log(`❌ Driver ${driverId} rejected order ${orderId}`);
-      };
-
-      // Attach Listeners
-      socket.once("acceptOrder", handleAccept);
-      socket.once("rejectOrder", handleReject);
-      socket.once("disconnect", () => {
-        socket.__cleanupOrder?.();
-      });
-
-      socket.__cleanupOrder = () => {
-        socket.off("acceptOrder", handleAccept);
-        socket.off("rejectOrder", handleReject);
-      };
-    });
-  };
-
-  broadcastOrder();
-
-  setTimeout(async () => {
-    const existingOrder = await Order.findOne({ orderId }).lean();
-
-    const isStillUnassigned =
-      !orderAssigned &&
-      !assignedOrders.has(orderId) &&
-      (!existingOrder?.driver ||
-        existingOrder?.orderStatus !== "Going to Pickup");
-
-    if (isStillUnassigned) {
-      const allDriverIds = new Set(drivers.map((d) => d._id.toString()));
-      const allRejectedOrNoResponse =
-        rejectedDrivers.size === allDriverIds.size ||
-        respondedDrivers.size === 0;
-
-      if (allRejectedOrNoResponse) {
-        console.info(
-          `🔁 All drivers rejected or no response for order ${orderId}. Retrying with all drivers...`
-        );
-        rejectedDriversMap.set(orderId, new Set());
+        finalProd.variants = product.variants.map((variant) => {
+          const match = variantOptions.find(
+            (opt) => opt.variantId === variant._id.toString()
+          );
+          return {
+            ...variant,
+            sell_price: match?.price ?? variant.sell_price,
+            mrp: match?.mrp ?? variant.mrp,
+          };
+        });
       } else {
-        console.info(
-          `⏱️ No driver accepted order ${orderId}. Retrying with remaining drivers...`
-        );
-        rejectedDriversMap.set(orderId, rejectedDrivers);
+        // No stock entries matched → default pricing/inventory
+        finalProd.inventory = product.variants.map((variant) => ({
+          variantId: variant._id.toString(),
+          quantity: 0,
+        }));
+
+        finalProd.variants = product.variants.map((variant) => ({
+          ...variant,
+          sell_price: variant.sell_price ?? 0,
+          mrp: variant.mrp ?? 0,
+        }));
       }
 
-      cleanupAllListeners();
-      //assignWithBroadcast(order, drivers);
-      const autoAssignDriver = require("./AutoAssignDriver");
-      autoAssignDriver(existingOrder._id);
-    } else {
-      console.log(`✅ Order ${orderId} assigned. Cleaning up.`);
-      cleanupAllListeners();
+      enriched.push(finalProd);
     }
-  }, TIMEOUT_MS);
-};
 
-module.exports = assignWithBroadcast;
+    enriched.sort((a, b) => {
+      const aQty = a.inventory?.some((i) => i.quantity > 0) ? 1 : 0;
+      const bQty = b.inventory?.some((i) => i.quantity > 0) ? 1 : 0;
+      return bQty - aQty;
+    });
+
+    const totalEnriched = enriched.length;
+    const sliced = enriched.slice(skip, skip + Number(limit));
+
+    // 6. Get filters (if category is present)
+    let filterList = [];
+    if (category) {
+      const catId = Array.isArray(category) ? category[0] : category;
+      const catDoc = await Category.findById(catId).lean();
+      if (catDoc?.filter?.length) {
+        const filterIds = catDoc.filter.map((f) => f._id);
+        filterList = await Filters.find({ _id: { $in: filterIds } }).lean();
+      }
+    }
+
+    return res.status(200).json({
+      message: "Products fetched successfully.",
+      filter: filterList,
+      products: sliced,
+      count: totalEnriched,
+      totalPages: Math.ceil(totalEnriched / Number(limit)),
+      page: Number(page),
+      limit: Number(limit),
+    });
+  } catch (error) {
+    console.error("❌ forwebgetProduct error:", error);
+    return res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};

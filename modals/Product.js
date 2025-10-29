@@ -149,4 +149,14 @@ productSchema.pre("save",async function (next) {
   next();
 });
 
+productSchema.pre("findOneAndUpdate", function (next) {
+  const update = this.getUpdate();
+  if (update.productName) {
+    update.slug = slugify(update.productName, { lower: true, strict: true });
+    this.setUpdate(update);
+  }
+  next();
+});
+
+
 module.exports = mongoose.model("Product", productSchema);

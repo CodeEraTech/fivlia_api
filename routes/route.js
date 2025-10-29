@@ -25,7 +25,8 @@ const {
   getTopSeller,
   addBlog,
   editBlog,
-  getBlog
+  getBlog,
+  forwebGetSingleProduct
 } = require("../controlers/websiteapicontroler");
 
 const {
@@ -208,6 +209,7 @@ const {
   deleteAttribute,
   rating,
   checkSimilarProduct,
+  getSingleProduct
 } = require("../controlers/ProductControler");
 
 const cityZone = require("../modals/cityZone");
@@ -294,6 +296,8 @@ router.get("/getExistingProductList", getExistingProductList);
 router.get("/getUnapprovedProducts", getUnapprovedProducts);
 router.post("/saveBrandApprovelDocument", upload, saveBrandApprovelDocument);
 
+
+router.get("/getSingleProduct/:slug", verifyToken, getSingleProduct);
 router.get("/checkSimilarProduct/:productId", verifyToken, checkSimilarProduct);
 router.get("/getAllStore", getAllStore);
 router.get("/getSeller", getSeller);
@@ -331,6 +335,8 @@ router.get("/getStoreTransaction/:storeId", getStoreTransaction);
 router.get("/getStoreCategory", getStoreCategory);
 router.get("/getDriverRequest", getDriverRequest);
 //website
+
+router.get("/website/forwebGetSingleProduct/:slug", forwebGetSingleProduct);
 router.get("/website/bestSelling", forwebbestselling);
 router.get("/website/getProduct", forwebgetProduct);
 router.get("/website/featureProduct", forwebgetFeatureProduct);

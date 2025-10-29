@@ -1,6 +1,7 @@
 // models/Product.js
 const mongoose = require("mongoose");
 const { required } = require("zod/v4-mini");
+const slugify = require("slugify"); 
 
 const locationSchema = new mongoose.Schema({
   city: [
@@ -23,6 +24,7 @@ const variantSchema = new mongoose.Schema(
 const productSchema = new mongoose.Schema(
   {
     productName: { type: String },
+    slug: { type: String, unique: true, index: true },
     description: String,
     mrp: { type: Number },
     sell_price: { type: Number },
@@ -132,7 +134,11 @@ const productSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-productSchema.pre("save", function (next) {
+productSchema.pre("save",async function (next) {
+  if (this.isModified("productName") || !this.slug) {
+    this.slug = slugify(this.productName, { lower: true, strict: true });
+  }
+
   if (this.mrp && this.sell_price) {
     const discount = ((this.mrp - this.sell_price) / this.mrp) * 100;
     this.discountValue = Math.round(discount);

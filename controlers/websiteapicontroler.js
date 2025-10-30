@@ -1756,3 +1756,110 @@ exports.editBlog = async (req, res) => {
     return res.status(500).json({ message: "Something went wrong." });
   }
 };
+
+exports.forwebGetSingleProduct = async (req, res) => {
+  try {
+    const { slug } = req.params; // can be ID or slug
+    const {lat,lng} = req.query;
+
+    // ✅ Step 2: Get stores near user
+    const { matchedStores = [] } = await getStoresWithinRadius(lat,lng);
+    if (!matchedStores.length) {
+      return res.status(200).json({
+        message: "No stores near your location",
+        product: null,
+      });
+    }
+
+    const allowedStoreIds = matchedStores.map((s) => s._id.toString());
+    const storeMap = Object.fromEntries(matchedStores.map((s) => [s._id.toString(), s]));
+
+    // ✅ Step 3: Find product (by ID or slug)
+   
+      product = await Products.findOne({ slug: slug }).lean();
+
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    // ✅ Step 4: Get stock for this product from nearby stores
+    const stockDocs = await Stock.find({
+      storeId: { $in: allowedStoreIds },
+      "stock.productId": product._id,
+    }).lean();
+
+    const stockDetailMap = {};
+    stockDocs.forEach((doc) => {
+      doc.stock?.forEach((entry) => {
+        if (entry.productId.toString() === product._id.toString()) {
+          const key = `${entry.variantId}_${doc.storeId}`;
+          stockDetailMap[key] = entry;
+        }
+      });
+    });
+
+    // ✅ Step 5: Enrich product variants with stock/store info
+    const variantOptions = [];
+
+    for (const variant of product.variants || []) {
+      for (const storeId of allowedStoreIds) {
+        const stock = stockDetailMap[`${variant._id}_${storeId}`];
+        const store = storeMap[storeId];
+        if (!stock || !store) continue;
+
+        variantOptions.push({
+          variantId: variant._id,
+          storeId,
+          storeName: store.storeName,
+          distance: store.distance,
+          price: stock.price ?? variant.sell_price ?? 0,
+          mrp: stock.mrp ?? variant.mrp ?? 0,
+          quantity: stock.quantity,
+        });
+      }
+    }
+
+    // ✅ Step 6: Sort by price then distance
+    variantOptions.sort((a, b) => {
+      if (a.price !== b.price) return a.price - b.price;
+      return a.distance - b.distance;
+    });
+
+    const bestOption = variantOptions[0];
+
+    // ✅ Step 7: Enriched product object
+    const enrichedProduct = {
+      ...product,
+      bestStore: bestOption
+        ? {
+            id: bestOption.storeId,
+            name: bestOption.storeName,
+            price: bestOption.price,
+            mrp: bestOption.mrp,
+            distance: bestOption.distance,
+          }
+        : null,
+      inventory: (product.variants || []).map((variant) => {
+        const match = variantOptions.find(
+          (v) => v.variantId.toString() === variant._id.toString()
+        );
+        return {
+          variantId: variant._id,
+          quantity: match ? match.quantity : 0,
+        };
+      }),
+    };
+
+    // ✅ Final response
+    return res.status(200).json({
+      message: "Product fetched successfully.",
+      product: enrichedProduct,
+    });
+  } catch (error) {
+    console.error("❌ getSingleProduct error:", error);
+    return res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};

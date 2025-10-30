@@ -3,6 +3,8 @@ const upload = require("../midllerware/multer");
 const router = express.Router();
 const verifyToken = require("../midllerware/authToken");
 
+//seo
+const {createSitemap,getSitemap} = require("../controlers/seoControler");
 //invoice
 const { generateThermalInvoiceController } = require("../config/invoice");
 //website
@@ -25,7 +27,8 @@ const {
   getTopSeller,
   addBlog,
   editBlog,
-  getBlog
+  getBlog,
+  forwebGetSingleProduct
 } = require("../controlers/websiteapicontroler");
 
 const {
@@ -145,7 +148,8 @@ const {
   editNotification,
   deleteNotification,
   getNotification,
-  bulkOrder
+  bulkOrder,
+  getBulkOrders
 } = require("../controlers/orderControler");
 
 const {
@@ -208,6 +212,7 @@ const {
   deleteAttribute,
   rating,
   checkSimilarProduct,
+  getSingleProduct
 } = require("../controlers/ProductControler");
 
 const cityZone = require("../modals/cityZone");
@@ -228,6 +233,10 @@ const {
 } = require("../controlers/areaControler");
 
 router.put("/withdrawal/:id/:action/:type", upload, withdrawal);
+
+//siteMap
+router.post("/createSitemap", createSitemap);
+router.get("/getSitemap", getSitemap);
 
 router.post("/Login", Login);
 router.post("/verifyOtp", verifyOtp);
@@ -294,6 +303,8 @@ router.get("/getExistingProductList", getExistingProductList);
 router.get("/getUnapprovedProducts", getUnapprovedProducts);
 router.post("/saveBrandApprovelDocument", upload, saveBrandApprovelDocument);
 
+
+router.get("/getSingleProduct/:slug", verifyToken, getSingleProduct);
 router.get("/checkSimilarProduct/:productId", verifyToken, checkSimilarProduct);
 router.get("/getAllStore", getAllStore);
 router.get("/getSeller", getSeller);
@@ -331,6 +342,8 @@ router.get("/getStoreTransaction/:storeId", getStoreTransaction);
 router.get("/getStoreCategory", getStoreCategory);
 router.get("/getDriverRequest", getDriverRequest);
 //website
+
+router.get("/website/forwebGetSingleProduct/:slug", forwebGetSingleProduct);
 router.get("/website/bestSelling", forwebbestselling);
 router.get("/website/getProduct", forwebgetProduct);
 router.get("/website/featureProduct", forwebgetFeatureProduct);
@@ -366,6 +379,7 @@ router.get("/getMainCategory", getMainCategory);
 router.get("/getDeliveryEstimate", verifyToken, getDeliveryEstimate);
 router.get("/getDeliveryEstimateForWebsite", getDeliveryEstimateForWebsite);
 router.get("/send-test-notification", test);
+router.get("/getBulkOrders", getBulkOrders);
 router.get("/getdeliveryStatus", getdeliveryStatus);
 router.get("/GetSubSubCategories/:subcatId", GetSubSubCategories);
 router.get("/GetSubCategories/:categoryId", GetSubCategories);

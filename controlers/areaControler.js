@@ -1,16 +1,20 @@
-const {CityData,ZoneData} = require('../modals/cityZone');
-const Location = require('../modals/location');
-const User = require('../modals/User');
-const Address = require('../modals/Address');
-const { getStoresWithinRadius } = require('../config/google');
-const StoreStock = require('../modals/StoreStock');
-const Store = require('../modals/store')
+const { CityData, ZoneData } = require("../modals/cityZone");
+const Location = require("../modals/location");
+const User = require("../modals/User");
+const Address = require("../modals/Address");
+const { getStoresWithinRadius } = require("../config/google");
+const StoreStock = require("../modals/StoreStock");
+const Store = require("../modals/store");
+const haversine = require("haversine-distance");
+
 exports.addCity = async (req, res) => {
   try {
     const { city, zone } = req.body;
 
     if (!city || !Array.isArray(zone)) {
-      return res.status(400).json({ message: 'City and zone array are required' });
+      return res
+        .status(400)
+        .json({ message: "City and zone array are required" });
     }
 
     let cityDoc = await CityData.findOne({ city });
@@ -27,42 +31,52 @@ exports.addCity = async (req, res) => {
       await cityDoc.save();
     }
 
-    return res.status(200).json({ message: 'City/Zone merged successfully' });
-
+    return res.status(200).json({ message: "City/Zone merged successfully" });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: 'An error occurred', error: error.message });
+    return res
+      .status(500)
+      .json({ message: "An error occurred", error: error.message });
   }
 };
 
 exports.updateCityStatus = async (req, res) => {
   try {
-    const {id} = req.params
-    const { status,city,state,latitude,longitude,fullAddress } = req.body;
+    const { id } = req.params;
+    const { status, city, state, latitude, longitude, fullAddress } = req.body;
 
-    const cityDoc = await CityData.findByIdAndUpdate(id,{ status,city,state,latitude,longitude,fullAddress },{new: true });
-    return res.status(200).json({ message: 'Status updated successfully', data: cityDoc });
-
+    const cityDoc = await CityData.findByIdAndUpdate(
+      id,
+      { status, city, state, latitude, longitude, fullAddress },
+      { new: true }
+    );
+    return res
+      .status(200)
+      .json({ message: "Status updated successfully", data: cityDoc });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: 'An error occurred', error: error.message });
+    return res
+      .status(500)
+      .json({ message: "An error occurred", error: error.message });
   }
 };
 
-exports.getAviableCity=async (req,res) => {
+exports.getAviableCity = async (req, res) => {
   try {
-  const status=await CityData.find({status:true})
-  res.json(status)
+    const status = await CityData.find({ status: true });
+    res.json(status);
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: 'An error occurred', error: error.message });
+    return res
+      .status(500)
+      .json({ message: "An error occurred", error: error.message });
   }
-}
+};
 
-exports.getCity=async (req,res) => {
-    const city =await CityData.find()
-    res.json(city);
-}
+exports.getCity = async (req, res) => {
+  const city = await CityData.find();
+  res.json(city);
+};
 
 exports.updateLocation = async (req, res) => {
   try {
@@ -75,9 +89,10 @@ exports.updateLocation = async (req, res) => {
 
     const user = await User.findById(id);
     if (user.mobileNumber === "+919999999999") {
-      return res.status(200).json({ message: "Location updated successfully!" });
+      return res
+        .status(200)
+        .json({ message: "Location updated successfully!" });
     }
-
 
     const updatedUser = await User.findByIdAndUpdate(
       id,
@@ -86,12 +101,41 @@ exports.updateLocation = async (req, res) => {
           location: {
             latitude,
             longitude,
-          }
-        }
+          },
+        },
       },
       { new: true }
     );
-// console.log(updatedUser);
+
+    // Get all user addresses
+    const addresses = await Address.find({ userId: id });
+    if (addresses.length > 0) {
+      // Compute nearest one using haversine distance
+      let nearestAddress = null;
+      let shortestDistance = Infinity;
+
+      addresses.forEach((addr) => {
+        if (addr.latitude && addr.longitude) {
+          const distance = haversine(
+            { lat: latitude, lon: longitude },
+            { lat: addr.latitude, lon: addr.longitude }
+          );
+          if (distance < shortestDistance) {
+            shortestDistance = distance;
+            nearestAddress = addr;
+          }
+        }
+      });
+
+      if (nearestAddress) {
+        await Address.updateMany({ userId: id }, { $set: { default: false } });
+        await Address.findByIdAndUpdate(
+          nearestAddress._id,
+          { $set: { default: true } },
+          { new: true }
+        );
+      }
+    }
 
     if (!updatedUser) {
       return res.status(404).json({ message: "User not found" });
@@ -99,38 +143,43 @@ exports.updateLocation = async (req, res) => {
 
     return res.status(200).json({
       message: "Location updated successfully!",
-      location: updatedUser.location
+      location: updatedUser.location,
     });
   } catch (error) {
     console.error("❌ Location update error:", error);
-    return res.status(500).json({ message: "Server error", error: error.message });
+    return res
+      .status(500)
+      .json({ message: "Server error", error: error.message });
   }
 };
 
-exports.getAllZone=async (req,res) => {
+exports.getAllZone = async (req, res) => {
   try {
-    const cityStatus = await CityData.find({status:true})
-    const activeCityNames = cityStatus.map(city => city.city);
+    const cityStatus = await CityData.find({ status: true });
+    const activeCityNames = cityStatus.map((city) => city.city);
 
-    const zones =await ZoneData.find({city:{$in:activeCityNames}})
+    const zones = await ZoneData.find({ city: { $in: activeCityNames } });
     res.json(zones);
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ResponseMsg: "An Error Occured"});
+    return res.status(500).json({ ResponseMsg: "An Error Occured" });
   }
-}
+};
 
-exports.getZone=async (req,res) => {
+exports.getZone = async (req, res) => {
   try {
-    const cityStatus = await CityData.find({status:true})
-    const activeCityNames = cityStatus.map(city => city.city);
-    const zones =await ZoneData.find({status:true,city:{$in:activeCityNames}})
+    const cityStatus = await CityData.find({ status: true });
+    const activeCityNames = cityStatus.map((city) => city.city);
+    const zones = await ZoneData.find({
+      status: true,
+      city: { $in: activeCityNames },
+    });
     res.json(zones);
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ResponseMsg: "An Error Occured"});
+    return res.status(500).json({ ResponseMsg: "An Error Occured" });
   }
-}
+};
 
 exports.updateZoneStatus = async (req, res) => {
   try {
@@ -156,9 +205,13 @@ exports.updateZoneStatus = async (req, res) => {
       return res.status(404).json({ message: "Zone not found" });
     }
 
-    const existingZone = currentCityDoc.zones.find(z => z._id.toString() === id);
+    const existingZone = currentCityDoc.zones.find(
+      (z) => z._id.toString() === id
+    );
     if (!existingZone) {
-      return res.status(404).json({ message: "Zone not found inside document" });
+      return res
+        .status(404)
+        .json({ message: "Zone not found inside document" });
     }
 
     // ✅ If city not changed, update zone in place
@@ -173,15 +226,16 @@ exports.updateZoneStatus = async (req, res) => {
             "zones.$.longitude": longitude ?? existingZone.longitude,
             "zones.$.range": range ?? existingZone.range,
             "zones.$.status": status ?? existingZone.status,
-            "zones.$.cashOnDelivery": cashOnDelivery ?? existingZone.cashOnDelivery,
-            updatedAt: new Date()
-          }
+            "zones.$.cashOnDelivery":
+              cashOnDelivery ?? existingZone.cashOnDelivery,
+            updatedAt: new Date(),
+          },
         }
       );
 
       return res.status(200).json({
         message: "Zone updated successfully (in-place)",
-        updatedZone: { ...existingZone, city }
+        updatedZone: { ...existingZone, city },
       });
     }
 
@@ -190,7 +244,9 @@ exports.updateZoneStatus = async (req, res) => {
     // Check if target city exists
     const targetCityDoc = await ZoneData.findOne({ city });
     if (!targetCityDoc) {
-      return res.status(400).json({ message: `Target city '${city}' does not exist.` });
+      return res
+        .status(400)
+        .json({ message: `Target city '${city}' does not exist.` });
     }
 
     // Remove from old city
@@ -209,7 +265,7 @@ exports.updateZoneStatus = async (req, res) => {
       range: range ?? existingZone.range,
       status: status ?? existingZone.status,
       cashOnDelivery: cashOnDelivery ?? existingZone.cashOnDelivery,
-      createdAt: existingZone.createdAt || new Date()
+      createdAt: existingZone.createdAt || new Date(),
     };
 
     // Push to new city
@@ -217,18 +273,19 @@ exports.updateZoneStatus = async (req, res) => {
       { city },
       {
         $push: { zones: updatedZone },
-        $set: { updatedAt: new Date() }
+        $set: { updatedAt: new Date() },
       }
     );
 
     return res.status(200).json({
       message: "Zone moved and updated successfully",
-      updatedZone
+      updatedZone,
     });
-
   } catch (error) {
     console.error("Update error:", error);
-    return res.status(500).json({ message: "An error occurred", error: error.message });
+    return res
+      .status(500)
+      .json({ message: "An error occurred", error: error.message });
   }
 };
 
@@ -236,7 +293,7 @@ exports.addAddress = async (req, res) => {
   try {
     const { id } = req.user;
     // console.log(id);
-    
+
     const {
       fullName,
       alternateNumber,
@@ -250,18 +307,21 @@ exports.addAddress = async (req, res) => {
       addressType,
       floor,
       landmark,
-      range
+      range,
     } = req.body;
 
     const user = await User.findById(id);
     // ✅ Step 1: Fetch all stores
 
-    const userLat = latitude
-    const userLng = longitude
-    const { zoneAvailable, matchedStores }  =await getStoresWithinRadius(userLat,userLng)
+    const userLat = latitude;
+    const userLng = longitude;
+    const { zoneAvailable, matchedStores } = await getStoresWithinRadius(
+      userLat,
+      userLng
+    );
 
-    if(!zoneAvailable){
-       return res.status(200).json({
+    if (!zoneAvailable) {
+      return res.status(200).json({
         status: false,
         message: "Service area not available.",
       });
@@ -270,7 +330,8 @@ exports.addAddress = async (req, res) => {
     if (matchedStores.length === 0) {
       return res.status(200).json({
         status: false,
-        message: "No store available in your area. Please try a different address.",
+        message:
+          "No store available in your area. Please try a different address.",
       });
     }
 
@@ -289,96 +350,131 @@ exports.addAddress = async (req, res) => {
       city,
       addressType,
       floor,
-      landmark
+      landmark,
     });
 
     return res.status(200).json({
       status: true,
       message: "Address added successfully",
-      newAddress
+      newAddress,
     });
-
   } catch (error) {
     console.error("❌ Error adding address:", error);
     return res.status(500).json({
       status: false,
       message: "Server error",
-      error: error.message
+      error: error.message,
     });
   }
 };
 
-exports.getAddress = async (req,res) => {
- try {
-  const {id} = req.user; 
-  //   const { city, zone } = user.location;
+exports.getAddress = async (req, res) => {
+  try {
+    const { id } = req.user;
+    //   const { city, zone } = user.location;
 
-  // const addresses = await Address.find({ userId: id }).sort({ createdAt: -1 });
+    // const addresses = await Address.find({ userId: id }).sort({ createdAt: -1 });
 
-  // const userZoneDoc = await ZoneData.findOne({ city });
-   
-  //   const matchedZone = userZoneDoc.zones.find(z =>
-  //     z.address.toLowerCase().includes(zone.toLowerCase())
-  //   );
+    // const userZoneDoc = await ZoneData.findOne({ city });
 
-  //   const stores = await Store.find({
-  //     zone: { $elemMatch: { _id: matchedZone._id } }
-  //   });
+    //   const matchedZone = userZoneDoc.zones.find(z =>
+    //     z.address.toLowerCase().includes(zone.toLowerCase())
+    //   );
 
-  //   if (!addresses.length && !stores.length)
-  //     return res.json({status:false, message: "Sorry, no stores available in your zone pls change ur address." });
+    //   const stores = await Store.find({
+    //     zone: { $elemMatch: { _id: matchedZone._id } }
+    //   });
 
-//     let matched = false;
-// for (const addr of addresses) {
-//   if (
-//     addr.city.toLowerCase() === city.toLowerCase() &&
-//     addr.address.toLowerCase() === zone.toLowerCase()
-//   ) {
-//     matched = addr;
-//     break;
-//   }
-// }
+    //   if (!addresses.length && !stores.length)
+    //     return res.json({status:false, message: "Sorry, no stores available in your zone pls change ur address." });
+
+    //     let matched = false;
+    // for (const addr of addresses) {
+    //   if (
+    //     addr.city.toLowerCase() === city.toLowerCase() &&
+    //     addr.address.toLowerCase() === zone.toLowerCase()
+    //   ) {
+    //     matched = addr;
+    //     break;
+    //   }
+    // }
 
     // await Promise.all(addresses.map(addr =>
     //   Address.findByIdAndUpdate(addr._id, { default: matched && addr._id.equals(matched._id) })
     // ));
 
-  const addresses = await Address.find({ userId: id,isDeleted:{$ne:true} }).sort({ createdAt: -1 });
+    const addresses = await Address.find({
+      userId: id,
+      isDeleted: { $ne: true },
+    }).sort({ createdAt: -1 });
 
     res.status(200).json({
       addresses,
     });
   } catch (error) {
-   console.error("Error adding address:", error);
+    console.error("Error adding address:", error);
     return res.status(500).json({ message: "Server error" });
- }
-}
+  }
+};
 
-exports.EditAddress=async (req,res) => {
+exports.EditAddress = async (req, res) => {
   try {
-  const {id} = req.params;
-  const { userId,fullName,mobileNumber,pincode,house_No,address,state,latitude,longitude,city,addressType, floor,landmark }=req.body
+    const { id } = req.params;
+    const {
+      userId,
+      fullName,
+      mobileNumber,
+      pincode,
+      house_No,
+      address,
+      state,
+      latitude,
+      longitude,
+      city,
+      addressType,
+      floor,
+      landmark,
+    } = req.body;
 
-  const edit = await Address.findByIdAndUpdate(id,{userId,fullName,mobileNumber,pincode,house_No,address,state,latitude,longitude,city,addressType,floor,landmark})
+    const edit = await Address.findByIdAndUpdate(id, {
+      userId,
+      fullName,
+      mobileNumber,
+      pincode,
+      house_No,
+      address,
+      state,
+      latitude,
+      longitude,
+      city,
+      addressType,
+      floor,
+      landmark,
+    });
 
-return res.status(200).json({message:"Address Updated Successfuly"})
-
+    return res.status(200).json({ message: "Address Updated Successfuly" });
   } catch (error) {
     return res.status(500).json({ message: "Server error" });
   }
-}
+};
 
-exports.deleteAddress = async (req,res) => {
-try {
-  const {id} = req.params
-  const deleteAddress = await Address.findByIdAndUpdate(id,{isDeleted:true},{ new: true }) 
-  return res.status(200).json({message:"Address Delete Successfuly",deleteAddress})
-} catch (error) {
-  console.error(error);
-  
-  return res.status(500).json({ message: "Server error" }); 
-}
-}
+exports.deleteAddress = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleteAddress = await Address.findByIdAndUpdate(
+      id,
+      { isDeleted: true },
+      { new: true }
+    );
+    return res
+      .status(200)
+      .json({ message: "Address Delete Successfuly", deleteAddress });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({ message: "Server error" });
+  }
+};
 
 exports.setDefault = async (req, res) => {
   try {
@@ -393,11 +489,17 @@ exports.setDefault = async (req, res) => {
       { new: true }
     );
 
-  if (!setDefault) {
-      return res.status(404).json({status:false, message: "Address not found" });
+    if (!setDefault) {
+      return res
+        .status(404)
+        .json({ status: false, message: "Address not found" });
     }
 
-    res.status(200).json({status:true, message: "Default address updated", address: setDefault });
+    res.status(200).json({
+      status: true,
+      message: "Default address updated",
+      address: setDefault,
+    });
   } catch (error) {
     console.error("Error setting default address:", error);
     res.status(500).json({ message: "Server error" });

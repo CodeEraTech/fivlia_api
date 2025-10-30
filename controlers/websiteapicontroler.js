@@ -23,7 +23,6 @@ const { sendMailContact } = require("../config/nodeMailer");
 const { contactUsTemplate } = require("../utils/emailTemplates");
 const Blog = require("../modals/blog");
 
-
 exports.forwebbestselling = async (req, res) => {
   try {
     const { lat, lng } = req.query;
@@ -1583,6 +1582,11 @@ exports.getTopSeller = async (req, res) => {
     const storeDetailsWithRatings = [];
 
     for (const store of allowedStores) {
+      // skip if autorised store
+      if (store.Authorized_Store == true) {
+        continue;
+      }
+
       // Fetch ratings for the store
       const ratings = await Rating.find({ storeId: store._id });
 
@@ -1626,7 +1630,7 @@ exports.addBlog = async (req, res) => {
       status,
     } = req.body;
 
-    const image = `/${req.files.image?.[0].key}`
+    const image = `/${req.files.image?.[0].key}`;
     if (!title || !content) {
       return res
         .status(400)
@@ -1733,7 +1737,11 @@ exports.editBlog = async (req, res) => {
     }
 
     // ✅ Update only the given fields
-    const blog = await Blog.findByIdAndUpdate(id, { $set: updateFields }, { new: true });
+    const blog = await Blog.findByIdAndUpdate(
+      id,
+      { $set: updateFields },
+      { new: true }
+    );
 
     if (!blog) {
       return res.status(404).json({ message: "Blog not found." });
@@ -1748,4 +1756,3 @@ exports.editBlog = async (req, res) => {
     return res.status(500).json({ message: "Something went wrong." });
   }
 };
-

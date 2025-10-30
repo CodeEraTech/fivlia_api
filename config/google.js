@@ -168,21 +168,26 @@ async function getBannersWithinRadius(userLat, userLng, banners = []) {
   const allZones = await ZoneData.find({});
 
   return banners.filter((banner) => {
-    const bannerCity = banner.city?.name?.toLowerCase();
+    if (!Array.isArray(banner.city)) return false; // city must be array
 
-    const cityDoc = allZones.find(
-      (city) => city.city.toLowerCase() === bannerCity
-    );
+    // Check each city assigned to banner
+    return banner.city.some((cityObj) => {
+      const cityDoc = allZones.find(
+        (city) => city.city.toLowerCase() === cityObj.name.toLowerCase()
+      );
 
-    if (!cityDoc) return false;
+      if (!cityDoc) return false;
 
-    const validZone = cityDoc.zones.find(
-      (zone) => zone.status === true && isWithinBanner(userLat, userLng, zone)
-    );
+      // find if any zone matches the radius condition
+      const validZone = cityDoc.zones.find(
+        (zone) => zone.status === true && isWithinBanner(userLat, userLng, zone)
+      );
 
-    return Boolean(validZone);
+      return Boolean(validZone);
+    });
   });
 }
+
 
 function findAvailableDriversNearUser(userLat, userLng, driverLat, driverLng) {
   const user = { lat: userLat, lon: userLng };

@@ -82,7 +82,17 @@ exports.banner = async (req, res) => {
         .json({ message: 'Invalid banner type. Must be "normal" or "offer".' });
     }
 
-    const cityDoc = await ZoneData.findOne({ _id: city });
+    if (typeof city === "string") {
+      try {
+        city = JSON.parse(city);
+      } catch (err) {
+        return res.status(400).json({ message: "Invalid city format" });
+      }
+    }
+
+    let cityIds = Array.isArray(city) ? city : [city];
+
+    const cityDoc = await ZoneData.find({ _id: { $in: cityIds } });
     // console.log(cityDoc);
 
     let foundCategory = null;
@@ -99,6 +109,13 @@ exports.banner = async (req, res) => {
       foundStore = await Store.findOne({ _id: storeId });
       if (!foundStore)
         return res.status(204).json({ message: "Store not found" });
+    } else if (type2 === "NO") {
+      // No category, no brand, no store
+      foundCategory = null;
+      foundSubCategory = null;
+      foundSubSubCategory = null;
+      foundBrand = null;
+      foundStore = null;
     } else {
       if (!mainCategory)
         return res.status(400).json({ message: "Main category is required" });
@@ -128,11 +145,9 @@ exports.banner = async (req, res) => {
               .json({ message: `SubSubCategory ${subSubCategory} not found` });
         }
       } else if (subSubCategory) {
-        return res
-          .status(400)
-          .json({
-            message: "Cannot provide subSubCategory without subCategory",
-          });
+        return res.status(400).json({
+          message: "Cannot provide subSubCategory without subCategory",
+        });
       }
     }
 
@@ -142,11 +157,12 @@ exports.banner = async (req, res) => {
       if (foundSubCategory) slug += `/${foundSubCategory._id}`;
       if (foundSubSubCategory) slug += `/${foundSubSubCategory._id}`;
     }
+    const cities = cityDoc.map((c) => ({ _id: c._id, name: c.city }));
 
     const newBanner = await Banner.create({
       image,
       type2,
-      city: { _id: cityDoc._id, name: cityDoc.city },
+      city: cities,
       title,
       type: bannerType,
 
@@ -232,11 +248,9 @@ exports.getBanner = async (req, res) => {
     if (type) {
       const validTypes = ["offer", "normal"];
       if (!validTypes.includes(type)) {
-        return res
-          .status(400)
-          .json({
-            message: 'Invalid banner type. Must be "offer" or "normal".',
-          });
+        return res.status(400).json({
+          message: 'Invalid banner type. Must be "offer" or "normal".',
+        });
       }
       filters.type = type;
     }
@@ -278,8 +292,8 @@ exports.getBanner = async (req, res) => {
 
 exports.updateBannerStatus = async (req, res) => {
   try {
-    const { id } = req.params;
-    const {
+    let { id } = req.params;
+    let {
       status,
       title,
       city,
@@ -304,9 +318,28 @@ exports.updateBannerStatus = async (req, res) => {
     if (rawImagePath) updateData.image = image;
 
     // Handle city
-    const cityDoc = await ZoneData.findById(city).lean();
+    if (typeof city === "string") {
+     try {
+       city = JSON.parse(city);
+     } catch (err) {
+       console.log(err)
+       return res.status(400).json({ message: "Invalid city format" });
+     }
+    }
+    
+    let cityIds = Array.isArray(city) ? city : [city];
+    
+    const cityDoc = await ZoneData.find({ _id: { $in: cityIds } });
     if (cityDoc) {
-      updateData.city = { _id: cityDoc._id, name: cityDoc.city };
+      updateData.city = cityDoc.map(c => ({_id: c._id,name: c.city}));
+    }
+
+    if (type2 === "NO") {
+      updateData.mainCategory = null;
+      updateData.subCategory = null;
+      updateData.subSubCategory = null;
+      updateData.brand = null;
+      updateData.storeId = null;
     }
 
     if (brandId) {
@@ -454,12 +487,10 @@ exports.addCategory = async (req, res) => {
       });
 
       await mainCategory.save();
-      return res
-        .status(201)
-        .json({
-          message: "Sub category added",
-          data: mainCategory.subCategory.get(CategoryHeading),
-        });
+      return res.status(201).json({
+        message: "Sub category added",
+        data: mainCategory.subCategory.get(CategoryHeading),
+      });
     }
 
     if (Selection === "Sub-Sub") {

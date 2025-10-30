@@ -1098,7 +1098,7 @@ exports.getBulkOrders = async (req, res) => {
     const orders = await BulkOrderRequest.find()
       .populate({
         path: "userId",
-        select: "name email phone", // choose what to show
+        select: "name email mobileNumber", // choose what to show
       })
       .populate({
         path: "productId",

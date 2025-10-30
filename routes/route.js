@@ -4,7 +4,7 @@ const router = express.Router();
 const verifyToken = require("../midllerware/authToken");
 
 //seo
-const {createSitemap,getSitemap} = require("../controlers/seoControler");
+const { createSitemap, getSitemap } = require("../controlers/seoControler");
 //invoice
 const { generateThermalInvoiceController } = require("../config/invoice");
 //website
@@ -28,7 +28,7 @@ const {
   addBlog,
   editBlog,
   getBlog,
-  forwebGetSingleProduct
+  forwebGetSingleProduct,
 } = require("../controlers/websiteapicontroler");
 
 const {
@@ -149,7 +149,7 @@ const {
   deleteNotification,
   getNotification,
   bulkOrder,
-  getBulkOrders
+  getBulkOrders,
 } = require("../controlers/orderControler");
 
 const {
@@ -212,7 +212,7 @@ const {
   deleteAttribute,
   rating,
   checkSimilarProduct,
-  getSingleProduct
+  getSingleProduct,
 } = require("../controlers/ProductControler");
 
 const cityZone = require("../modals/cityZone");
@@ -231,6 +231,11 @@ const {
   deleteAddress,
   setDefault,
 } = require("../controlers/areaControler");
+
+const { getPlaceSuggestions } = require("../utils/olaAutocomplete.js");
+
+// autocomplete search
+router.get("/autocomplete-search", getPlaceSuggestions);
 
 router.put("/withdrawal/:id/:action/:type", upload, withdrawal);
 
@@ -252,12 +257,12 @@ router.post("/addAtribute", addAtribute);
 router.post("/unit", unit);
 router.post("/addCart", upload, verifyToken, addCart);
 router.post("/placeOrder", placeOrder);
-router.post("/bulkOrder/:productId",verifyToken, bulkOrder);
+router.post("/bulkOrder/:productId", verifyToken, bulkOrder);
 router.post("/verifyPayment", verifyPayment);
 router.post("/filter", filter);
 router.post("/createStore", upload, createStore);
 router.post("/Product/bulk", upload, bulkProductUpload),
-router.put("/adminSetting", upload, adminSetting);
+  router.put("/adminSetting", upload, adminSetting);
 router.post("/addFilter", addFilter);
 router.post("/address", verifyToken, addAddress);
 router.post("/updateStock/:productId", updateStock);
@@ -302,7 +307,6 @@ router.get("/getSellerCategoryList/:id", getSellerCategoryList);
 router.get("/getExistingProductList", getExistingProductList);
 router.get("/getUnapprovedProducts", getUnapprovedProducts);
 router.post("/saveBrandApprovelDocument", upload, saveBrandApprovelDocument);
-
 
 router.get("/getSingleProduct/:slug", verifyToken, getSingleProduct);
 router.get("/checkSimilarProduct/:productId", verifyToken, checkSimilarProduct);
@@ -384,8 +388,8 @@ router.get("/getdeliveryStatus", getdeliveryStatus);
 router.get("/GetSubSubCategories/:subcatId", GetSubSubCategories);
 router.get("/GetSubCategories/:categoryId", GetSubCategories);
 router.get("/getBlog", getBlog);
-router.post("/addBlog",upload, addBlog);
-router.put("/editBlog/:id",upload, editBlog);
+router.post("/addBlog", upload, addBlog);
+router.put("/editBlog/:id", upload, editBlog);
 router.post("/getEvent", getEvent);
 router.post("/addEvent", upload, addEvent);
 router.put("/editEvent/:id", upload, editEvent);

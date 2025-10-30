@@ -1587,6 +1587,11 @@ exports.getTopSeller = async (req, res) => {
         continue;
       }
 
+      // skip if not approved store
+      if (store.approveStatus != "approved") {
+        continue;
+      }
+
       // Fetch ratings for the store
       const ratings = await Rating.find({ storeId: store._id });
 
@@ -1760,10 +1765,10 @@ exports.editBlog = async (req, res) => {
 exports.forwebGetSingleProduct = async (req, res) => {
   try {
     const { slug } = req.params; // can be ID or slug
-    const {lat,lng} = req.query;
+    const { lat, lng } = req.query;
 
     // ✅ Step 2: Get stores near user
-    const { matchedStores = [] } = await getStoresWithinRadius(lat,lng);
+    const { matchedStores = [] } = await getStoresWithinRadius(lat, lng);
     if (!matchedStores.length) {
       return res.status(200).json({
         message: "No stores near your location",
@@ -1772,11 +1777,13 @@ exports.forwebGetSingleProduct = async (req, res) => {
     }
 
     const allowedStoreIds = matchedStores.map((s) => s._id.toString());
-    const storeMap = Object.fromEntries(matchedStores.map((s) => [s._id.toString(), s]));
+    const storeMap = Object.fromEntries(
+      matchedStores.map((s) => [s._id.toString(), s])
+    );
 
     // ✅ Step 3: Find product (by ID or slug)
-   
-      product = await Products.findOne({ slug: slug }).lean();
+
+    product = await Products.findOne({ slug: slug }).lean();
 
     if (!product) {
       return res.status(404).json({ message: "Product not found" });

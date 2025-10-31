@@ -1,5 +1,5 @@
 const express = require("express");
-const path = require('path');
+const path = require("path");
 require("dotenv").config();
 const connectDb = require("./database/database");
 const fs = require("fs");
@@ -27,14 +27,6 @@ const io = socketIo(server, {
 });
 
 registerDriverSocket(io);
-const authRoutes = require("./routes/route");
-const zonesRoute = require("./routes/route");
-app.get("/", (req, res) => {
-  res.send("Fivlia api is running ...");
-});
-app.use("/fivlia", authRoutes);
-app.use("/", zonesRoute);
-
 // Route to serve sitemap.xml
 app.get("/sitemap.xml", (req, res) => {
   const sitemapPath = path.join(__dirname, "sitemap.xml");
@@ -45,6 +37,13 @@ app.get("/sitemap.xml", (req, res) => {
     }
   });
 });
+const authRoutes = require("./routes/route");
+const zonesRoute = require("./routes/route");
+app.get("/", (req, res) => {
+  res.send("Fivlia api is running ...");
+});
+app.use("/fivlia", authRoutes);
+app.use("/", zonesRoute);
 
 const startServer = async () => {
   const mongoConnection = await connectDb();

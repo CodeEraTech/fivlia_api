@@ -1378,7 +1378,7 @@ exports.editPage = async (req, res) => {
 exports.getPage = async (req, res) => {
   try {
     const { id } = req.query;
-
+console.log(23823892389, id, "cmscaall");
     if (id) {
       getPage = await page.findById(id);
     } else {

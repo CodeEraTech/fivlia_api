@@ -38,10 +38,7 @@ exports.createSitemap = async (req, res) => {
     </urlset>`;
 
     // Define the file path for sitemap.xml
-    const filePath = path.join(
-      __dirname,
-      "../../../../fivlia/public_html/public/sitemap.xml"
-    );
+    const filePath = path.join(__dirname, "../sitemap.xml");
 
     // Ensure the directory exists before trying to save
     const dirPath = path.dirname(filePath);

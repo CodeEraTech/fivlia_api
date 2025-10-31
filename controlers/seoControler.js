@@ -68,7 +68,6 @@ exports.createSitemap = async (req, res) => {
         body && Object.keys(body).length > 0
           ? "Sitemap URL added & sitemap.xml regenerated successfully"
           : "Sitemap.xml regenerated successfully",
-      xmlContent,
     });
   } catch (error) {
     console.error("❌ createSitemap error:", error);

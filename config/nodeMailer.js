@@ -1,12 +1,12 @@
 const nodemailer = require("nodemailer");
 
 const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com", // Or use the server IP if given: 172.93.223.239
+  host: "mail.fivlia.com", // Or use the server IP if given: 172.93.223.239
   port: 465,              // Use 465 for SSL (recommended)
   secure: true,           // true for port 465, false for 587
   auth: {
-    user: "fivliaindia@gmail.com",   // Your no-reply email
-    pass: "xybmyypjxwyeldgl", 
+    user: "no-reply@fivlia.com",   // Your no-reply email
+    pass: "2025@Fivlia!", 
   },
   
 });
@@ -14,7 +14,7 @@ const transporter = nodemailer.createTransport({
 const sendVerificationEmail = async (to, firstName, lastName, storeName) => {
 
   await transporter.sendMail({
-    from: "Fivlia <fivliaindia@gmail.com>",
+    from: "Fivlia <no-reply@fivlia.com>",
     to,
     subject: "Fivlia Seller Registration",
     html: `
@@ -28,7 +28,7 @@ const sendVerificationEmail = async (to, firstName, lastName, storeName) => {
 
 const sendMailContact = async (to, subject,userEmail, htmlContent) => {
   await transporter.sendMail({
-    from: "Fivlia <fivliaindia@gmail.com>",
+    from: "Fivlia <no-reply@fivlia.com>",
     replyTo: userEmail,
     to,
     subject,

@@ -1,4 +1,5 @@
 const axios = require("axios");
+const MapUsage = require("../modals/mapUsage");
 
 const OLA_MAPS_API_KEY = "YHGoHrZHMgUpEeCA1CNKTg4iUePHYU2T8Upv6xdM";
 const BASE_URL = "https://api.olamaps.io";
@@ -9,6 +10,16 @@ exports.getPlaceSuggestions = async (req, res) => {
     if (!input || input.trim().length === 0) {
       return [];
     }
+
+    await MapUsage.findOneAndUpdate(
+      {
+        source: "app",
+        callType: "autocomplete",
+        subCallType: "getPlaceSuggestions_olaAutocomplete",
+      },
+      { $inc: { count: 1 }, $set: { lastCalledAt: new Date() } },
+      { upsert: true, new: true }
+    );
 
     const response = await axios.get(`${BASE_URL}/places/v1/autocomplete`, {
       params: {

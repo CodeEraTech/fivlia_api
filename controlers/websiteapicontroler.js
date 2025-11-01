@@ -1423,14 +1423,14 @@ exports.contactUs = async (req, res) => {
     });
 
     await sendMailContact(
-      ["fivliaindia@gmail.com", "support@fivlia.in"],
+      ["no-reply@fivlia.com", "support@fivlia.in"],
       "New Contact Request",
       email,
       contactUsTemplate(firstName, lastName, email, phone, message)
     );
     return res.status(200).json({ message: "Request Submitted" });
   } catch (error) {
-    //console.error("Error updating status:", error);
+    console.error("Error:", error);
     return res
       .status(500)
       .json({ message: "Server error", error: error.message });

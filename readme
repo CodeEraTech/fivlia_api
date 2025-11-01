@@ -1,283 +1,166 @@
-exports.forwebgetProduct = async (req, res) => {
+exports.banner = async (req, res) => {
   try {
-    const {
-      seller,
-      category,
+    let {
+      title,
+      type,
+      city,
+      zones,
+      mainCategory,
       subCategory,
       subSubCategory,
-      priceMin,
-      priceMax,
-      filterId,
-      lat,
-      lng,
-      page = 1,
-      limit = 60,
-    } = req.query;
+      brand: brandId,
+      status,
+      type2,
+      storeId,
+    } = req.body;
+    console.log(req.body);
+    const rawImagePath = req.files?.image?.[0]?.key || "";
+    const image = rawImagePath ? `/${rawImagePath}` : "";
 
-    const skip = (page - 1) * limit;
-
-    // 1. Get allowed stores by location
-    let allowedStores = [];
-    if (seller) {
-      const store = await Store.findById(seller).lean();
-      if (store) {
-        allowedStores = [store];
+    if (typeof zones === "string") {
+      try {
+        zones = JSON.parse(zones);
+      } catch (err) {
+        console.error(err);
+        return res.status(400).json({ message: "Invalid zones format" });
       }
+    }
+
+    const validTypes = ["normal", "offer"];
+    const bannerType = validTypes.includes(type) ? type : "normal";
+    if (!bannerType) {
+      return res
+        .status(402)
+        .json({ message: 'Invalid banner type. Must be "normal" or "offer".' });
+    }
+
+    if (typeof city === "string") {
+      try {
+        city = JSON.parse(city);
+      } catch (err) {
+        return res.status(400).json({ message: "Invalid city format" });
+      }
+    }
+
+    let cityIds = Array.isArray(city) ? city : [city];
+
+    const cityDoc = await ZoneData.find({ _id: { $in: cityIds } });
+    // console.log(cityDoc);
+
+    let foundCategory = null;
+    let foundSubCategory = null;
+    let foundSubSubCategory = null;
+    let foundBrand = null;
+    let foundStore = null;
+
+    if (type2 === "Brand") {
+      foundBrand = await brand.findOne({ _id: brandId });
+      if (!foundBrand)
+        return res.status(204).json({ message: "Brand not found" });
+    } else if (type2 === "Store") {
+      foundStore = await Store.findOne({ _id: storeId });
+      if (!foundStore)
+        return res.status(204).json({ message: "Store not found" });
+    } else if (type2 === "NO") {
+      // No category, no brand, no store
+      foundCategory = null;
+      foundSubCategory = null;
+      foundSubSubCategory = null;
+      foundBrand = null;
+      foundStore = null;
     } else {
-      const stores = await getStoresWithinRadius(lat, lng);
-      allowedStores = Array.isArray(stores?.matchedStores)
-        ? stores.matchedStores
-        : [];
-    }
+      if (!mainCategory)
+        return res.status(400).json({ message: "Main category is required" });
 
-    const allowedStoreIds = allowedStores.map((s) => s._id.toString());
+      foundCategory = await Category.findOne({ _id: mainCategory });
+      if (!foundCategory)
+        return res
+          .status(204)
+          .json({ message: `Category ${mainCategory} not found` });
 
-    if (!allowedStoreIds.length) {
-      return res.status(200).json({
-        message: "No matching products found for your location.",
-        products: [],
-        filter: [],
-        count: 0,
-        totalPages: 0,
-        page: Number(page),
-        limit: Number(limit),
-      });
-    }
+      if (subCategory) {
+        foundSubCategory = foundCategory.subcat.find(
+          (sub) => sub._id.toString() === subCategory
+        );
+        if (!foundSubCategory)
+          return res
+            .status(204)
+            .json({ message: `SubCategory ${subCategory} not found` });
 
-    // 2. Get all allowed category IDs
-    const allCategoryIds = new Set();
-    let storeCategoryIds = allowedStores.flatMap((store) =>
-      Array.isArray(store.Category)
-        ? store.Category.map((id) => id?.toString())
-        : store.Category
-        ? [store.Category.toString()]
-        : []
-    );
-
-    if (storeCategoryIds.length < 1) {
-      allowedStores.forEach((store) => {
-        store.sellerCategories?.forEach((categoryObj) => {
-          if (categoryObj?.categoryId)
-            allCategoryIds.add(categoryObj.categoryId);
-          categoryObj.subCategories?.forEach((sub) => {
-            if (sub?.subCategoryId) allCategoryIds.add(sub.subCategoryId);
-            sub.subSubCategories?.forEach((ss) => {
-              if (ss?.subSubCategoryId) allCategoryIds.add(ss.subSubCategoryId);
-            });
-          });
-        });
-      });
-    } else {
-      const uniqueCatIds = [...new Set(storeCategoryIds)];
-      const categories = await Category.find({
-        _id: { $in: uniqueCatIds },
-      }).lean();
-      for (const cat of categories) {
-        allCategoryIds.add(cat._id.toString());
-        (cat.subcat || []).forEach((sub) => {
-          if (sub?._id) allCategoryIds.add(sub._id.toString());
-          (sub.subsubcat || []).forEach((ss) => {
-            if (ss?._id) allCategoryIds.add(ss._id.toString());
-          });
-        });
-      }
-    }
-
-    const categoryScopeIds = Array.from(allCategoryIds);
-
-    // 3. Get stock documents for current location stores
-    const stockDocs = await Stock.find({
-      storeId: { $in: allowedStoreIds },
-    }).lean();
-
-    const stockDetailMap = {};
-
-    for (const doc of stockDocs) {
-      (doc.stock || []).forEach((entry) => {
-        const key = `${entry.productId}_${entry.variantId}_${doc.storeId}`;
-        stockDetailMap[key] = entry;
-      });
-    }
-
-    // 4. Build product query
-    const productQuery = {
-      $or: [
-        { "category._id": { $in: categoryScopeIds } },
-        { "subCategory._id": { $in: categoryScopeIds } },
-        { "subSubCategory._id": { $in: categoryScopeIds } },
-      ],
-    };
-
-    if (category) {
-      const catArr = Array.isArray(category) ? category : [category];
-      productQuery.$or = [
-        { "category._id": { $in: catArr } },
-        { "subCategory._id": { $in: catArr } },
-        { "subSubCategory._id": { $in: catArr } },
-      ];
-    }
-
-    if (subCategory) {
-      const subArr = Array.isArray(subCategory) ? subCategory : [subCategory];
-      productQuery["subCategory._id"] = { $in: subArr };
-    }
-
-    if (subSubCategory) {
-      const ssArr = Array.isArray(subSubCategory)
-        ? subSubCategory
-        : [subSubCategory];
-      productQuery["subSubCategory._id"] = { $in: ssArr };
-    }
-
-    // 5. Get all products in the category scope
-    const allProducts = await Products.find(productQuery).lean();
-
-    const storeMap = {};
-    allowedStores.forEach((s) => {
-      storeMap[s._id.toString()] = s;
-    });
-
-    const enriched = [];
-
-    for (const product of allProducts) {
-      if (!Array.isArray(product.variants) || product.variants.length === 0) {
-        continue;
-      }
-
-      const variantOptions = [];
-
-      for (const variant of product.variants) {
-        for (const storeId of allowedStoreIds) {
-          const key = `${product._id}_${variant._id}_${storeId}`;
-          const stockEntry = stockDetailMap[key];
-          const store = storeMap[storeId];
-          if (!store) continue;
-
-          const price = stockEntry?.price ?? variant.sell_price ?? 0;
-          const mrp = stockEntry?.mrp ?? variant.mrp ?? 0;
-
-          // Apply price range filters
-          if (priceMin != null && price < Number(priceMin)) continue;
-          if (priceMax != null && price > Number(priceMax)) continue;
-
-          if (filterId) {
-            const matches = (product.filter || []).some((f) =>
-              (f.selected || []).some(
-                (sel) => sel._id.toString() === filterId.toString()
-              )
-            );
-            if (!matches) continue;
-          }
-
-          variantOptions.push({
-            productId: product._id.toString(),
-            variantId: variant._id.toString(),
-            storeId: store._id.toString(),
-            storeName: store.soldBy?.storeName || store.storeName,
-            official: store.soldBy?.official || 0,
-            rating: variant.rating ?? product.rating ?? 0,
-            distance: store.distance ?? Number.MAX_SAFE_INTEGER,
-            price,
-            mrp,
-            quantity: stockEntry?.quantity ?? 0,
-          });
+        if (subSubCategory) {
+          foundSubSubCategory = foundSubCategory.subsubcat.find(
+            (subsub) => subsub._id.toString() === subSubCategory
+          );
+          if (!foundSubSubCategory)
+            return res
+              .status(204)
+              .json({ message: `SubSubCategory ${subSubCategory} not found` });
         }
-      }
-
-      let finalProd = {
-        ...product,
-        storeId: null,
-        storeName: "",
-        inventory: [],
-        variants: [],
-      };
-
-      if (variantOptions.length > 0) {
-        variantOptions.sort((a, b) => {
-          const aInStock = a.quantity > 0 ? 1 : 0;
-          const bInStock = b.quantity > 0 ? 1 : 0;
-          if (aInStock !== bInStock) return bInStock - aInStock;
-          if (a.official !== b.official) return b.official - a.official;
-          if (a.rating !== b.rating) return b.rating - a.rating;
-          if (a.price !== b.price) return a.price - b.price;
-          return a.distance - b.distance;
+      } else if (subSubCategory) {
+        return res.status(400).json({
+          message: "Cannot provide subSubCategory without subCategory",
         });
-
-        const best = variantOptions[0];
-        finalProd.storeId = best.storeId;
-        finalProd.storeName = best.storeName;
-
-        finalProd.inventory = product.variants.map((variant) => {
-          const match = variantOptions.find(
-            (opt) => opt.variantId === variant._id.toString()
-          );
-          return {
-            variantId: variant._id.toString(),
-            quantity: match?.quantity || 0,
-          };
-        });
-
-        finalProd.variants = product.variants.map((variant) => {
-          const match = variantOptions.find(
-            (opt) => opt.variantId === variant._id.toString()
-          );
-          return {
-            ...variant,
-            sell_price: match?.price ?? variant.sell_price,
-            mrp: match?.mrp ?? variant.mrp,
-          };
-        });
-      } else {
-        // No stock entries matched → default pricing/inventory
-        finalProd.inventory = product.variants.map((variant) => ({
-          variantId: variant._id.toString(),
-          quantity: 0,
-        }));
-
-        finalProd.variants = product.variants.map((variant) => ({
-          ...variant,
-          sell_price: variant.sell_price ?? 0,
-          mrp: variant.mrp ?? 0,
-        }));
-      }
-
-      enriched.push(finalProd);
-    }
-
-    enriched.sort((a, b) => {
-      const aQty = a.inventory?.some((i) => i.quantity > 0) ? 1 : 0;
-      const bQty = b.inventory?.some((i) => i.quantity > 0) ? 1 : 0;
-      return bQty - aQty;
-    });
-
-    const totalEnriched = enriched.length;
-    const sliced = enriched.slice(skip, skip + Number(limit));
-
-    // 6. Get filters (if category is present)
-    let filterList = [];
-    if (category) {
-      const catId = Array.isArray(category) ? category[0] : category;
-      const catDoc = await Category.findById(catId).lean();
-      if (catDoc?.filter?.length) {
-        const filterIds = catDoc.filter.map((f) => f._id);
-        filterList = await Filters.find({ _id: { $in: filterIds } }).lean();
       }
     }
 
-    return res.status(200).json({
-      message: "Products fetched successfully.",
-      filter: filterList,
-      products: sliced,
-      count: totalEnriched,
-      totalPages: Math.ceil(totalEnriched / Number(limit)),
-      page: Number(page),
-      limit: Number(limit),
+    let slug = "";
+    if (foundCategory) {
+      slug = `/category/${foundCategory._id}`;
+      if (foundSubCategory) slug += `/${foundSubCategory._id}`;
+      if (foundSubSubCategory) slug += `/${foundSubSubCategory._id}`;
+    }
+    const cities = cityDoc.map((c) => ({ _id: c._id, name: c.city }));
+
+    const newBanner = await Banner.create({
+      image,
+      type2,
+      city: cities,
+      title,
+      type: bannerType,
+
+      mainCategory: foundCategory
+        ? {
+            _id: foundCategory._id,
+            name: foundCategory.name,
+            slug: slugify(foundCategory.name, { lower: true }),
+          }
+        : null,
+
+      subCategory: foundSubCategory
+        ? {
+            _id: foundSubCategory._id,
+            name: foundSubCategory.name,
+            slug: slugify(foundSubCategory.name, { lower: true }),
+          }
+        : null,
+
+      subSubCategory: foundSubSubCategory
+        ? {
+            _id: foundSubSubCategory._id,
+            name: foundSubSubCategory.name,
+            slug: slugify(foundSubSubCategory.name, { lower: true }),
+          }
+        : null,
+
+      brand: foundBrand
+        ? {
+            _id: foundBrand._id,
+            name: foundBrand.brandName,
+            slug: slugify(foundBrand.brandName, { lower: true }),
+          }
+        : null,
+
+      status,
+      storeId,
+      zones,
     });
+    return res
+      .status(200)
+      .json({ message: "Banner Added Successfully", newBanner });
   } catch (error) {
-    console.error("❌ forwebgetProduct error:", error);
-    return res.status(500).json({
-      message: "Server error",
-      error: error.message,
-    });
+    console.error(error);
+    return res
+      .status(500)
+      .json({ message: "An Error Occured", error: error.message });
   }
 };

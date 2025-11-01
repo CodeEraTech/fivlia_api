@@ -258,6 +258,8 @@ exports.storeEdit = async (req, res) => {
       password,
       status,
       Description,
+      openTime,
+      closeTime,
       isAssured,
       Category: categoryInput,
     } = req.body;
@@ -307,7 +309,8 @@ exports.storeEdit = async (req, res) => {
     if (PhoneNumber) updateObj.PhoneNumber = PhoneNumber;
     if (email) updateObj.email = email;
     if (password) updateObj.password = password;
-
+    if (openTime) updateFields.openTime = openTime;
+    if (closeTime) updateFields.closeTime = closeTime;
     if (status !== undefined) updateObj.status = status;
     if (Description) updateObj.Description = Description;
     if (isAssured) updateObj.fivliaAssured = isAssured;

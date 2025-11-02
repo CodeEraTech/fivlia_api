@@ -1252,7 +1252,7 @@ exports.getDeliveryEstimateForWebsite = async (req, res) => {
       currentLong
     );
 
-    if (!zoneAvailable || !matchedStores.length) {
+    if (!zoneAvailable || !matchedStores || !matchedStores.length) {
       return res.json({
         status: false,
         message: "Service zone not available",

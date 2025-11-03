@@ -3,7 +3,7 @@ const seller = require("../../modals/store");
 const sendNotification = require("../../firebase/pushnotification");
 const { SettingAdmin } = require("../../modals/setting");
 const { ZoneData } = require("../../modals/cityZone");
-const {sendVerificationEmail} = require("../../config/nodeMailer");
+const { sendVerificationEmail } = require("../../config/nodeMailer");
 const OtpModel = require("../../modals/otp");
 const request = require("request");
 const crypto = require("crypto");
@@ -34,6 +34,7 @@ exports.addSeller = async (req, res) => {
       Longitude,
       sellFood,
       fullAddress,
+      referralCode,
     } = req.body;
 
     const sellerData = await seller.findOne({
@@ -122,6 +123,7 @@ exports.addSeller = async (req, res) => {
       Longitude,
       sellFood,
       fullAddress,
+      referralCode,
     });
 
     const message = `Dear Customer Your Fivlia Registration OTP code is ${otp}. Valid for 5 minutes. Do not share with others Fivlia - Delivery in Minutes!`;
@@ -352,7 +354,7 @@ const notifySeller = async (
 
 exports.acceptDeclineRequest = async (req, res) => {
   try {
-    const {type, approval, id, productId, isImage, isLocation, description } =
+    const { type, approval, id, productId, isImage, isLocation, description } =
       req.body;
 
     // ---------- PRODUCT APPROVAL ----------
@@ -510,25 +512,25 @@ exports.acceptDeclineRequest = async (req, res) => {
       });
     }
 
-    if (type === 'driver') {
-    const application = await driver.findByIdAndUpdate(
-      id,
-      { approveStatus: approval },
-      { new: true }
-    );
-
-    const sellerDoc = await driver.findById(id);
-    if (sellerDoc) {
-      await notifySeller(
-        sellerDoc,
-        `Driver Application ${approval}`,
-        `Your Driver application has been ${approval}.`
+    if (type === "driver") {
+      const application = await driver.findByIdAndUpdate(
+        id,
+        { approveStatus: approval },
+        { new: true }
       );
-    }
 
-    return res
-      .status(200)
-      .json({ message: `Driver application ${approval}`, application });
+      const sellerDoc = await driver.findById(id);
+      if (sellerDoc) {
+        await notifySeller(
+          sellerDoc,
+          `Driver Application ${approval}`,
+          `Your Driver application has been ${approval}.`
+        );
+      }
+
+      return res
+        .status(200)
+        .json({ message: `Driver application ${approval}`, application });
     }
     // ---------- SELLER APPLICATION APPROVAL ----------
     const application = await seller.findByIdAndUpdate(

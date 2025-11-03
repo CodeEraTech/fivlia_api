@@ -103,7 +103,10 @@ exports.driverOrderStatus = async (req, res) => {
       const setting = await SettingAdmin.findOne();
       const authSettings = setting?.Auth?.[0] || {};
 
-      const order = await Order.findOne({ orderId }).populate({path: "addressId",select: "mobileNumber"});
+      const order = await Order.findOne({ orderId }).populate({
+        path: "addressId",
+        select: "mobileNumber",
+      });
       if (!order) return res.status(404).json({ message: "Order not found" });
 
       const user = await User.findOne({ _id: order.userId });
@@ -461,6 +464,7 @@ exports.transactionList = async (req, res) => {
     return res.status(500).json({ message: "An error occurred" });
   }
 };
+
 exports.cancelOrders = async (req, res) => {
   try {
     const { driverId } = req.params;
@@ -615,5 +619,40 @@ exports.getDriverRequest = async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ ResponseMsg: "An Error Occured" });
+  }
+};
+
+exports.getDriverReferralSeller = async (req, res) => {
+  try {
+    const { driverId } = req.body;
+    const driverData = await driver.findById(driverId);
+    if (!driverData) {
+      return res.status(404).json({ message: "Driver not found" });
+    }
+    const stores = await Store.find({ referralCode: driverId })
+      .select("storeName email PhoneNumber city approveStatus status")
+      .lean();
+    if (!stores.length) {
+      return res
+        .status(204)
+        .json({ message: "No users found with this referral code." });
+    }
+    // Add a commission field to each store
+    const storesWithCommission = stores.map((store) => ({
+      ...store,
+      city: store.city?.name || null,
+      commission: 0,
+    }));
+
+    res.status(200).json({
+      message: `Found ${storesWithCommission.length} store(s) with this referral code.`,
+      stores: storesWithCommission,
+    });
+  } catch (error) {
+    console.error("Error fetching stores:", error);
+    res.status(500).json({
+      message: "Server error while fetching stores",
+      error: error.message,
+    });
   }
 };

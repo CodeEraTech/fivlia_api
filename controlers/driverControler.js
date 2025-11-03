@@ -103,14 +103,14 @@ exports.driverOrderStatus = async (req, res) => {
       const setting = await SettingAdmin.findOne();
       const authSettings = setting?.Auth?.[0] || {};
 
-      const order = await Order.findOne({ orderId });
+      const order = await Order.findOne({ orderId }).populate({path: "addressId",select: "mobileNumber"});
       if (!order) return res.status(404).json({ message: "Order not found" });
 
       const user = await User.findOne({ _id: order.userId });
       if (!user) return res.status(404).json({ message: "User not found" });
 
       const generatedOtp = Math.floor(100000 + Math.random() * 900000);
-      const mobileNumber = user.mobileNumber;
+      const mobileNumber = order.addressId?.mobileNumber || user.mobileNumber;
 
       const message = `Dear Customer. Your Fivlia Delivery OTP code is ${generatedOtp}. Valid for 5 minutes. Do not share with others Fivlia - Delivery in Minutes!`;
 

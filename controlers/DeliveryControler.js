@@ -7,16 +7,18 @@ const Store = require("../modals/store");
 const { SettingAdmin } = require("../modals/setting");
 const User = require("../modals/User");
 const { ZoneData } = require("../modals/cityZone");
-const { getDistance } = require("../config/Ola"); // Add Ola import
+const { getDistance } = require("../config/Ola");
+const MapUsage = require("../modals/mapUsage");
+const haversine = require("haversine-distance");
 
 function addFiveMinutes(durationText) {
-  const match = durationText.match(/(\d+)\s*min/); // Extract number
+  const match = durationText.match(/(\d+)\s*min/);
   if (match) {
     const originalMinutes = parseInt(match[1]);
     const newMinutes = originalMinutes + 5;
     return `${newMinutes} mins`;
   }
-  return durationText; // fallback in case format is unexpected
+  return durationText;
 }
 
 const getDeliveryEstimate = async (req, res) => {
@@ -37,102 +39,133 @@ const getDeliveryEstimate = async (req, res) => {
         .json({ status: false, message: "User location not set" });
     }
 
-    const { zoneAvailable,storesOpen, matchedStores } = await getStoresWithinRadius(
-      currentLat,
-      currentLong,
-    );
+    const { zoneAvailable, storesOpen, matchedStores } =
+      await getStoresWithinRadius(currentLat, currentLong);
 
     if (!zoneAvailable) {
-      return res.json({ status: false,result: 0, message: "Service zone not available" });
+      return res.json({
+        status: false,
+        result: 0,
+        message: "Service zone not available",
+      });
     }
 
     if (!storesOpen) {
-      return res.json({ status: false,result: 1, message: "All Store Is Closed" });
+      return res.json({
+        status: false,
+        result: 1,
+        message: "All Store Is Closed",
+      });
     }
-    
+
+    // Filter stores with valid lat/lng
+    const validStores = matchedStores.filter(
+      (store) => store.Latitude && store.Longitude
+    );
+    if (!validStores.length) {
+      return res.json({ status: false, result: 0, filtered: [] });
+    }
+
+    // Find nearest store using haversine
+    const nearestStoreData = validStores
+      .map((store) => ({
+        store,
+        distanceMeters: haversine(
+          { lat: currentLat, lng: currentLong },
+          { lat: parseFloat(store.Latitude), lng: parseFloat(store.Longitude) }
+        ),
+      }))
+      .sort((a, b) => a.distanceMeters - b.distanceMeters)[0];
+
+    const store = nearestStoreData.store;
+
+    // Get admin map API settings
     const settings = await SettingAdmin.findOne().lean();
     const mapApiArray = settings?.Map_Api || [];
     const mapApi = mapApiArray[0] || {};
-
     const googleApi = mapApi?.google || {};
     const appleApi = mapApi?.apple || {};
     const olaApi = mapApi?.ola || {};
 
-    const results = await Promise.all(
-      matchedStores.map(async (store) => {
-        if (!store.Latitude || !store.Longitude) return null;
+    let result = null;
 
-        let result = null;
+    // Only one API call: Google > Ola > Apple
+    if (googleApi.status && googleApi.api_key) {
+      try {
+        result = await calculateDeliveryTime(
+          parseFloat(store.Latitude),
+          parseFloat(store.Longitude),
+          currentLat,
+          currentLong,
+          googleApi.api_key
+        );
+        if (result) result.source = "google";
+      } catch (err) {
+        console.log("Google API failed:", err.message);
+      }
+    } else if (olaApi.status && olaApi.api_key) {
+      try {
+        // Track API usage once
+        await MapUsage.findOneAndUpdate(
+          {
+            source: "app",
+            callType: "getDistance",
+            subCallType: "getDeliveryEstimate_DeliveryControler",
+          },
+          { $inc: { count: 1 }, $set: { lastCalledAt: new Date() } },
+          { upsert: true, new: true }
+        );
 
-        // ✅ Use ONLY the API that admin has enabled
-        if (googleApi.status && googleApi.api_key) {
-          // Use Google API only
-          try {
-            result = await calculateDeliveryTime(
-              parseFloat(store.Latitude),
-              parseFloat(store.Longitude),
-              currentLat,
-              currentLong,
-              googleApi.api_key
-            );
-            if (result) result.source = "google";
-          } catch (err) {
-            console.log("Google API failed:", err.message);
-            return null; // No fallback, just return null
-          }
-        } else if (olaApi.status && olaApi.api_key) {
-          try {
-            const olaResult = await getDistance(
-              {
-                lat: parseFloat(store.Latitude),
-                lng: parseFloat(store.Longitude),
-              },
-              { lat: currentLat, lng: currentLong },
-              olaApi.api_key
-            );
+        const olaResult = await getDistance(
+          { lat: parseFloat(store.Latitude), lng: parseFloat(store.Longitude) },
+          { lat: currentLat, lng: currentLong },
+          olaApi.api_key
+        );
 
-            if (olaResult.status === "OK") {
-              result = {
-                source: "ola",
-                distanceText: olaResult.distance.text,
-                durationText: olaResult.duration.text,
-                trafficDurationText: olaResult.duration.text,
-                distanceValue: olaResult.distance.value,
-                durationValue: olaResult.duration.value,
-                trafficDurationValue: olaResult.duration.value,
-              };
-            }
-          } catch (err) {
-            console.error("Ola API failed:", err.message);
-            return null; // No fallback, just return null
-          }
-        } else if (appleApi.status && appleApi.api_key) {
-          // Use Apple API only (when you implement it)
-          console.log("Apple API not implemented yet");
-          return null;
+        if (olaResult.status === "OK") {
+          result = {
+            source: "ola",
+            distanceText: olaResult.distance.text,
+            durationText: olaResult.duration.text,
+            trafficDurationText: olaResult.duration.text,
+            distanceValue: olaResult.distance.value,
+            durationValue: olaResult.duration.value,
+            trafficDurationValue: olaResult.duration.value,
+          };
         }
-
-        if (!result) return null;
-
-        return {
-          storeId: store._id,
-          storeName: store.storeName,
-          city: store.city?.name || null,
-          distance: result.distanceText,
-          duration: addFiveMinutes(result.trafficDurationText),
-          raw: result,
-        };
-      })
-    );
-
-    const filtered = results.filter(Boolean);
-    // console.log("results", results);
-    // console.log("filtered", filtered);
-    if (filtered.length === 0) {
-      return res.json({ status: false,result: 0, filtered });
+      } catch (err) {
+        console.error("Ola API failed:", err.message);
+      }
+    } else if (appleApi.status && appleApi.api_key) {
+      console.log("Apple API not implemented yet");
     }
 
-    res.json({ status: true,result: 2, filtered });
+    // If API fails, fallback: approximate duration based on distance
+    if (!result) {
+      const approxMinutes =
+        (nearestStoreData.distanceMeters / 1000 / 25) * 60 + 5;
+      result = {
+        source: "approx",
+        distanceText: `${Math.round(
+          nearestStoreData.distanceMeters / 1000
+        )} km`,
+        trafficDurationText: `${Math.round(approxMinutes)} mins`,
+      };
+    }
+
+    // Prepare filtered array (same structure as before)
+    const filtered = [
+      {
+        storeId: store._id,
+        storeName: store.storeName,
+        city: store.city?.name || null,
+        distance: result.distanceText,
+        duration: addFiveMinutes(result.trafficDurationText),
+        raw: result,
+      },
+    ];
+
+    res.json({ status: true, result: 2, filtered });
   } catch (err) {
     console.error("💥 Delivery Error:", err);
     res

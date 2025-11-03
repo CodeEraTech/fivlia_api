@@ -233,9 +233,13 @@ const {
 } = require("../controlers/areaControler");
 
 const { getPlaceSuggestions } = require("../utils/olaAutocomplete.js");
+const { trackMapUsage } = require("../controlers/mapUsageController.js");
 
 // autocomplete search
 router.get("/autocomplete-search", getPlaceSuggestions);
+
+// trackMapApiUsage search
+router.post("/track-map-usage", trackMapUsage);
 
 router.put("/withdrawal/:id/:action/:type", upload, withdrawal);
 

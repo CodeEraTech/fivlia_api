@@ -27,16 +27,7 @@ const io = socketIo(server, {
 });
 
 registerDriverSocket(io);
-// Route to serve sitemap.xml
-app.get("/sitemap.xml", (req, res) => {
-  const sitemapPath = path.join(__dirname, "sitemap.xml");
-  console.log(sitemapPath, 222222);
-  res.sendFile(sitemapPath, (err) => {
-    if (err) {
-      res.status(500).send("Could not load sitemap.xml");
-    }
-  });
-});
+
 const authRoutes = require("./routes/route");
 const zonesRoute = require("./routes/route");
 app.get("/", (req, res) => {

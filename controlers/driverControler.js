@@ -627,11 +627,18 @@ exports.getDriverRequest = async (req, res) => {
 exports.getDriverReferralSeller = async (req, res) => {
   try {
     const { driverId } = req.body;
-    const driverData = await driver.findOne({ driverId: driverId });
+    let driverData = null;
+
+    if (mongoose.Types.ObjectId.isValid(driverId)) {
+      driverData = await driver.findById(driverId);
+    }else{
+      driverData = await driver.findOne({ driverId: driverId });
+    }
+
     if (!driverData) {
       return res.status(404).json({ message: "Driver not found" });
     }
-    const stores = await Store.find({ referralCode: driverId })
+    const stores = await Store.find({ referralCode: driverData.driverId })
       .select("storeName email PhoneNumber city approveStatus status")
       .lean();
     if (!stores.length) {

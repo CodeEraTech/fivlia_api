@@ -28,13 +28,12 @@ const io = socketIo(server, {
 
 registerDriverSocket(io);
 
-const authRoutes = require("./routes/route");
-const zonesRoute = require("./routes/route");
+const routes = require("./routes/route");
 app.get("/", (req, res) => {
   res.send("Fivlia api is running ...");
 });
-app.use("/fivlia", authRoutes);
-app.use("/", zonesRoute);
+app.use("/fivlia", routes);
+app.use("/", routes);
 
 const startServer = async () => {
   const mongoConnection = await connectDb();

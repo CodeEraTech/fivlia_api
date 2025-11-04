@@ -637,7 +637,7 @@ exports.getDriverReferralSeller = async (req, res) => {
     if (!driverData) {
       return res.status(404).json({ message: "Driver not found" });
     }
-    const stores = await Store.find({ referralCode: driverId })
+    const stores = await Store.find({ referralCode: driverData.driverId })
       .select("storeName email PhoneNumber city approveStatus status")
       .lean();
     if (!stores.length) {

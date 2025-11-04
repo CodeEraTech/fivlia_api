@@ -626,7 +626,14 @@ exports.getDriverRequest = async (req, res) => {
 exports.getDriverReferralSeller = async (req, res) => {
   try {
     const { driverId } = req.body;
-    const driverData = await driver.findOne({ driverId: driverId });
+    let driverData = null;
+
+    if (mongoose.Types.ObjectId.isValid(driverId)) {
+      driverData = await driver.findById(driverId);
+    }else{
+      driverData = await driver.findOne({ driverId: driverId });
+    }
+
     if (!driverData) {
       return res.status(404).json({ message: "Driver not found" });
     }

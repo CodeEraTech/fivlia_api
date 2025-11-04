@@ -52,7 +52,7 @@ exports.driverLogin = async (req, res) => {
       DriverDetails: {
         id: exist._id,
         name: exist.driverName,
-        riderCode: exist.driverId,
+        riderId: exist.driverId,
         mobile: exist.address.mobileNo,
         email: exist.email,
         image: exist.image,

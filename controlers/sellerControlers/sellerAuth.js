@@ -17,6 +17,7 @@ const store_transaction = require("../../modals/storeTransaction");
 const { requestId } = require("../../config/counter");
 const { whatsappOtp } = require("../../config/whatsappsender");
 const { sendMessages } = require("../../utils/sendMessages");
+const mongoose = require("mongoose");
 
 exports.addSeller = async (req, res) => {
   try {
@@ -106,6 +107,15 @@ exports.addSeller = async (req, res) => {
       });
     });
     const cityObj = { _id: zones[0]._id, name: zones[0].city };
+
+    let updatedReferralCode = referralCode;
+    if (mongoose.Types.ObjectId.isValid(referralCode)) {
+      const driverData = await driver.findById(referralCode);
+      if (driverData) {
+        updatedReferralCode = driverData.driverId;
+      }
+    }
+
     const newSeller = await seller.create({
       storeName,
       ownerName: `${firstName} ${lastName}`,
@@ -123,7 +133,7 @@ exports.addSeller = async (req, res) => {
       Longitude,
       sellFood,
       fullAddress,
-      referralCode,
+      referralCode: updatedReferralCode,
     });
 
     const message = `Dear Customer Your Fivlia Registration OTP code is ${otp}. Valid for 5 minutes. Do not share with others Fivlia - Delivery in Minutes!`;

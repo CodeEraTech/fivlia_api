@@ -1,166 +1,48 @@
-exports.banner = async (req, res) => {
+const nodemailer = require("nodemailer");
+
+const transporter = nodemailer.createTransport({
+  host: "mail.fivlia.com", // Or use the server IP if given: 172.93.223.239
+  port: 587,              // Use 465 for SSL (recommended)
+  secure: false,         // true for port 465, false for 587
+  auth: {
+    user: "no-reply@fivlia.com",   // Your no-reply email
+    pass: "2025@Fivlia!", 
+  },
+    tls: {
+    rejectUnauthorized: false
+  }
+});
+
+const sendVerificationEmail = async (to, firstName, lastName, storeName) => {
   try {
-    let {
-      title,
-      type,
-      city,
-      zones,
-      mainCategory,
-      subCategory,
-      subSubCategory,
-      brand: brandId,
-      status,
-      type2,
-      storeId,
-    } = req.body;
-    console.log(req.body);
-    const rawImagePath = req.files?.image?.[0]?.key || "";
-    const image = rawImagePath ? `/${rawImagePath}` : "";
-
-    if (typeof zones === "string") {
-      try {
-        zones = JSON.parse(zones);
-      } catch (err) {
-        console.error(err);
-        return res.status(400).json({ message: "Invalid zones format" });
-      }
-    }
-
-    const validTypes = ["normal", "offer"];
-    const bannerType = validTypes.includes(type) ? type : "normal";
-    if (!bannerType) {
-      return res
-        .status(402)
-        .json({ message: 'Invalid banner type. Must be "normal" or "offer".' });
-    }
-
-    if (typeof city === "string") {
-      try {
-        city = JSON.parse(city);
-      } catch (err) {
-        return res.status(400).json({ message: "Invalid city format" });
-      }
-    }
-
-    let cityIds = Array.isArray(city) ? city : [city];
-
-    const cityDoc = await ZoneData.find({ _id: { $in: cityIds } });
-    // console.log(cityDoc);
-
-    let foundCategory = null;
-    let foundSubCategory = null;
-    let foundSubSubCategory = null;
-    let foundBrand = null;
-    let foundStore = null;
-
-    if (type2 === "Brand") {
-      foundBrand = await brand.findOne({ _id: brandId });
-      if (!foundBrand)
-        return res.status(204).json({ message: "Brand not found" });
-    } else if (type2 === "Store") {
-      foundStore = await Store.findOne({ _id: storeId });
-      if (!foundStore)
-        return res.status(204).json({ message: "Store not found" });
-    } else if (type2 === "NO") {
-      // No category, no brand, no store
-      foundCategory = null;
-      foundSubCategory = null;
-      foundSubSubCategory = null;
-      foundBrand = null;
-      foundStore = null;
-    } else {
-      if (!mainCategory)
-        return res.status(400).json({ message: "Main category is required" });
-
-      foundCategory = await Category.findOne({ _id: mainCategory });
-      if (!foundCategory)
-        return res
-          .status(204)
-          .json({ message: `Category ${mainCategory} not found` });
-
-      if (subCategory) {
-        foundSubCategory = foundCategory.subcat.find(
-          (sub) => sub._id.toString() === subCategory
-        );
-        if (!foundSubCategory)
-          return res
-            .status(204)
-            .json({ message: `SubCategory ${subCategory} not found` });
-
-        if (subSubCategory) {
-          foundSubSubCategory = foundSubCategory.subsubcat.find(
-            (subsub) => subsub._id.toString() === subSubCategory
-          );
-          if (!foundSubSubCategory)
-            return res
-              .status(204)
-              .json({ message: `SubSubCategory ${subSubCategory} not found` });
-        }
-      } else if (subSubCategory) {
-        return res.status(400).json({
-          message: "Cannot provide subSubCategory without subCategory",
-        });
-      }
-    }
-
-    let slug = "";
-    if (foundCategory) {
-      slug = `/category/${foundCategory._id}`;
-      if (foundSubCategory) slug += `/${foundSubCategory._id}`;
-      if (foundSubSubCategory) slug += `/${foundSubSubCategory._id}`;
-    }
-    const cities = cityDoc.map((c) => ({ _id: c._id, name: c.city }));
-
-    const newBanner = await Banner.create({
-      image,
-      type2,
-      city: cities,
-      title,
-      type: bannerType,
-
-      mainCategory: foundCategory
-        ? {
-            _id: foundCategory._id,
-            name: foundCategory.name,
-            slug: slugify(foundCategory.name, { lower: true }),
-          }
-        : null,
-
-      subCategory: foundSubCategory
-        ? {
-            _id: foundSubCategory._id,
-            name: foundSubCategory.name,
-            slug: slugify(foundSubCategory.name, { lower: true }),
-          }
-        : null,
-
-      subSubCategory: foundSubSubCategory
-        ? {
-            _id: foundSubSubCategory._id,
-            name: foundSubSubCategory.name,
-            slug: slugify(foundSubSubCategory.name, { lower: true }),
-          }
-        : null,
-
-      brand: foundBrand
-        ? {
-            _id: foundBrand._id,
-            name: foundBrand.brandName,
-            slug: slugify(foundBrand.brandName, { lower: true }),
-          }
-        : null,
-
-      status,
-      storeId,
-      zones,
+    await transporter.sendMail({
+      from: "Fivlia <no-reply@fivlia.com>",
+      to,
+      subject: "Fivlia Seller Registration",
+      html: `
+        <h3>Hello ${firstName} ${lastName},</h3>
+        <p>Thank you for registering your store <strong>${storeName}</strong> with Fivlia.</p>
+        <p>Your account is under verification. You will be notified once it's approved by our team.</p>
+        <p>Regards,<br/>Fivlia Team</p>
+      `
     });
-    return res
-      .status(200)
-      .json({ message: "Banner Added Successfully", newBanner });
+
+    console.log("Verification email sent to:", to);
+
   } catch (error) {
-    console.error(error);
-    return res
-      .status(500)
-      .json({ message: "An Error Occured", error: error.message });
+    console.error("Error sending verification email:", error);
   }
 };
+
+const sendMailContact = async (to, subject,userEmail, htmlContent) => {
+  await transporter.sendMail({
+    from: "Fivlia <no-reply@fivlia.com>",
+    replyTo: userEmail,
+    to,
+    subject,
+    html: htmlContent,
+  });
+};
+
+
+module.exports = {sendVerificationEmail, sendMailContact};

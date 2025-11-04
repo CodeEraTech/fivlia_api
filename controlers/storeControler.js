@@ -313,7 +313,14 @@ exports.storeEdit = async (req, res) => {
     if (closeTime) updateObj.closeTime = closeTime;
     if (status !== undefined) updateObj.status = status;
     if (Description) updateObj.Description = Description;
-    if (isAssured) updateObj.fivliaAssured = isAssured;
+    if (isAssured !== undefined) {
+  updateObj.fivliaAssured = 
+    isAssured === true ||
+    isAssured === "true" ||
+    isAssured === 1 ||
+    isAssured === "1";
+}
+
 
     // ✅ Category
     if (categoryInput) {

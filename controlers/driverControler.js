@@ -16,6 +16,7 @@ const store_transaction = require("../modals/storeTransaction");
 const { FeeInvoiceId } = require("../config/counter");
 const { sendMessages } = require("../utils/sendMessages");
 const sendDriverLocationToUser = require("../utils/sendLatLongToUser");
+const DriverRating = require("../modals/DriverRating");
 
 const {
   generateAndSendThermalInvoice,
@@ -625,7 +626,7 @@ exports.getDriverRequest = async (req, res) => {
 exports.getDriverReferralSeller = async (req, res) => {
   try {
     const { driverId } = req.body;
-    const driverData = await driver.findById(driverId);
+    const driverData = await driver.findOne({ driverId: driverId });
     if (!driverData) {
       return res.status(404).json({ message: "Driver not found" });
     }
@@ -650,6 +651,61 @@ exports.getDriverReferralSeller = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching stores:", error);
+    res.status(500).json({
+      message: "Server error while fetching stores",
+      error: error.message,
+    });
+  }
+};
+
+exports.saveDriverRating = async (req, res) => {
+  try {
+    const { userId, driverId, orderId, rating, message } = req.body;
+    if (!driverId || !orderId || !rating) {
+      return res.status(400).json({
+        message: "driverId, orderId, and rating are required fields.",
+      });
+    }
+
+    const driverData = await driver.findById(driverId);
+    if (!driverData) {
+      return res.status(400).json({ message: "Driver not found" });
+    }
+
+    const orderData = await Order.findOne({
+      _id: orderId,
+      userId: userId,
+      orderStatus: "Delivered",
+    });
+    if (!orderData) {
+      return res.status(400).json({ message: "Order not found" });
+    }
+
+    const existingRating = await DriverRating.findOne({
+      driverId,
+      orderId,
+      userId,
+    });
+
+    if (existingRating) {
+      return res.status(400).json({
+        message: "You have already rated this driver for this order.",
+      });
+    }
+
+    await DriverRating.create({
+      driverId,
+      orderId,
+      userId,
+      rating,
+      message: message || "",
+    });
+
+    return res.status(201).json({
+      message: "Driver rated successfully.",
+    });
+  } catch (error) {
+    console.error("Error rating driver:", error);
     res.status(500).json({
       message: "Server error while fetching stores",
       error: error.message,

@@ -47,6 +47,7 @@ const {
   withdrawalRequest,
   getDriverRequest,
   getDriverReferralSeller,
+  saveDriverRating,
 } = require("../controlers/driverControler");
 
 const {
@@ -351,6 +352,7 @@ router.get("/getStoreTransaction/:storeId", getStoreTransaction);
 router.get("/getStoreCategory", getStoreCategory);
 router.get("/getDriverRequest", getDriverRequest);
 router.post("/get-driver-referral-seller", getDriverReferralSeller);
+router.post("/rate-driver", saveDriverRating);
 //website
 
 router.get("/website/forwebGetSingleProduct/:slug", forwebGetSingleProduct);

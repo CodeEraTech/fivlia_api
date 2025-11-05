@@ -16,7 +16,7 @@ const Assign = require("../modals/driverModals/assignments");
 const sendNotification = require("../firebase/pushnotification");
 const Store = require("../modals/store");
 const { getStoresWithinRadius } = require("../config/google");
-const { sellerSocketMap,adminSocketMap } = require("../utils/driverSocketMap");
+const { sellerSocketMap, adminSocketMap } = require("../utils/driverSocketMap");
 const {
   generateAndSendThermalInvoice,
   generateStoreInvoiceId,
@@ -55,15 +55,19 @@ const repeatNotifyStore = async (orderId, storeDoc, attempt = 1) => {
       `You have a pending order worth ₹${order.totalPrice}. Please accept or reject it.`
     );
 
-    console.log(`🔁 Reminder sent to store ${storeDoc._id} for order ${orderId} (attempt ${attempt})`);
+    console.log(
+      `🔁 Reminder sent to store ${storeDoc._id} for order ${orderId} (attempt ${attempt})`
+    );
 
     // Schedule next retry if not accepted yet
     if (attempt < MAX_ATTEMPTS) {
-      setTimeout(() => repeatNotifyStore(orderId, storeDoc, attempt + 1), RETRY_INTERVAL);
+      setTimeout(
+        () => repeatNotifyStore(orderId, storeDoc, attempt + 1),
+        RETRY_INTERVAL
+      );
     } else {
       console.log(`🚫 Max retries reached for order ${orderId}`);
     }
-
   } catch (err) {
     console.error(`Error in repeatNotifyStore:`, err);
   }
@@ -221,25 +225,24 @@ exports.placeOrder = async (req, res) => {
           `New Order #${newOrder.orderId} Received`,
           `You’ve received a new order worth ₹${newOrder.totalPrice}. Please confirm and prepare for dispatch.`
         );
-   
+
         repeatNotifyStore(newOrder.orderId, sellerDoc);
 
-  const sellerSocket = sellerSocketMap.get(sellerDoc._id.toString());
-  if (sellerSocket) sellerSocket.emit("storeOrder", { orderId: newOrder.orderId });
+        const sellerSocket = sellerSocketMap.get(sellerDoc._id.toString());
+        if (sellerSocket)
+          sellerSocket.emit("storeOrder", { orderId: newOrder.orderId });
 
-  // ✅ Emit to admin as well
-  const adminSocket = adminSocketMap.get("admin");
-  if (adminSocket) {
-    adminSocket.emit("storeOrder", {
-      orderId: newOrder.orderId,
-      storeId: sellerDoc._id,
-      totalPrice: newOrder.totalPrice,
-    });
-    console.log(`👑 Sent new order to admin`);
-  }
-}
-
-
+        // ✅ Emit to admin as well
+        const adminSocket = adminSocketMap.get("admin");
+        if (adminSocket) {
+          adminSocket.emit("storeOrder", {
+            orderId: newOrder.orderId,
+            storeId: sellerDoc._id,
+            totalPrice: newOrder.totalPrice,
+          });
+          console.log(`👑 Sent new order to admin`);
+        }
+      }
 
       return res
         .status(200)
@@ -349,20 +352,21 @@ exports.verifyPayment = async (req, res) => {
         `New Order #${finalOrder.orderId} Received`,
         `You’ve received a new order worth ₹${finalOrder.totalPrice}. Please confirm and prepare for dispatch.`
       );
-  const sellerSocket = sellerSocketMap.get(sellerDoc._id.toString());
-  if (sellerSocket) sellerSocket.emit("storeOrder", { orderId: finalOrder.orderId });
+      const sellerSocket = sellerSocketMap.get(sellerDoc._id.toString());
+      if (sellerSocket)
+        sellerSocket.emit("storeOrder", { orderId: finalOrder.orderId });
 
-  // ✅ Emit to admin as well
-  const adminSocket = adminSocketMap.get("admin");
-  if (adminSocket) {
-    adminSocket.emit("storeOrder", {
-      orderId: finalOrder.orderId,
-      storeId: sellerDoc._id,
-      totalPrice: finalOrder.totalPrice,
-    });
-    console.log(`👑 Sent new order to admin`);
-  }
-}
+      // ✅ Emit to admin as well
+      const adminSocket = adminSocketMap.get("admin");
+      if (adminSocket) {
+        adminSocket.emit("storeOrder", {
+          orderId: finalOrder.orderId,
+          storeId: sellerDoc._id,
+          totalPrice: finalOrder.totalPrice,
+        });
+        console.log(`👑 Sent new order to admin`);
+      }
+    }
 
     return res.status(200).json({
       status: paymentStatus ? true : false,
@@ -520,14 +524,12 @@ exports.getOrderDetails = async (req, res) => {
         }).lean();
 
         if (storeData) {
-          storeLocation =
-            storeData.location || {
-              Latitude: storeData.Latitude || null,
-              Longitude: storeData.Longitude || null,
-            };
+          storeLocation = storeData.location || {
+            Latitude: storeData.Latitude || null,
+            Longitude: storeData.Longitude || null,
+          };
         }
       }
-
 
       if (settings && order.totalPrice > settings.freeDeliveryLimit) {
         order.deliveryCharges = 0;
@@ -556,6 +558,7 @@ exports.getOrderDetails = async (req, res) => {
       );
       // 4. Push combined data
       results.push({
+        id: order._id,
         orderId: order.orderId,
         orderStatus: order.orderStatus,
         totalPrice: order.totalPrice,
@@ -927,7 +930,9 @@ exports.driver = async (req, res) => {
 
 exports.getDriver = async (req, res) => {
   try {
-    const Driver = await driver.find({approveStatus:{$ne:"pending_admin_approval"}});
+    const Driver = await driver.find({
+      approveStatus: { $ne: "pending_admin_approval" },
+    });
     return res.status(200).json({ message: "Drivers", Driver });
   } catch (error) {
     console.error(error);
@@ -1081,16 +1086,19 @@ exports.deleteNotification = async (req, res) => {
 };
 
 exports.bulkOrder = async (req, res) => {
-  try{
-    const {productId} = req.params
-    const userId = req.user
+  try {
+    const { productId } = req.params;
+    const userId = req.user;
 
-    await BulkOrderRequest.create({productId,userId})
-    return res.status(200).json({message:"Request Submited"})
-  }catch(error){
-    console.error('error', error)
-    return res.status(500).json({message: "Something went wrong", error: error.message})}
-}
+    await BulkOrderRequest.create({ productId, userId });
+    return res.status(200).json({ message: "Request Submited" });
+  } catch (error) {
+    console.error("error", error);
+    return res
+      .status(500)
+      .json({ message: "Something went wrong", error: error.message });
+  }
+};
 
 exports.getBulkOrders = async (req, res) => {
   try {
@@ -1132,8 +1140,14 @@ exports.getBulkOrders = async (req, res) => {
             title: order.productId.productName,
             slug: order.productId.slug || "",
             image: order.productId.productThumbnailUrl || "",
-            price:order.productId.sell_price ||(Array.isArray(order.productId.variants) && order.productId.variants.length > 0
-    ? order.productId.variants[0].sell_price: "") || order.productId.sell_price || "",
+            price:
+              order.productId.sell_price ||
+              (Array.isArray(order.productId.variants) &&
+              order.productId.variants.length > 0
+                ? order.productId.variants[0].sell_price
+                : "") ||
+              order.productId.sell_price ||
+              "",
           }
         : null,
     }));

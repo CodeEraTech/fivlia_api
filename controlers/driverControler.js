@@ -123,7 +123,7 @@ exports.driverOrderStatus = async (req, res) => {
 
       await OtpModel.findOneAndUpdate(
         { mobileNumber, orderId },
-        { otp: generatedOtp, expiresAt: Date.now() + 2 * 60 * 1000 },
+        { otp: generatedOtp, expiresAt: Date.now() + 30 * 60 * 1000 },
         { upsert: true, new: true }
       );
 

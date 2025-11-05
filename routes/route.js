@@ -268,7 +268,7 @@ router.post("/verifyPayment", verifyPayment);
 router.post("/filter", filter);
 router.post("/createStore", upload, createStore);
 router.post("/Product/bulk", upload, bulkProductUpload),
-  router.put("/adminSetting", upload, adminSetting);
+router.put("/adminSetting", upload, adminSetting);
 router.post("/addFilter", addFilter);
 router.post("/address", verifyToken, addAddress);
 router.post("/updateStock/:productId", updateStock);

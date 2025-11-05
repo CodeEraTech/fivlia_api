@@ -100,19 +100,10 @@ exports.driverOrderStatus = async (req, res) => {
   try {
     const { orderStatus, orderId, otp } = req.body;
 
-    // ===> On The Way block
-    if (orderStatus === "On The Way") {
-      const setting = await SettingAdmin.findOne();
-      const authSettings = setting?.Auth?.[0] || {};
+    if (orderStatus === "Delivered") {
+      let feeInvoiceId = await FeeInvoiceId(true);
 
-      const order = await Order.findOne({ orderId }).populate({
-        path: "addressId",
-        select: "mobileNumber",
-      });
-      if (!order) return res.status(404).json({ message: "Order not found" });
-
-      const user = await User.findOne({ _id: order.userId });
-      if (!user) return res.status(404).json({ message: "User not found" });
+      const order = await Order.findOne({ orderId }).populate("userId").populate({path: "addressId",select: "mobileNumber"}).lean();
 
       const generatedOtp = Math.floor(100000 + Math.random() * 900000);
       const mobileNumber = order.addressId?.mobileNumber || user.mobileNumber;
@@ -123,37 +114,12 @@ exports.driverOrderStatus = async (req, res) => {
 
       await OtpModel.findOneAndUpdate(
         { mobileNumber, orderId },
-        { otp: generatedOtp, expiresAt: Date.now() + 30 * 60 * 1000 },
+        { otp: generatedOtp, expiresAt: Date.now() + 3 * 24 * 60 * 60 * 1000 },
         { upsert: true, new: true }
       );
 
-      const statusUpdate = await Order.findOneAndUpdate(
-        { orderId },
-        { orderStatus },
-        { new: true }
-      );
-
-      // if (activeIntervals.has(orderId)) {
-      //   clearInterval(activeIntervals.get(orderId));
-      //   activeIntervals.delete(orderId);
-      // }
-      // await sendDriverLocationToUser(order.driver.driverId, orderId);
-      // const intervalId = setInterval(() => {
-      //   sendDriverLocationToUser(order.driver.driverId, orderId);
-      // }, 5 * 60 * 1000);
-
-      // activeIntervals.set(orderId, intervalId);
-
-      return res.status(200).json({
-        message: `OTP sent to ${mobileNumber}`,
-        otp: generatedOtp,
-        statusUpdate,
-      });
-    }
-
-    if (orderStatus === "Delivered") {
-      let feeInvoiceId = await FeeInvoiceId(true);
       const otpRecord = await OtpModel.findOne({ orderId, otp });
+
       if (!otpRecord) {
         return res.status(400).json({ message: "Invalid OTP" });
       }
@@ -161,7 +127,7 @@ exports.driverOrderStatus = async (req, res) => {
         return res.status(400).json({ message: "OTP expired" });
       }
 
-      const order = await Order.findOne({ orderId }).populate("userId").lean();
+      
       const user = order.userId;
 
       if (!order) return res.status(404).json({ message: "Order not found" });

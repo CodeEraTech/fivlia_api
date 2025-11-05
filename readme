@@ -46,3 +46,52 @@ const sendMailContact = async (to, subject,userEmail, htmlContent) => {
 
 
 module.exports = {sendVerificationEmail, sendMailContact};
+     
+     
+     
+     
+     
+     const order = await Order.findOne({ orderId }).populate({
+        path: "addressId",
+        select: "mobileNumber",
+      });
+      if (!order) return res.status(404).json({ message: "Order not found" });
+
+      const user = await User.findOne({ _id: order.userId });
+      if (!user) return res.status(404).json({ message: "User not found" });
+
+      const generatedOtp = Math.floor(100000 + Math.random() * 900000);
+      const mobileNumber = order.addressId?.mobileNumber || user.mobileNumber;
+
+      const message = `Dear Customer. Your Fivlia Delivery OTP code is ${generatedOtp}. Valid for 5 minutes. Do not share with others Fivlia - Delivery in Minutes!`;
+
+      await sendMessages(mobileNumber, message, "1707176060670565835");
+
+      await OtpModel.findOneAndUpdate(
+        { mobileNumber, orderId },
+        { otp: generatedOtp, expiresAt: Date.now() + 30 * 60 * 1000 },
+        { upsert: true, new: true }
+      );
+
+      const statusUpdate = await Order.findOneAndUpdate(
+        { orderId },
+        { orderStatus },
+        { new: true }
+      );
+
+      // if (activeIntervals.has(orderId)) {
+      //   clearInterval(activeIntervals.get(orderId));
+      //   activeIntervals.delete(orderId);
+      // }
+      // await sendDriverLocationToUser(order.driver.driverId, orderId);
+      // const intervalId = setInterval(() => {
+      //   sendDriverLocationToUser(order.driver.driverId, orderId);
+      // }, 5 * 60 * 1000);
+
+      // activeIntervals.set(orderId, intervalId);
+
+      return res.status(200).json({
+        message: `OTP sent to ${mobileNumber}`,
+        otp: generatedOtp,
+        statusUpdate,
+      });

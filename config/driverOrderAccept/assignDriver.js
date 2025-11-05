@@ -1,17 +1,18 @@
-const { driverSocketMap } = require("../../utils/driverSocketMap");
+const {
+  driverSocketMap,
+  getDynamicRetryCount,
+} = require("../../utils/driverSocketMap");
 const Assign = require("../../modals/driverModals/assignments");
-const Address = require('../../modals/Address');
+const Address = require("../../modals/Address");
 const { Order } = require("../../modals/order");
 const admin = require("../../firebase/firebase");
 const Store = require("../../modals/store");
 const User = require("../../modals/User");
+const { SettingAdmin } = require("../../modals/setting");
 
 const assignedOrders = new Set();
 const rejectedDriversMap = new Map();
 const retryTracker = new Map();
-
-const MAX_RETRY_COUNT = 30;
-const TIMEOUT_MS = 10000;
 
 const assignWithBroadcast = async (order, drivers) => {
   const orderId = order.orderId.toString();
@@ -20,55 +21,76 @@ const assignWithBroadcast = async (order, drivers) => {
     console.warn(`⚠️ Order ${orderId} already assigned. Aborting broadcast.`);
     return;
   }
-  const retryCount = retryTracker.get(orderId) || 0;
-if (retryCount >= MAX_RETRY_COUNT) {
-  await Order.findOneAndUpdate({ orderId }, { orderStatus: "Cancelled" });
-  console.error(`🚫 Max retry attempts reached for order ${orderId}.`);
-
+  let cancelAfterMinutes = 5;
   try {
-    const orderData = await Order.findOne({ orderId })
-      .populate("userId")
-      .populate("storeId")
-      .lean();
-
-    if (orderData) {
-      const { userId: user, storeId: store } = orderData;
-
-      // ===== send to user =====
-      if (user?.fcmToken) {
-        await admin.messaging().send({
-          token: user.fcmToken,
-          notification: {
-            title: "Order Cancelled ❌",
-            body: `Your order #${orderId} was cancelled as no driver accepted.`,
-          },
-          android: {
-            notification: { channelId: "default_channel", sound: "default" },
-          },
-          data: { type: "cancelled", orderId },
-        });
-      }
-
-      // ===== send to store =====
-      if (store?.fcmTokenMobile) {
-        await admin.messaging().send({
-          token: store.fcmTokenMobile,
-          notification: {
-            title: "Order Cancelled ❌",
-            body: `Order #${orderId} got cancelled (no driver accepted).`,
-          },
-          android: {
-            notification: { channelId: "default_channel", sound: "default" },
-          },
-          data: { type: "cancelled", orderId },
-        });
-      }
-    }
-  } catch (e) {
-    console.error("⚠️ Auto-cancel push error:", e);
+    const setting = await SettingAdmin.findOne().lean();
+    if (setting?.minimumOrderCancelTime)
+      cancelAfterMinutes = Number(setting.minimumOrderCancelTime);
+  } catch (err) {
+    console.warn("⚠️ Could not load admin settings:", err.message);
   }
-  return;
-}
+
+  // ===== Dynamic retry calculation =====
+  const { TIMEOUT_MS, MAX_RETRY_COUNT } = getDynamicRetryCount(
+    cancelAfterMinutes,
+    10000
+  );
+
+  console.log(
+    `⚙️ Auto-adjusted retries: ${MAX_RETRY_COUNT} x ${
+      TIMEOUT_MS / 1000
+    }s = ${cancelAfterMinutes} min`
+  );
+
+  const retryCount = retryTracker.get(orderId) || 0;
+  if (retryCount >= MAX_RETRY_COUNT) {
+    await Order.findOneAndUpdate({ orderId }, { orderStatus: "Cancelled" });
+    console.error(`🚫 Max retry attempts reached for order ${orderId}.`);
+
+    try {
+      const orderData = await Order.findOne({ orderId })
+        .populate("userId")
+        .populate("storeId")
+        .lean();
+
+      if (orderData) {
+        const { userId: user, storeId: store } = orderData;
+
+        // ===== send to user =====
+        if (user?.fcmToken) {
+          await admin.messaging().send({
+            token: user.fcmToken,
+            notification: {
+              title: "Order Cancelled ❌",
+              body: `Your order #${orderId} was cancelled as no driver accepted.`,
+            },
+            android: {
+              notification: { channelId: "default_channel", sound: "default" },
+            },
+            data: { type: "cancelled", orderId },
+          });
+        }
+
+        // ===== send to store =====
+        if (store?.fcmTokenMobile) {
+          await admin.messaging().send({
+            token: store.fcmTokenMobile,
+            notification: {
+              title: "Order Cancelled ❌",
+              body: `Order #${orderId} got cancelled (no driver accepted).`,
+            },
+            android: {
+              notification: { channelId: "default_channel", sound: "default" },
+            },
+            data: { type: "cancelled", orderId },
+          });
+        }
+      }
+    } catch (e) {
+      console.error("⚠️ Auto-cancel push error:", e);
+    }
+    return;
+  }
 
   retryTracker.set(orderId, retryCount + 1);
 
@@ -79,11 +101,10 @@ if (retryCount >= MAX_RETRY_COUNT) {
   const orderUser = await User.findOne({ _id: order.userId }).lean();
 
   const rejectedDrivers = rejectedDriversMap.get(orderId) || new Set();
-  
+
   const availableDrivers = drivers.filter(
     (driver) => !rejectedDrivers.has(driver._id.toString())
   );
-
 
   if (availableDrivers.length === 0) {
     console.info(`😕 No available drivers to broadcast for order ${orderId}`);
@@ -102,68 +123,68 @@ if (retryCount >= MAX_RETRY_COUNT) {
   };
 
   const broadcastOrder = () => {
-  console.log(
-    `📢 Broadcasting order ${orderId} to ${availableDrivers.length} drivers...`
-  );
+    console.log(
+      `📢 Broadcasting order ${orderId} to ${availableDrivers.length} drivers...`
+    );
 
-  // 🔹 Step 1: Send FCM to ALL available drivers (socket or not)
-  availableDrivers.forEach((driver) => {
-    const driverId = driver._id.toString();
+    // 🔹 Step 1: Send FCM to ALL available drivers (socket or not)
+    availableDrivers.forEach((driver) => {
+      const driverId = driver._id.toString();
 
-    if (driver.fcmToken) {
-      admin
-        .messaging()
-        .send({
-          token: driver.fcmToken,
-          notification: {
-            title: "New Order Request 🚗",
-            body: `Order #${orderId} is waiting for your response`,
-          },
-          android: {
+      if (driver.fcmToken) {
+        admin
+          .messaging()
+          .send({
+            token: driver.fcmToken,
             notification: {
-              channelId: "custom_sound_channel",
-              sound: "custom_sound",
+              title: "New Order Request 🚗",
+              body: `Order #${orderId} is waiting for your response`,
             },
-          },
-          data: {
-            orderId,
-            timeLeft: (TIMEOUT_MS / 1000).toString(),
-            screen: "TodayOrderScreen",
-          },
-        })
-        .then(() => {
-          console.log(`📩 Push sent to driver ${driverId}`);
-        })
-        .catch((err) => console.error("Push error:", err));
-    }
-  });
-
-  // 🔹 Step 2: Emit socket event only for online drivers
-  availableDrivers.forEach((driver) => {
-    const driverId = driver._id.toString();
-    const socket = driverSocketMap.get(driverId);
-
-    if (!socket) {
-      console.log(`📱 Driver ${driverId} offline, push-only mode`);
-      return;
-    }
-
-    const orderWithLocation = {
-      ...(order.toObject ? order.toObject() : order),
-      storeName: orderStore.storeName,
-      storeLat: orderStore.Latitude,
-      storeLng: orderStore.Longitude,
-      userLat: orderUser.location.latitude,
-      userLng: orderUser.location.longitude,
-    };
-
-    socket.emit("newOrder", {
-      order: orderWithLocation,
-      driverId,
-      timeLeft: TIMEOUT_MS / 1000,
+            android: {
+              notification: {
+                channelId: "custom_sound_channel",
+                sound: "custom_sound",
+              },
+            },
+            data: {
+              orderId,
+              timeLeft: (TIMEOUT_MS / 1000).toString(),
+              screen: "TodayOrderScreen",
+            },
+          })
+          .then(() => {
+            console.log(`📩 Push sent to driver ${driverId}`);
+          })
+          .catch((err) => console.error("Push error:", err));
+      }
     });
 
-    console.log(`✅ Socket order ${orderId} sent to driver ${driverId}`);
+    // 🔹 Step 2: Emit socket event only for online drivers
+    availableDrivers.forEach((driver) => {
+      const driverId = driver._id.toString();
+      const socket = driverSocketMap.get(driverId);
+
+      if (!socket) {
+        console.log(`📱 Driver ${driverId} offline, push-only mode`);
+        return;
+      }
+
+      const orderWithLocation = {
+        ...(order.toObject ? order.toObject() : order),
+        storeName: orderStore.storeName,
+        storeLat: orderStore.Latitude,
+        storeLng: orderStore.Longitude,
+        userLat: orderUser.location.latitude,
+        userLng: orderUser.location.longitude,
+      };
+
+      socket.emit("newOrder", {
+        order: orderWithLocation,
+        driverId,
+        timeLeft: TIMEOUT_MS / 1000,
+      });
+
+      console.log(`✅ Socket order ${orderId} sent to driver ${driverId}`);
 
       // --- Accept Handler ---
       const handleAccept = async ({

@@ -44,7 +44,7 @@ exports.addSeller = async (req, res) => {
     const setting = await SettingAdmin.findOne();
     const authSettings = setting?.Auth?.[0] || {};
     const otp = crypto.randomInt(100000, 999999).toString();
-    const otpEmail = crypto.randomInt(100000, 999999).toString();
+    // const otpEmail = crypto.randomInt(100000, 999999).toString();
 
     if (sellerData) {
       // Check if email matches and is verified
@@ -66,15 +66,15 @@ exports.addSeller = async (req, res) => {
           email,
           mobileNumber: PhoneNumber,
           otp,
-          otpEmail,
+          // otpEmail,
           expiresAt: Date.now() + 2 * 60 * 1000,
         });
 
-        await sendVerificationEmail(
-          email,
-          "Welcome to Fivlia – Your store is under verification",
-          otpTemplate(otpEmail)
-        );
+        // await sendVerificationEmail(
+        //   email,
+        //   "Welcome to Fivlia – Your store is under verification",
+        //   otpTemplate(otpEmail)
+        // );
         return res
           .status(200)
           .json({ message: "OTP sent to email and phone for verification" });
@@ -143,15 +143,15 @@ exports.addSeller = async (req, res) => {
       email,
       mobileNumber: PhoneNumber,
       otp,
-      otpEmail,
+      // otpEmail,
       expiresAt: Date.now() + 2 * 60 * 1000,
     });
 
-    await sendVerificationEmail(
-      email,
-      "Welcome to Fivlia – Your store is under verification",
-      otpTemplate(otpEmail)
-    );
+    // await sendVerificationEmail(
+    //   email,
+    //   "Welcome to Fivlia – Your store is under verification",
+    //   otpTemplate(otpEmail)
+    // );
 
     return res.status(200).json({ message: "OTP sent via WhatsApp And Email" });
   } catch (error) {
@@ -576,10 +576,13 @@ exports.acceptDeclineRequest = async (req, res) => {
 
 exports.verifyOtpSeller = async (req, res) => {
   try {
-    const { email, otpEmail, PhoneNumber, otp, type, fcmToken, token } =
+    const { 
+      // email,
+      //  otpEmail,
+        PhoneNumber, otp, type, fcmToken, token } =
       req.body;
 
-    if (!PhoneNumber && !email) {
+    if (!PhoneNumber) {
       return res
         .status(400)
         .json({ message: "Mobile number or email is required" });
@@ -635,10 +638,12 @@ exports.verifyOtpSeller = async (req, res) => {
     }
     // 1️⃣ Find OTP record
     const otpRecord = await OtpModel.findOne({
-      $or: [
-        { mobileNumber: PhoneNumber, otp },
-        { email, otpEmail },
-      ],
+      // $or: [
+        // { 
+          mobileNumber: PhoneNumber, otp 
+        // },
+        // { email, otpEmail },
+      // ],
     });
     console.log(otpRecord);
     if (!otpRecord) {
@@ -664,13 +669,13 @@ exports.verifyOtpSeller = async (req, res) => {
     }
 
     // Verify email if provided
-    if (email) {
-      if (otpEmail !== otpRecord.otpEmail) {
-        return res.status(400).json({ message: "Invalid email OTP" });
-      }
-      updates.emailVerified = true;
-      otpRecord.otpEmail = null; // clear email OTP but keep mobile OTP if present
-    }
+    // if (email) {
+    //   if (otpEmail !== otpRecord.otpEmail) {
+    //     return res.status(400).json({ message: "Invalid email OTP" });
+    //   }
+    //   updates.emailVerified = true;
+    //   otpRecord.otpEmail = null; // clear email OTP but keep mobile OTP if present
+    // }
 
     const isMobileVerified =
       updates.phoneNumberVerified === true ||
@@ -678,7 +683,7 @@ exports.verifyOtpSeller = async (req, res) => {
     const isEmailVerified =
       updates.emailVerified === true || sellerDoc.emailVerified === true;
 
-    if (isMobileVerified && isEmailVerified) {
+    if (isMobileVerified) {
       updates.approveStatus = "pending_admin_approval";
     }
 
@@ -686,7 +691,7 @@ exports.verifyOtpSeller = async (req, res) => {
     await seller.updateOne({ _id: sellerDoc._id }, { $set: updates });
 
     // 5️⃣ Update or delete OTP record
-    if (!otpRecord.otp && !otpRecord.otpEmail) {
+    if (!otpRecord.otp || !otpRecord.otpEmail) {
       await OtpModel.deleteOne({ _id: otpRecord._id }); // remove record if both verified
     } else {
       await otpRecord.save(); // keep partially verified OTP for second step

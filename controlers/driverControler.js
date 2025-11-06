@@ -1,6 +1,7 @@
 const driver = require("../modals/driver");
 const Store = require("../modals/store");
 const User = require("../modals/User");
+const driverTip = require("../modals/driverModals/tips");
 const Assign = require("../modals/driverModals/assignments");
 const { Order } = require("../modals/order");
 const { SettingAdmin } = require("../modals/setting");
@@ -720,3 +721,14 @@ exports.saveDriverRating = async (req, res) => {
     });
   }
 };
+
+exports.tipDriver = async (req, res) => {
+  try{
+   const {driverId, orderId, note, tip, userId} = req.body
+   const Tip = await driverTip.create({driverId, orderId, note, tip, userId})
+   return res.status(200).json({ message: "Tip Given", Tip}); 
+  }catch(error){
+   console.error("Error rating driver:", error);
+   return res.status(500).json({ message: "Server error while fetching stores", error: error.message,}); 
+  }
+}

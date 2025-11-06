@@ -256,6 +256,7 @@ exports.storeEdit = async (req, res) => {
       PhoneNumber,
       email,
       password,
+      approveStatus,
       status,
       Description,
       openTime,
@@ -313,6 +314,7 @@ exports.storeEdit = async (req, res) => {
     if (closeTime) updateObj.closeTime = closeTime;
     if (status !== undefined) updateObj.status = status;
     if (Description) updateObj.Description = Description;
+    if (approveStatus) updateObj.approveStatus = approveStatus;
     if (isAssured !== undefined) {
   updateObj.fivliaAssured = 
     isAssured === true ||

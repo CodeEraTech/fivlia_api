@@ -230,12 +230,19 @@ exports.getSellerRequest = async (req, res) => {
 
 exports.getSeller = async (req, res) => {
   try {
-    const { id, page = 1, limit } = req.query;
+    const { id,includeBanned, page = 1, limit } = req.query;
     const skip = (page - 1) * limit;
     // 1️⃣ Return all approved sellers if no ID
     if (!id) {
+      let query = { approveStatus: "approved" };
+
+      // If admin requested banned too
+      if (includeBanned === "true") {
+        query = {}; // no filter — show all
+      }
+
       const sellers = await seller
-        .find({ approveStatus: "approved" }, { Authorized_Store: false })
+        .find(query, { Authorized_Store: false })
         .lean();
       return res.status(200).json({ message: "Sellers Approved", sellers });
     }

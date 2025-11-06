@@ -15,6 +15,7 @@ const Notification = require("../modals/Notification");
 const Assign = require("../modals/driverModals/assignments");
 const sendNotification = require("../firebase/pushnotification");
 const Store = require("../modals/store");
+const DriverRating = require("../modals/DriverRating");
 const { getStoresWithinRadius } = require("../config/google");
 const { sellerSocketMap,adminSocketMap } = require("../utils/driverSocketMap");
 const {
@@ -927,8 +928,30 @@ exports.driver = async (req, res) => {
 
 exports.getDriver = async (req, res) => {
   try {
-    const Driver = await driver.find({approveStatus:{$ne:"pending_admin_approval"}});
-    return res.status(200).json({ message: "Drivers", Driver });
+    const Driver = await driver.find({approveStatus:{$ne:"pending_admin_approval"}}).lean();
+
+    const ratings = await DriverRating.aggregate([
+      {
+        $group: {
+          _id: "$driverId",
+          averageRating: { $avg: "$rating" },
+        },
+      },
+    ]);
+
+    // Step 3: Convert ratings array to a quick lookup map
+    const ratingMap = {};
+    ratings.forEach((r) => {
+      ratingMap[r._id.toString()] = r.averageRating || 0;
+    });
+
+    // Step 4: Attach averageRating to each driver object
+    const updatedDrivers = Driver.map((d) => ({
+      ...d,
+      averageRating: ratingMap[d._id.toString()] || 0,
+    }));
+
+    return res.status(200).json({ message: "Drivers", Driver:updatedDrivers });
   } catch (error) {
     console.error(error);
     return res

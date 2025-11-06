@@ -10,6 +10,7 @@ const admin_transaction = require('../modals/adminTranaction')
 const store_transaction = require('../modals/storeTransaction')
 const Transaction = require('../modals/driverModals/transaction')
 const Stock = require("../modals/StoreStock");
+const speakeasy = require("speakeasy");
 
 exports.getDashboardStats = async (req, res) => {
   try {
@@ -323,5 +324,38 @@ exports.withdrawal = async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Server Error", error: error.message });
+  }
+};
+
+
+exports.adminLogin = async (req, res) => {
+  try {
+    const { username, password, otp } = req.body;
+
+    // 1️⃣ Validate username/password
+    if (username !== process.env.ADMIN_USERNAME || password !== process.env.ADMIN_PASSWORD) {
+      return res.status(401).json({ message: "Invalid username or password" });
+    }
+
+    // 2️⃣ Verify OTP (Google Authenticator code)
+    const verified = speakeasy.totp.verify({
+      secret: process.env.ADMIN_2FA_SECRET,
+      encoding: "base32",
+      token: otp,
+      window: 1, // allow small 30s drift
+    });
+
+    if (!verified) {
+      return res.status(400).json({ message: "Invalid or expired OTP" });
+    }
+
+    // 3️⃣ Success (you can also generate JWT here if needed)
+    return res.status(200).json({ message: "Login successful" });
+  } catch (error) {
+    console.error("Error verifying login:", error);
+    return res.status(500).json({
+      message: "Server error during login",
+      error: error.message,
+    });
   }
 };

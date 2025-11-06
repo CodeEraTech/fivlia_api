@@ -58,6 +58,7 @@ const {
   adminTranaction,
   getWithdrawalRequest,
   withdrawal,
+  adminLogin
 } = require("../controlers/dashboardControler");
 const { getDeliveryEstimate } = require("../controlers/DeliveryControler");
 
@@ -238,6 +239,9 @@ const {
 const { getPlaceSuggestions } = require("../utils/olaAutocomplete.js");
 const { trackMapUsage } = require("../controlers/mapUsageController.js");
 
+
+// Admin Login
+router.post("/admin/login", adminLogin);
 // autocomplete search
 router.get("/autocomplete-search", getPlaceSuggestions);
 

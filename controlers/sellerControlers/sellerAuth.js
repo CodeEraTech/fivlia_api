@@ -39,7 +39,7 @@ exports.addSeller = async (req, res) => {
     } = req.body;
 
     const sellerData = await seller.findOne({
-      $or: [{ email }, { PhoneNumber }],
+  PhoneNumber ,
     });
     const setting = await SettingAdmin.findOne();
     const authSettings = setting?.Auth?.[0] || {};
@@ -77,7 +77,7 @@ exports.addSeller = async (req, res) => {
         // );
         return res
           .status(200)
-          .json({ message: "OTP sent to email and phone for verification" });
+          .json({ message: "OTP sent phone for verification" });
       } catch (err) {
         return res
           .status(500)
@@ -585,7 +585,7 @@ exports.verifyOtpSeller = async (req, res) => {
     if (!PhoneNumber) {
       return res
         .status(400)
-        .json({ message: "Mobile number or email is required" });
+        .json({ message: "Mobile number is required" });
     }
 
     if (type === "login") {

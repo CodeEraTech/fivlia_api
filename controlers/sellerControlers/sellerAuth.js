@@ -234,15 +234,15 @@ exports.getSeller = async (req, res) => {
     const skip = (page - 1) * limit;
     // 1️⃣ Return all approved sellers if no ID
     if (!id) {
-      let query = { approveStatus: "approved" };
+      let query = { approveStatus: "approved",Authorized_Store: false };
 
       // If admin requested banned too
       if (includeBanned === "true") {
-        query = {}; // no filter — show all
+        query = {Authorized_Store: false,approveStatus: { $in: ["approved", "banned"] }};
       }
 
       const sellers = await seller
-        .find(query, { Authorized_Store: false })
+        .find(query)
         .lean();
       return res.status(200).json({ message: "Sellers Approved", sellers });
     }

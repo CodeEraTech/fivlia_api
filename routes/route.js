@@ -48,7 +48,8 @@ const {
   getDriverRequest,
   getDriverReferralSeller,
   saveDriverRating,
-  tipDriver
+  tipDriver,
+  getDriverRating
 } = require("../controlers/driverControler");
 
 const {
@@ -282,6 +283,7 @@ router.post("/deliveryStatus", upload, deliveryStatus);
 router.put("/rating", verifyToken, rating);
 router.post("/withdrawalRequest", withdrawalRequest);
 router.post("/tipDriver", tipDriver);
+router.get("/getDriverRating/:driverId", getDriverRating);
 
 router.post("/addMainCategory", upload, addMainCategory);
 

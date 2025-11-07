@@ -1,7 +1,7 @@
 const axios = require("axios");
 const getAccessToken = require("./getAccessToken"); // adjust path if needed
 
-async function sendNotification(fcmToken, title, body, clickAction = "/dashboard1", data = {},soundType = "custom_sound.wav" ) {
+async function sendNotification(fcmToken, title, body, clickAction = "/dashboard1", data = {},soundType = "custom_sound" ) {
   const token = await getAccessToken();
 
   const fcmUrl = "https://fcm.googleapis.com/v1/projects/fivlia-quick-commerce/messages:send";

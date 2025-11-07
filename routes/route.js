@@ -7,6 +7,7 @@ const verifyToken = require("../midllerware/authToken");
 const { createSitemap, getSitemap } = require("../controlers/seoControler");
 //invoice
 const { generateThermalInvoiceController } = require("../config/invoice");
+const {verifyEmail,sendEmailVerification} = require("../config/EmailVerificationAPI.js");
 //website
 const {
   forwebbestselling,
@@ -100,7 +101,6 @@ const {
 const {
   createStore,
   storeLogin,
-  verifyEmail,
   getStore,
   addCategoryInStore,
   removeCategoryInStore,
@@ -299,6 +299,8 @@ router.post("/addPage", addPage);
 //seller
 router.post("/addSeller", upload, addSeller);
 router.post("/sendOtp", sendOtp);
+router.post("/verify-email", verifyEmail);
+router.get("/sendEmailVerification", sendEmailVerification);
 
 //sellerProducts
 // router.post('/addSellerProduct/:id', upload, addSellerProduct)
@@ -335,7 +337,6 @@ router.get("/getDashboardStats", getDashboardStats);
 router.get("/getWithdrawalRequest", getWithdrawalRequest);
 router.get("/acceptedOrder/:mobileNumber", acceptedOrder);
 router.get("/getStoreDashboardStats/:storeId", getStoreDashboardStats);
-router.get("/verify-email", verifyEmail);
 router.get("/getNotification", getNotification);
 router.get("/getOrderDetails", verifyToken, getOrderDetails);
 router.get("/getDriver", getDriver);

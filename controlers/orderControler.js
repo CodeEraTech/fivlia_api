@@ -557,6 +557,7 @@ exports.getOrderDetails = async (req, res) => {
       );
       // 4. Push combined data
       results.push({
+        id: order._id,
         orderId: order.orderId,
         orderStatus: order.orderStatus,
         totalPrice: order.totalPrice,

@@ -577,7 +577,7 @@ exports.acceptDeclineRequest = async (req, res) => {
 exports.verifyOtpSeller = async (req, res) => {
   try {
     const { 
-      // email,
+      email,
       //  otpEmail,
         PhoneNumber, otp, type, fcmToken, token } =
       req.body;

@@ -239,7 +239,10 @@ const {
 
 const { getPlaceSuggestions } = require("../utils/olaAutocomplete.js");
 const { trackMapUsage } = require("../controlers/mapUsageController.js");
+const { getSellerReport } = require("../controlers/reportController.js");
 
+// reports apis
+router.get("/get-seller-report",  getSellerReport);
 
 // Admin Login
 router.post("/admin/login", adminLogin);

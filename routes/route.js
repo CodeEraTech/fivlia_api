@@ -7,6 +7,7 @@ const verifyToken = require("../midllerware/authToken");
 const { createSitemap, getSitemap } = require("../controlers/seoControler");
 //invoice
 const { generateThermalInvoiceController } = require("../config/invoice");
+const {verifyEmail,sendEmailVerification} = require("../config/EmailVerificationAPI.js");
 //website
 const {
   forwebbestselling,
@@ -48,6 +49,8 @@ const {
   getDriverRequest,
   getDriverReferralSeller,
   saveDriverRating,
+  tipDriver,
+  getDriverRating
 } = require("../controlers/driverControler");
 
 const {
@@ -57,6 +60,7 @@ const {
   adminTranaction,
   getWithdrawalRequest,
   withdrawal,
+  adminLogin
 } = require("../controlers/dashboardControler");
 const { getDeliveryEstimate } = require("../controlers/DeliveryControler");
 
@@ -97,7 +101,6 @@ const {
 const {
   createStore,
   storeLogin,
-  verifyEmail,
   getStore,
   addCategoryInStore,
   removeCategoryInStore,
@@ -236,7 +239,13 @@ const {
 
 const { getPlaceSuggestions } = require("../utils/olaAutocomplete.js");
 const { trackMapUsage } = require("../controlers/mapUsageController.js");
+const { getSellerReport } = require("../controlers/reportController.js");
 
+// reports apis
+router.get("/get-seller-report",  getSellerReport);
+
+// Admin Login
+router.post("/admin/login", adminLogin);
 // autocomplete search
 router.get("/autocomplete-search", getPlaceSuggestions);
 
@@ -268,7 +277,7 @@ router.post("/verifyPayment", verifyPayment);
 router.post("/filter", filter);
 router.post("/createStore", upload, createStore);
 router.post("/Product/bulk", upload, bulkProductUpload),
-  router.put("/adminSetting", upload, adminSetting);
+router.put("/adminSetting", upload, adminSetting);
 router.post("/addFilter", addFilter);
 router.post("/address", verifyToken, addAddress);
 router.post("/updateStock/:productId", updateStock);
@@ -276,6 +285,8 @@ router.post("/driver", upload, driver);
 router.post("/deliveryStatus", upload, deliveryStatus);
 router.put("/rating", verifyToken, rating);
 router.post("/withdrawalRequest", withdrawalRequest);
+router.post("/tipDriver", tipDriver);
+router.get("/getDriverRating/:driverId", getDriverRating);
 
 router.post("/addMainCategory", upload, addMainCategory);
 
@@ -291,6 +302,8 @@ router.post("/addPage", addPage);
 //seller
 router.post("/addSeller", upload, addSeller);
 router.post("/sendOtp", sendOtp);
+router.get("/verify-email", verifyEmail);
+router.get("/sendEmailVerification", sendEmailVerification);
 
 //sellerProducts
 // router.post('/addSellerProduct/:id', upload, addSellerProduct)
@@ -327,7 +340,6 @@ router.get("/getDashboardStats", getDashboardStats);
 router.get("/getWithdrawalRequest", getWithdrawalRequest);
 router.get("/acceptedOrder/:mobileNumber", acceptedOrder);
 router.get("/getStoreDashboardStats/:storeId", getStoreDashboardStats);
-router.get("/verify-email", verifyEmail);
 router.get("/getNotification", getNotification);
 router.get("/getOrderDetails", verifyToken, getOrderDetails);
 router.get("/getDriver", getDriver);

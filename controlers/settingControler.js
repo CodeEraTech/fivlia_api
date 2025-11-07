@@ -46,7 +46,7 @@ exports.settings = async (req, res) => {
 };
 
 exports.getSmsType = async(req,res)=>{
-  try{
+try{
 const setting = await SettingAdmin.find()
 return res.status(200).json({message:"Setting",setting})
   }catch{

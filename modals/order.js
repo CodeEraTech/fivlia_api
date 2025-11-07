@@ -31,7 +31,7 @@ const TempOrderSchema = new mongoose.Schema({
   items: [
   {productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
   varientId: { type: mongoose.Schema.Types.ObjectId },
-  name: String,quantity: Number,price: Number,image: String,gst:String  }],
+  name: String,quantity: Number,price: Number,commision:Number,image: String,gst:String  }],
   orderId:{type:String,default:'OID001'},
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   addressId: { type: mongoose.Schema.Types.ObjectId, ref: 'Address' },

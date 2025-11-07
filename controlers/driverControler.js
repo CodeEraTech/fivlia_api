@@ -1,6 +1,7 @@
 const driver = require("../modals/driver");
 const Store = require("../modals/store");
 const User = require("../modals/User");
+const driverTip = require("../modals/driverModals/tips");
 const Assign = require("../modals/driverModals/assignments");
 const { Order } = require("../modals/order");
 const { SettingAdmin } = require("../modals/setting");
@@ -101,7 +102,7 @@ exports.driverOrderStatus = async (req, res) => {
     const { orderStatus, orderId, otp } = req.body;
 
     // ===> On The Way block
-    if (orderStatus === "On The Way") {
+    if (orderStatus === "On Way") {
       const setting = await SettingAdmin.findOne();
       const authSettings = setting?.Auth?.[0] || {};
 
@@ -123,7 +124,7 @@ exports.driverOrderStatus = async (req, res) => {
 
       await OtpModel.findOneAndUpdate(
         { mobileNumber, orderId },
-        { otp: generatedOtp, expiresAt: Date.now() + 2 * 60 * 1000 },
+        { otp: generatedOtp, expiresAt: Date.now()  + 3 * 24 * 60 * 60 * 1000 },
         { upsert: true, new: true }
       );
 
@@ -720,3 +721,109 @@ exports.saveDriverRating = async (req, res) => {
     });
   }
 };
+
+exports.tipDriver = async (req, res) => {
+  try{
+   const {driverId, orderId, note, tip, userId} = req.body
+   const Tip = await driverTip.create({driverId, orderId, note, tip, userId})
+   return res.status(200).json({ message: "Tip Given", Tip}); 
+  }catch(error){
+   console.error("Error rating driver:", error);
+   return res.status(500).json({ message: "Server error while fetching stores", error: error.message}); 
+  }
+}
+
+exports.getDriverRating = async (req, res) => {
+  try {
+    const { driverId } = req.params;
+
+    // 1) Fetch all ratings for this driver, populate user & order data
+    const ratings = await DriverRating.find({ driverId })
+      .populate({
+        path: "userId",
+        select: "name mobileNumber email profileImage",
+        model: "Login",
+      })
+      .populate({
+        path: "orderId",
+        select: "orderId items totalPrice deliveryCharges createdAt storeId",
+        model: "Order",
+        // populate: {
+        //   path: "items.productId", // deep populate products inside items
+        //   select: "name price image",
+        //   model: "Product",
+        // },
+      })
+      .lean(); // lean() gives plain JS objects for speed
+
+    // 2) If no ratings found
+    if (!ratings || ratings.length === 0) {
+      return res.status(200).json({
+        averageRating: "0.00",
+        totalRatings: 0,
+        reviews: [],
+      });
+    }
+
+    // 3) Calculate average rating and total count
+    const totalRatings = ratings.length;
+    const averageRating =
+      ratings.reduce((acc, r) => acc + (r.rating || 0), 0) / totalRatings;
+
+    // 4) Shape the reviews nicely
+    const reviews = ratings.map((r) => ({
+      _id: r._id,
+      rating: r.rating,
+      message: r.message,
+      createdAt: r.createdAt,
+      user: r.userId
+        ? {
+            _id: r.userId._id,
+            name: r.userId.name,
+            mobileNumber: r.userId.mobileNumber,
+            email: r.userId.email,
+            profileImage: r.userId.profileImage,
+          }
+        : null,
+      order: r.orderId
+        ? {
+            _id: r.orderId._id,
+            orderId: r.orderId.orderId,
+            createdAt: r.orderId.createdAt,
+            totalPrice: r.orderId.totalPrice,
+            deliveryCharges: r.orderId.deliveryCharges,
+            items: (r.orderId.items || []).map((it) => ({
+              _id: it._id,
+              name: it.name,
+              quantity: it.quantity,
+              price: it.price,
+              image: it.image,
+              gst: it.gst,
+              product: it.productId
+                ? {
+                    _id: it.productId._id,
+                    name: it.productId.name,
+                    price: it.productId.price,
+                    image: it.productId.image,
+                  }
+                : null,
+            })),
+          }
+        : null,
+    }));
+
+    // 5) Send final response
+    return res.status(200).json({
+      averageRating: averageRating.toFixed(2),
+      totalRatings,
+      reviews,
+    });
+  } catch (error) {
+    console.error("Error getting driver rating:", error);
+    return res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+

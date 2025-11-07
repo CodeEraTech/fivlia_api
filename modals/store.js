@@ -44,6 +44,7 @@ const storeScheema = new mongoose.Schema(
         "pending_verification",
         "pending_admin_approval",
         "approved",
+        "banned",
         "rejected",
       ],
       default: "pending_verification",

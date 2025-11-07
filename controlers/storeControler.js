@@ -27,6 +27,14 @@ exports.storeLogin = async (req, res) => {
       if (!store) {
         return res.status(404).json({ message: "Store not found" });
       }
+
+      if (store.approveStatus === "banned") {
+        return res.status(403).json({
+          message:
+            "Your store is permanently disabled by admin. Please contact admin.",
+        });
+      }
+
       if (store.approveStatus !== "approved") {
         return res.status(403).json({
           message:
@@ -80,19 +88,6 @@ exports.storeLogin = async (req, res) => {
       .status(500)
       .json({ message: "Server error", error: error.message });
   }
-};
-
-exports.verifyEmail = async (req, res) => {
-  const { token } = req.query;
-
-  const store = await Store.findOne({ verificationToken: token });
-  if (!store) return res.status(400).send("Invalid or expired token");
-
-  store.emailVerified = true;
-  store.verificationToken = null;
-  await store.save();
-
-  res.send("✅ Email verified successfully. You can now log in.");
 };
 
 exports.createStore = async (req, res) => {
@@ -256,6 +251,7 @@ exports.storeEdit = async (req, res) => {
       PhoneNumber,
       email,
       password,
+      approveStatus,
       status,
       Description,
       openTime,
@@ -313,7 +309,15 @@ exports.storeEdit = async (req, res) => {
     if (closeTime) updateObj.closeTime = closeTime;
     if (status !== undefined) updateObj.status = status;
     if (Description) updateObj.Description = Description;
-    if (isAssured) updateObj.fivliaAssured = isAssured;
+    if (approveStatus) updateObj.approveStatus = approveStatus;
+    if (isAssured !== undefined) {
+  updateObj.fivliaAssured = 
+    isAssured === true ||
+    isAssured === "true" ||
+    isAssured === 1 ||
+    isAssured === "1";
+}
+
 
     // ✅ Category
     if (categoryInput) {

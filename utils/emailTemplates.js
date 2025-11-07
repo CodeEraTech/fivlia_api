@@ -107,6 +107,78 @@ const contactUsTemplate = (firstName, lastName, email, phone, message) => `
   </body>
 </html>
 `;
+const verificationEmailTemplate = (firstName, lastName, verifyUrl) => `
+<html>
+  <body style="margin:0; padding:20px; background-color:#ffffff; font-family: Arial, Helvetica, sans-serif; color:#333;">
+
+    <!-- Logo / Brand -->
+    <h1 style="color:#30574e; font-weight:bold; font-size:28px; letter-spacing:0.15em; text-align:center; margin-bottom:10px;">
+      FIVLIA
+    </h1>
+
+    <!-- Title -->
+    <h2 style="font-size:22px; color:#222; text-align:center; margin-top:0;">
+      Verify Your Email Address
+    </h2>
+
+    <!-- Greeting -->
+    <p style="font-size:16px; color:#555; max-width:520px; margin:10px auto; text-align:center;">
+      Hi <strong>${firstName || ""} ${lastName || ""}</strong>,<br/>
+      Thanks for registering your store on <strong>Fivlia Seller Portal</strong>.<br/>
+      Please confirm your email address by clicking the button below.
+    </p>
+
+    <!-- Verify Button -->
+    <div style="text-align:center; margin:30px 0;">
+      <a href="${verifyUrl}" target="_blank"
+        style="background-color:#4F46E5; color:white; padding:14px 30px; border-radius:6px;
+        text-decoration:none; font-weight:bold; display:inline-block; font-size:16px;">
+        Verify My Email
+      </a>
+    </div>
+
+    <!-- Info Text -->
+    <p style="font-size:14px; color:#777; text-align:center; max-width:520px; margin:10px auto;">
+      If you didn’t create this account, you can safely ignore this email.<br/>
+      This link will expire in <strong>1 hour</strong>.
+    </p>
+
+    <hr style="margin:30px 0; border:none; border-top:1px solid #eee;" />
+
+    <!-- Footer Links -->
+    <p style="font-size:13px; color:#777; text-align:center; margin:10px 0;">
+      <a style="color:#30574e; text-decoration:none; margin:0 8px;" href="https://fivlia.in/about-us">About Us</a> | 
+      <a style="color:#30574e; text-decoration:none; margin:0 8px;" href="https://fivlia.in/privacy">Policies</a> | 
+      <a style="color:#30574e; text-decoration:none; margin:0 8px;" href="https://fivlia.in/terms">Terms & Conditions</a> | 
+      <a style="color:#30574e; text-decoration:none; margin:0 8px;" href="https://fivlia.in/contact-us">Contact Us</a>
+    </p>
+
+    <!-- Social Icons -->
+    <p style="text-align:center; margin:15px 0;">
+      <a style="margin:0 5px;" href="https://www.facebook.com/profile.php?id=100090157863841">
+        <img src="https://cdn-icons-png.flaticon.com/32/733/733547.png" alt="Facebook" width="22" height="22" style="display:inline-block;" />
+      </a>
+      <a style="margin:0 5px;" href="https://www.instagram.com/fivliaindia">
+        <img src="https://cdn-icons-png.flaticon.com/32/2111/2111463.png" alt="Instagram" width="22" height="22" style="display:inline-block;" />
+      </a>
+      <a style="margin:0 5px;" href="https://twitter.com">
+        <img src="https://cdn-icons-png.flaticon.com/32/733/733579.png" alt="Twitter" width="22" height="22" style="display:inline-block;" />
+      </a>
+      <a style="margin:0 5px;" href="https://linkedin.com/company/fivlia">
+        <img src="https://cdn-icons-png.flaticon.com/32/174/174857.png" alt="LinkedIn" width="22" height="22" style="display:inline-block;" />
+      </a>
+    </p>
+
+    <!-- Footer -->
+    <p style="font-size:12px; color:#aaa; text-align:center; margin-top:10px; line-height:1.5;">
+      © ${new Date().getFullYear()} Fivlia, Inc. All rights reserved.<br />
+      Hisar, Haryana
+    </p>
+
+  </body>
+</html>
+`;
 
 
-module.exports = { storeRegistrationTemplate, otpTemplate,contactUsTemplate };
+
+module.exports = { storeRegistrationTemplate, otpTemplate,contactUsTemplate,verificationEmailTemplate };

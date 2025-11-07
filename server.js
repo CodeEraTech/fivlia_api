@@ -9,7 +9,6 @@ const socketIo = require("socket.io");
 const registerDriverSocket = require("./socket/socket");
 const cors = require("cors");
 // const { initAgenda } = require('./config/agenda'); // ✅ your agenda setup
-const backgroundInvoice = require("./config/backgroundInvoice");
 connectDb();
 
 const app = express();

@@ -299,7 +299,7 @@ router.post("/addPage", addPage);
 //seller
 router.post("/addSeller", upload, addSeller);
 router.post("/sendOtp", sendOtp);
-router.post("/verify-email", verifyEmail);
+router.get("/verify-email", verifyEmail);
 router.get("/sendEmailVerification", sendEmailVerification);
 
 //sellerProducts

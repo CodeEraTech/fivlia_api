@@ -39,7 +39,7 @@ exports.addSeller = async (req, res) => {
     } = req.body;
 
     const sellerData = await seller.findOne({
-  PhoneNumber ,
+      PhoneNumber,
     });
     const setting = await SettingAdmin.findOne();
     const authSettings = setting?.Auth?.[0] || {};
@@ -230,20 +230,45 @@ exports.getSellerRequest = async (req, res) => {
 
 exports.getSeller = async (req, res) => {
   try {
-    const { id,includeBanned, page = 1, limit } = req.query;
+    const { id, includeBanned, page = 1, limit } = req.query;
     const skip = (page - 1) * limit;
     // 1️⃣ Return all approved sellers if no ID
     if (!id) {
-      let query = { approveStatus: "approved",Authorized_Store: false };
+      let query = { approveStatus: "approved", Authorized_Store: false };
 
       // If admin requested banned too
       if (includeBanned === "true") {
-        query = {Authorized_Store: false,approveStatus: { $in: ["approved", "banned"] }};
+        query = {
+          Authorized_Store: false,
+          approveStatus: { $in: ["approved", "banned"] },
+        };
       }
 
-      const sellers = await seller
-        .find(query)
-        .lean();
+      // Aggregate sellers with wallet (store_transaction) data
+      const sellers = await seller.aggregate([
+        { $match: query },
+
+        {
+          $lookup: {
+            from: "store_transactions",
+            localField: "_id",
+            foreignField: "storeId",
+            as: "sellerWalletData",
+          },
+        },
+
+        // Sort transactions inside sellerWalletData (optional)
+        {
+          $addFields: {
+            sellerWalletData: {
+              $sortArray: {
+                input: "$sellerWalletData",
+                sortBy: { createdAt: -1 },
+              },
+            },
+          },
+        },
+      ]);
       return res.status(200).json({ message: "Sellers Approved", sellers });
     }
 
@@ -576,16 +601,18 @@ exports.acceptDeclineRequest = async (req, res) => {
 
 exports.verifyOtpSeller = async (req, res) => {
   try {
-    const { 
+    const {
       email,
       //  otpEmail,
-        PhoneNumber, otp, type, fcmToken, token } =
-      req.body;
+      PhoneNumber,
+      otp,
+      type,
+      fcmToken,
+      token,
+    } = req.body;
 
     if (!PhoneNumber) {
-      return res
-        .status(400)
-        .json({ message: "Mobile number is required" });
+      return res.status(400).json({ message: "Mobile number is required" });
     }
 
     if (type === "login") {
@@ -639,10 +666,11 @@ exports.verifyOtpSeller = async (req, res) => {
     // 1️⃣ Find OTP record
     const otpRecord = await OtpModel.findOne({
       // $or: [
-        // { 
-          mobileNumber: PhoneNumber, otp 
-        // },
-        // { email, otpEmail },
+      // {
+      mobileNumber: PhoneNumber,
+      otp,
+      // },
+      // { email, otpEmail },
       // ],
     });
     console.log(otpRecord);
@@ -871,9 +899,11 @@ exports.sellerWithdrawalRequest = async (req, res) => {
     const storeData = await seller.findById(storeId);
     if (!storeData)
       return res.status(204).json({ message: "Seller not found" });
-     
-    if(storeData.emailVerified === false){
-      return res.status(400).json({ message: `Email verification required. Please verify your registered email address before making a withdrawal.` });
+
+    if (storeData.emailVerified === false) {
+      return res.status(400).json({
+        message: `Email verification required. Please verify your registered email address before making a withdrawal.`,
+      });
     }
     const settings = await SettingAdmin.findOne();
     const minWithdrawal = settings?.minWithdrawal || 0;

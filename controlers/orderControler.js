@@ -35,7 +35,7 @@ const {
 
 const MAX_DISTANCE_METERS = 5000;
 const MAX_ATTEMPTS = 10; // retry 10 times (for example, every 30s = 5 minutes total)
-const RETRY_INTERVAL = 5000;
+const RETRY_INTERVAL = 10000;
 
 // Helper: send repeated notifications until accepted
 const repeatNotifyStore = async (orderId, storeDoc, attempt = 1) => {
@@ -61,14 +61,12 @@ const repeatNotifyStore = async (orderId, storeDoc, attempt = 1) => {
     );
 
     // Schedule next retry if not accepted yet
-    if (attempt < MAX_ATTEMPTS) {
-      setTimeout(
-        () => repeatNotifyStore(orderId, storeDoc, attempt + 1),
-        RETRY_INTERVAL
-      );
-    } else {
-      console.log(`🚫 Max retries reached for order ${orderId}`);
-    }
+    // if (attempt < MAX_ATTEMPTS) {
+      setTimeout(() => repeatNotifyStore(orderId, storeDoc, attempt + 1), RETRY_INTERVAL);
+    // } else {
+    //   console.log(`🚫 Max retries reached for order ${orderId}`);
+    // }
+
   } catch (err) {
     console.error(`Error in repeatNotifyStore:`, err);
   }

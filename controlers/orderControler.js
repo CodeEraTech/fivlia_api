@@ -883,6 +883,25 @@ exports.test = async (req, res) => {
 exports.driver = async (req, res) => {
   try {
     const { driverName, status, email, approveStatus, password } = req.body;
+
+    const address = JSON.parse(req.body.address);
+
+    const mobileNumber = address?.mobileNo;
+    
+    const existingDriver = await driver.findOne({
+      $or: [
+        { email },
+        { "address.mobile": mobileNumber }, // check nested field
+        { "address.phone": mobileNumber },
+      ],
+    });
+
+    if (existingDriver) {
+      return res.status(409).json({
+        message: "Driver already exists with this email or mobile number",
+      });
+    }
+
     let nextDriverId = await getNextDriverId(true);
     const rawImagePath = req.files?.image?.[0]?.key || "";
     const image = rawImagePath ? `/${rawImagePath}` : "";
@@ -894,7 +913,6 @@ exports.driver = async (req, res) => {
     const dlFrontKey = req.files?.drivingLicence?.[0]?.key;
     const dlBackKey = req.files?.drivingLicence?.[1]?.key;
 
-    const address = JSON.parse(req.body.address);
     const totalDrivers = await driver.countDocuments();
     const driverId = nextDriverId;
     const newDriver = await driver.create({

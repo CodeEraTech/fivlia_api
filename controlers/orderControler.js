@@ -79,19 +79,56 @@ const notifySeller = async (
   clickAction = "/dashboard1",
   data = {}
 ) => {
-  const tokens = [sellerDoc.fcmToken, sellerDoc.fcmTokenMobile].filter(Boolean);
-  for (const token of tokens) {
-    try {
-      await sendNotification(token, title, body, clickAction, data);
-    } catch (err) {
-      console.error(
-        "notifySeller: sendNotification failed for token",
-        token,
-        err?.message || err
-      );
+  try {
+    // ✅ Support both new (devices[]) and old (fcmToken) formats
+    let tokens = [];
+
+    // New structure: use devices array if available
+    if (Array.isArray(sellerDoc.devices) && sellerDoc.devices.length > 0) {
+      tokens = sellerDoc.devices
+        .map((d) => d.fcmToken)
+        .filter((t) => typeof t === "string" && t.trim() !== "");
     }
+
+    // Fallback: use old single tokens if devices not defined
+    if (tokens.length === 0) {
+      tokens = [sellerDoc.fcmToken, sellerDoc.fcmTokenMobile].filter(Boolean);
+    }
+
+    if (tokens.length === 0) {
+      console.warn(`⚠️ No valid FCM tokens found for seller ${sellerDoc._id}`);
+      return;
+    }
+
+    // Send to each token (keep your existing logic)
+    for (const token of tokens) {
+      try {
+        await sendNotification(token, title, body, clickAction, data);
+      } catch (err) {
+        console.error(
+          "notifySeller: sendNotification failed for token",
+          token,
+          err?.message || err
+        );
+
+        // Optional cleanup of invalid tokens
+        if (
+          err?.errorInfo?.code === "messaging/registration-token-not-registered"
+        ) {
+          sellerDoc.devices = sellerDoc.devices?.filter(
+            (d) => d.fcmToken !== token
+          );
+          await sellerDoc.save().catch(() =>
+            console.warn("Failed to remove invalid token from sellerDoc")
+          );
+        }
+      }
+    }
+  } catch (error) {
+    console.error("notifySeller error:", error.message || error);
   }
 };
+
 
 exports.placeOrder = async (req, res) => {
   try {

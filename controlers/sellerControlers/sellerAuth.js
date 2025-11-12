@@ -18,6 +18,7 @@ const { requestId } = require("../../config/counter");
 const { whatsappOtp } = require("../../config/whatsappsender");
 const { sendMessages } = require("../../utils/sendMessages");
 const mongoose = require("mongoose");
+const { notifyEntity } = require("../../utils/notifyStore");
 
 exports.addSeller = async (req, res) => {
   try {
@@ -382,18 +383,6 @@ exports.getSeller = async (req, res) => {
   }
 };
 
-const notifySeller = async (
-  sellerDoc,
-  title,
-  body,
-  clickAction = "/dashboard1"
-) => {
-  const tokens = [sellerDoc.fcmToken, sellerDoc.fcmTokenMobile].filter(Boolean);
-  for (const token of tokens) {
-    await sendNotification(token, title, body, (clickAction = "/dashboard1"));
-  }
-};
-
 exports.acceptDeclineRequest = async (req, res) => {
   try {
     const { type, approval, id, productId, isImage, isLocation, description } =
@@ -441,7 +430,7 @@ exports.acceptDeclineRequest = async (req, res) => {
 
       const sellerDoc = await seller.findById(productApplication.sellerId);
       if (sellerDoc) {
-        await notifySeller(
+        await notifyEntity(
           sellerDoc,
           `Product ${approval}`,
           `Your product application has been ${approval}.`
@@ -477,7 +466,7 @@ exports.acceptDeclineRequest = async (req, res) => {
           { new: true }
         );
 
-        await notifySeller(
+        await notifyEntity(
           sellerDoc,
           `Location Update Approved`,
           `Your location update request has been approved.`
@@ -489,7 +478,7 @@ exports.acceptDeclineRequest = async (req, res) => {
           { new: true }
         );
 
-        await notifySeller(
+        await notifyEntity(
           sellerDoc,
           `Location Update Rejected`,
           `Your location update request has been rejected.`
@@ -526,7 +515,7 @@ exports.acceptDeclineRequest = async (req, res) => {
 
         updatedData = await seller.findById(id); // Get latest version
 
-        await notifySeller(
+        await notifyEntity(
           sellerDoc,
           `Advertisement Images Approved`,
           `Your advertisement images update has been approved.`
@@ -538,7 +527,7 @@ exports.acceptDeclineRequest = async (req, res) => {
           { new: true }
         );
 
-        await notifySeller(
+        await notifyEntity(
           sellerDoc,
           `Advertisement Images Rejected`,
           `Your advertisement images update has been rejected.`,
@@ -563,7 +552,7 @@ exports.acceptDeclineRequest = async (req, res) => {
 
       const sellerDoc = await driver.findById(id);
       if (sellerDoc) {
-        await notifySeller(
+        await notifyEntity(
           sellerDoc,
           `Driver Application ${approval}`,
           `Your Driver application has been ${approval}.`
@@ -583,7 +572,7 @@ exports.acceptDeclineRequest = async (req, res) => {
 
     const sellerDoc = await seller.findById(id);
     if (sellerDoc) {
-      await notifySeller(
+      await notifyEntity(
         sellerDoc,
         `Seller Application ${approval}`,
         `Your seller application has been ${approval}.`
@@ -603,19 +592,62 @@ exports.verifyOtpSeller = async (req, res) => {
   try {
     const {
       email,
-      //  otpEmail,
       PhoneNumber,
       otp,
       type,
-      fcmToken,
+      storeId,
+      accessKey,
       token,
+      deviceId,
+      deviceType, // mobile | tablet | browser
     } = req.body;
+    if (type === "admin") {
+      const store = await seller.findById(storeId);
+
+      if (!store) {
+        return res.status(404).json({ message: "Store not found" });
+      }
+
+      // Check access key
+      if (store.accessKey !== accessKey) {
+        return res.status(403).json({ message: "Invalid Key" });
+      }
+
+      // Generate JWT for admin session
+      const jwttoken = jwt.sign(
+        { _id: store._id, role: "admin" },
+        process.env.jwtSecretKey,
+        { expiresIn: "1d" }
+      );
+
+      // Clear key after use
+      store.accessKey = null;
+      await store.save();
+      return res.status(200).json({
+        message: "✅ Admin login successful",
+        sellerId: store._id,
+        storeName: store.storeName,
+        token: jwttoken,
+        activeDevices:
+          store.devices?.map((d) => ({
+            deviceId: d.deviceId,
+            deviceType: d.deviceType,
+            createdAt: d.createdAt,
+          })) || [],
+      });
+    }
 
     if (!PhoneNumber) {
       return res.status(400).json({ message: "Mobile number is required" });
     }
-
+    // ======================= LOGIN FLOW =======================
     if (type === "login") {
+      if (!deviceId || !deviceType || !token) {
+        return res
+          .status(400)
+          .json({ message: "Device information is required" });
+      }
+
       const sellerDoc = await seller.findOne({
         $or: [{ PhoneNumber }, { email }],
       });
@@ -633,27 +665,70 @@ exports.verifyOtpSeller = async (req, res) => {
         return res.status(400).json({ message: "Invalid OTP" });
       }
 
-      if (token && typeof token === "string" && token.trim() !== "") {
-        if (sellerDoc.fcmTokenMobile !== token) {
-          sellerDoc.fcmTokenMobile = token;
-          await sellerDoc.save();
-        }
-      }
-
-      if (fcmToken && typeof fcmToken === "string" && fcmToken.trim() !== "") {
-        if (sellerDoc.fcmToken !== fcmToken) {
-          sellerDoc.fcmToken = fcmToken;
-          await sellerDoc.save();
-        }
-      }
-
+      // Generate JWT
       const jwttoken = jwt.sign(
         { _id: sellerDoc._id },
         process.env.jwtSecretKey,
-        {
-          expiresIn: "1d",
-        }
+        { expiresIn: "1d" }
       );
+
+      // Initialize devices array if not exist
+      if (!sellerDoc.devices) sellerDoc.devices = [];
+
+      // --- STEP 1: Check if this device already exists ---
+      const existingDeviceIndex = sellerDoc.devices.findIndex(
+        (d) => d.deviceId === deviceId
+      );
+
+      if (existingDeviceIndex !== -1) {
+        // Same device: update token and time
+        sellerDoc.devices[existingDeviceIndex].fcmToken = token;
+        sellerDoc.devices[existingDeviceIndex].jwtToken = jwttoken;
+        sellerDoc.devices[existingDeviceIndex].lastActiveAt = new Date();
+      } else {
+        // --- STEP 2: Enforce device limits ---
+        const mobileDevices = sellerDoc.devices.filter(
+          (d) => d.deviceType === "mobile"
+        );
+        const browserDevices = sellerDoc.devices.filter(
+          (d) => d.deviceType === "laptop"
+        );
+
+        // Limit: 2 mobiles
+        if (deviceType === "mobile" && mobileDevices.length >= 2) {
+          return res.status(403).json({
+            message:
+              "You can only log in from 2 mobile devices at a time. Please log out from another phone first.",
+          });
+        }
+
+        if (deviceType === "laptop" && browserDevices.length >= 1) {
+          return res.status(403).json({
+            message:
+              "You can only log in from 1 browser at a time. Please log out from your other browser session first.",
+          });
+        }
+
+        if (sellerDoc.devices.length >= 3) {
+          return res.status(403).json({
+            message:
+              "You have reached the maximum of 3 active devices. Please log out from one device before logging in again.",
+          });
+        }
+
+        // --- STEP 3: Add new device ---
+        sellerDoc.devices.push({
+          deviceId,
+          deviceType,
+          fcmToken: token,
+          jwtToken: jwttoken,
+          createdAt: new Date(),
+          lastActiveAt: new Date(),
+        });
+      }
+
+      // Save
+      await sellerDoc.save();
       await OtpModel.deleteOne({ _id: otpRecord._id });
 
       return res.status(200).json({
@@ -661,53 +736,42 @@ exports.verifyOtpSeller = async (req, res) => {
         sellerId: sellerDoc._id,
         storeName: sellerDoc.storeName,
         token: jwttoken,
+        activeDevices: sellerDoc.devices.map((d) => ({
+          deviceId: d.deviceId,
+          deviceType: d.deviceType,
+          createdAt: d.createdAt,
+        })),
       });
     }
-    // 1️⃣ Find OTP record
+
+    // ======================= VERIFICATION FLOW =======================
     const otpRecord = await OtpModel.findOne({
-      // $or: [
-      // {
       mobileNumber: PhoneNumber,
       otp,
-      // },
-      // { email, otpEmail },
-      // ],
     });
-    console.log(otpRecord);
+
     if (!otpRecord) {
       return res.status(400).json({ message: "Invalid OTP" });
     }
 
-    // 2️⃣ Find seller
     const sellerDoc = await seller.findOne({ PhoneNumber });
     if (!sellerDoc) {
       return res.status(404).json({ message: "Seller not found" });
     }
 
-    // 3️⃣ Prepare updates
     const updates = {};
-
-    // Verify mobile if provided
     if (PhoneNumber) {
       if (otp !== otpRecord.otp) {
         return res.status(400).json({ message: "Invalid mobile OTP" });
       }
       updates.phoneNumberVerified = true;
-      otpRecord.otp = null; // clear mobile OTP but keep email OTP if present
+      otpRecord.otp = null;
     }
-
-    // Verify email if provided
-    // if (email) {
-    //   if (otpEmail !== otpRecord.otpEmail) {
-    //     return res.status(400).json({ message: "Invalid email OTP" });
-    //   }
-    //   updates.emailVerified = true;
-    //   otpRecord.otpEmail = null; // clear email OTP but keep mobile OTP if present
-    // }
 
     const isMobileVerified =
       updates.phoneNumberVerified === true ||
       sellerDoc.phoneNumberVerified === true;
+
     const isEmailVerified =
       updates.emailVerified === true || sellerDoc.emailVerified === true;
 
@@ -715,14 +779,12 @@ exports.verifyOtpSeller = async (req, res) => {
       updates.approveStatus = "pending_admin_approval";
     }
 
-    // 4️⃣ Update seller
     await seller.updateOne({ _id: sellerDoc._id }, { $set: updates });
 
-    // 5️⃣ Update or delete OTP record
     if (!otpRecord.otp || !otpRecord.otpEmail) {
-      await OtpModel.deleteOne({ _id: otpRecord._id }); // remove record if both verified
+      await OtpModel.deleteOne({ _id: otpRecord._id });
     } else {
-      await otpRecord.save(); // keep partially verified OTP for second step
+      await otpRecord.save();
     }
 
     return res.status(200).json({
@@ -980,6 +1042,56 @@ exports.getAllStore = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
+exports.logoutSeller = async (req, res) => {
+  try {
+    const { sellerId, deviceId } = req.body;
+
+    if (!sellerId) {
+      return res.status(400).json({ message: "Seller ID is required" });
+    }
+
+    const sellerDoc = await seller.findById(sellerId);
+    if (!sellerDoc) {
+      return res.status(404).json({ message: "Seller not found" });
+    }
+
+    // ✅ Logout from one specific device
+    if (!deviceId) {
+      return res.status(400).json({
+        message: "Device ID is required for single-device logout",
+      });
+    }
+
+    const beforeCount = sellerDoc.devices.length;
+    sellerDoc.devices = sellerDoc.devices.filter(
+      (d) => d.deviceId !== deviceId
+    );
+    const afterCount = sellerDoc.devices.length;
+
+    if (beforeCount === afterCount) {
+      return res.status(404).json({
+        message: "No device found with the given deviceId",
+      });
+    }
+
+    await sellerDoc.save();
+
+    return res.status(200).json({
+      message: "Logout successful",
+      remainingDevices: sellerDoc.devices.map((d) => ({
+        deviceId: d.deviceId,
+        deviceType: d.deviceType,
+      })),
+    });
+  } catch (error) {
+    console.error("Logout error:", error);
+    return res.status(500).json({
+      message: "Server error during logout",
       error: error.message,
     });
   }

@@ -2,7 +2,7 @@ const express = require("express");
 const upload = require("../midllerware/multer");
 const router = express.Router();
 const verifyToken = require("../midllerware/authToken");
-
+const accessKey = require("../midllerware/accessKey.js")
 //seo
 const { createSitemap, getSitemap } = require("../controlers/seoControler");
 //invoice
@@ -60,6 +60,7 @@ const {
   adminTranaction,
   getWithdrawalRequest,
   withdrawal,
+  genrateKey,
   adminLogin
 } = require("../controlers/dashboardControler");
 const { getDeliveryEstimate } = require("../controlers/DeliveryControler");
@@ -96,6 +97,7 @@ const {
   editSellerProfile,
   sellerWithdrawalRequest,
   getAllStore,
+  logoutSeller
 } = require("../controlers/sellerControlers/sellerAuth");
 
 const {
@@ -300,8 +302,10 @@ router.post("/activeStatus", activeStatus);
 router.post("/addPage", addPage);
 
 //seller
+router.post("/generateKey",accessKey, genrateKey);
 router.post("/addSeller", upload, addSeller);
 router.post("/sendOtp", sendOtp);
+router.post("/logoutSeller", logoutSeller);
 router.get("/verify-email", verifyEmail);
 router.get("/sendEmailVerification", sendEmailVerification);
 

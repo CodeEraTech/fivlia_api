@@ -50,6 +50,7 @@ const storeScheema = new mongoose.Schema(
       default: "pending_verification",
     },
     verificationToken: String,
+    accessKey:String,
     pendingAddressUpdate: {
       city: {
         _id: { type: mongoose.Schema.ObjectId, ref: "Locations" },
@@ -81,8 +82,20 @@ const storeScheema = new mongoose.Schema(
     },
     advertisementImages: [{ type: String }],
     sellerSignature: { type: String },
-    fcmToken: { type: String, default: null },
-    fcmTokenMobile: { type: String, default: null },
+    devices: [
+      {
+        deviceId: { type: String, required: true }, // unique device UUID from client
+        deviceType: {
+          type: String,
+          enum: ["mobile", "tablet", "laptop"],
+          required: true,
+        },
+        fcmToken: { type: String, required: true },
+        jwtToken: { type: String, required: true },
+        createdAt: { type: Date, default: Date.now },
+        lastActiveAt: { type: Date, default: Date.now },
+      },
+    ],
     fivliaAssured: { type: Boolean, default: false },
     pendingAdvertisementImages: {
       image: [{ type: String }],

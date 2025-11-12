@@ -9,6 +9,7 @@ const admin = require("../../firebase/firebase");
 const Store = require("../../modals/store");
 const User = require("../../modals/User");
 const { SettingAdmin } = require("../../modals/setting");
+const { notifyEntity } = require("../../utils/notifyStore");
 
 const assignedOrders = new Set();
 const rejectedDriversMap = new Map();
@@ -72,18 +73,13 @@ const assignWithBroadcast = async (order, drivers) => {
         }
 
         // ===== send to store =====
-        if (store?.fcmTokenMobile) {
-          await admin.messaging().send({
-            token: store.fcmTokenMobile,
-            notification: {
-              title: "Order Cancelled ❌",
-              body: `Order #${orderId} got cancelled (no driver accepted).`,
-            },
-            android: {
-              notification: { channelId: "default_channel", sound: "default" },
-            },
-            data: { type: "cancelled", orderId },
-          });
+        if (store && store.devices?.length) {
+          await notifyEntity(
+            store,
+            "Order Cancelled ❌",
+            `Order #${orderId} got cancelled (no driver accepted).`,
+            { type: "cancelled", orderId: orderId.toString() }
+          );
         }
       }
     } catch (e) {

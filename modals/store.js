@@ -90,7 +90,7 @@ const storeScheema = new mongoose.Schema(
           enum: ["mobile", "tablet", "laptop"],
           required: true,
         },
-        fcmToken: { type: String, required: true },
+        fcmToken: { type: String },
         jwtToken: { type: String, required: true },
         createdAt: { type: Date, default: Date.now },
         lastActiveAt: { type: Date, default: Date.now },

@@ -642,7 +642,7 @@ exports.verifyOtpSeller = async (req, res) => {
     }
     // ======================= LOGIN FLOW =======================
     if (type === "login") {
-      if (!deviceId || !deviceType || !token) {
+      if (!deviceId || !deviceType) {
         return res
           .status(400)
           .json({ message: "Device information is required" });
@@ -682,7 +682,7 @@ exports.verifyOtpSeller = async (req, res) => {
 
       if (existingDeviceIndex !== -1) {
         // Same device: update token and time
-        sellerDoc.devices[existingDeviceIndex].fcmToken = token;
+        sellerDoc.devices[existingDeviceIndex].fcmToken = token || '';
         sellerDoc.devices[existingDeviceIndex].jwtToken = jwttoken;
         sellerDoc.devices[existingDeviceIndex].lastActiveAt = new Date();
       } else {

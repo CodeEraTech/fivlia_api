@@ -11,6 +11,7 @@ const store_transaction = require("../modals/storeTransaction");
 const Transaction = require("../modals/driverModals/transaction");
 const Stock = require("../modals/StoreStock");
 const speakeasy = require("speakeasy");
+const crypto = require('crypto');
 
 exports.getDashboardStats = async (req, res) => {
   try {
@@ -422,6 +423,35 @@ exports.adminLogin = async (req, res) => {
     console.error("Error verifying login:", error);
     return res.status(500).json({
       message: "Server error during login",
+      error: error.message,
+    });
+  }
+};
+
+exports.genrateKey = async (req, res) => {
+  try{
+    const {storeId,type} = req.body
+   if (type !== 'admin') {
+      return res.status(403).json({ message: '❌ Access Denied' });
+    }
+    // ✅ Find store by ID
+    const store = await Store.findById(storeId);
+    if (!store) {
+      return res.status(404).json({ message: '❌ Store not found' });
+    }
+
+    const generatedKey = crypto.randomBytes(16).toString('hex'); 
+    store.accessKey = generatedKey;
+    await store.save();
+    return res.status(200).json({
+      message: '✅ Access key generated successfully',
+      accessKey: generatedKey,
+    });
+
+  } catch (error) {
+    console.error('Error generating access key:', error);
+    return res.status(500).json({
+      message: '❌ Server error ',
       error: error.message,
     });
   }

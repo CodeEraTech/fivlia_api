@@ -8,6 +8,7 @@ const transactionSchema = new mongoose.Schema(
     orderId: { type: mongoose.Schema.ObjectId, ref: "orders" },
     type: String,
     description: String,
+    userId: { type: mongoose.Schema.ObjectId, ref: 'Login' },
     status: String,
   },
   { timestamps: true }

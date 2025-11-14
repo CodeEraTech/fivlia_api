@@ -1,7 +1,6 @@
 const driver = require("../modals/driver");
 const Store = require("../modals/store");
 const User = require("../modals/User");
-const driverTip = require("../modals/driverModals/tips");
 const Assign = require("../modals/driverModals/assignments");
 const { Order } = require("../modals/order");
 const { SettingAdmin } = require("../modals/setting");
@@ -124,7 +123,7 @@ exports.driverOrderStatus = async (req, res) => {
 
       await OtpModel.findOneAndUpdate(
         { mobileNumber, orderId },
-        { otp: generatedOtp, expiresAt: Date.now()  + 3 * 24 * 60 * 60 * 1000 },
+        { otp: generatedOtp, expiresAt: Date.now() + 3 * 24 * 60 * 60 * 1000 },
         { upsert: true, new: true }
       );
 
@@ -632,7 +631,7 @@ exports.getDriverReferralSeller = async (req, res) => {
 
     if (mongoose.Types.ObjectId.isValid(driverId)) {
       driverData = await driver.findById(driverId);
-    }else{
+    } else {
       driverData = await driver.findOne({ driverId: driverId });
     }
 
@@ -723,15 +722,41 @@ exports.saveDriverRating = async (req, res) => {
 };
 
 exports.tipDriver = async (req, res) => {
-  try{
-   const {driverId, orderId, note, tip, userId} = req.body
-   const Tip = await driverTip.create({driverId, orderId, note, tip, userId})
-   return res.status(200).json({ message: "Tip Given", Tip}); 
-  }catch(error){
-   console.error("Error rating driver:", error);
-   return res.status(500).json({ message: "Server error while fetching stores", error: error.message}); 
+  try {
+    const { driverId, orderId, note, tip, userId } = req.body;
+    
+    if(tip == 0) {
+      return res.status(400).json({ message: "Tip must be greater than 0" });
+    }
+    const order = await Order.findOne({orderId})
+    const updatedDriver = await driver.findByIdAndUpdate(driverId,
+      { $inc: { wallet: tip } },
+      { new: true }
+    );
+    if (!updatedDriver) {
+      return res.status(404).json({ message: "Driver not found" });
+    }
+    const description = note || `Tip added by customer for Order #${orderId}`;
+
+    const Tip = await Transaction.create({
+      driverId,
+      orderId:order._id,
+      description,
+      amount: tip,
+      userId,
+      type: "credit",
+    });
+    return res.status(200).json({ message: "Tip Given", Tip });
+  } catch (error) {
+    console.error("Error Tipping Driver:", error);
+    return res
+      .status(500)
+      .json({
+        message: "Server error while Tipping Driver",
+        error: error.message,
+      });
   }
-}
+};
 
 exports.getDriverRating = async (req, res) => {
   try {
@@ -826,4 +851,3 @@ exports.getDriverRating = async (req, res) => {
     });
   }
 };
-

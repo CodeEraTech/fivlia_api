@@ -136,6 +136,8 @@ const {
   getEvent,
   addEvent,
   editEvent,
+  addDownloadAppPages,
+  getDownloadAppPages
 } = require("../controlers/controlers");
 
 const {
@@ -157,6 +159,7 @@ const {
   getNotification,
   bulkOrder,
   getBulkOrders,
+  markAllRead
 } = require("../controlers/orderControler");
 
 const {
@@ -411,6 +414,10 @@ router.get("/getBulkOrders", getBulkOrders);
 router.get("/getdeliveryStatus", getdeliveryStatus);
 router.get("/GetSubSubCategories/:subcatId", GetSubSubCategories);
 router.get("/GetSubCategories/:categoryId", GetSubCategories);
+
+router.post("/addDownloadAppPages", upload, addDownloadAppPages);
+router.get("/getDownloadAppPages", getDownloadAppPages);
+
 router.get("/getBlog", getBlog);
 router.post("/addBlog", upload, addBlog);
 router.put("/editBlog/:id", upload, editBlog);
@@ -457,6 +464,7 @@ router.delete("/deletePage/:id", deletePage);
 router.put("/editPage/:id", editPage);
 router.put("/updatePageStatus/:id", updatePageStatus);
 router.put("/editNotification/:id", upload, editNotification);
+router.put("/markAllRead", markAllRead);
 router.delete("/deleteNotification/:id", deleteNotification);
 router.put("/setCommison", setCommison);
 

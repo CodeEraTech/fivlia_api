@@ -642,11 +642,11 @@ exports.verifyOtpSeller = async (req, res) => {
     }
     // ======================= LOGIN FLOW =======================
     if (type === "login") {
-      if (!deviceId || !deviceType) {
-        return res
-          .status(400)
-          .json({ message: "Device information is required" });
-      }
+      // if (!deviceId || !deviceType) {
+      //   return res
+      //     .status(400)
+      //     .json({ message: "Device information is required" });
+      // }
 
       const sellerDoc = await seller.findOne({
         $or: [{ PhoneNumber }, { email }],

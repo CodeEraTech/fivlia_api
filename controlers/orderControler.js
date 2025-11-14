@@ -18,6 +18,7 @@ const Store = require("../modals/store");
 const DriverRating = require("../modals/DriverRating");
 const { getStoresWithinRadius } = require("../config/google");
 const { sellerSocketMap, adminSocketMap } = require("../utils/driverSocketMap");
+const { sendAdminNotification } = require("../utils/sendAdminNotification");
 const {
   generateAndSendThermalInvoice,
   generateStoreInvoiceId,
@@ -62,11 +63,13 @@ const repeatNotifyStore = async (orderId, storeDoc, attempt = 1) => {
 
     // Schedule next retry if not accepted yet
     // if (attempt < MAX_ATTEMPTS) {
-      setTimeout(() => repeatNotifyStore(orderId, storeDoc, attempt + 1), RETRY_INTERVAL);
+    setTimeout(
+      () => repeatNotifyStore(orderId, storeDoc, attempt + 1),
+      RETRY_INTERVAL
+    );
     // } else {
     //   console.log(`🚫 Max retries reached for order ${orderId}`);
     // }
-
   } catch (err) {
     console.error(`Error in repeatNotifyStore:`, err);
   }
@@ -118,9 +121,11 @@ const notifySeller = async (
           sellerDoc.devices = sellerDoc.devices?.filter(
             (d) => d.fcmToken !== token
           );
-          await sellerDoc.save().catch(() =>
-            console.warn("Failed to remove invalid token from sellerDoc")
-          );
+          await sellerDoc
+            .save()
+            .catch(() =>
+              console.warn("Failed to remove invalid token from sellerDoc")
+            );
         }
       }
     }
@@ -128,7 +133,6 @@ const notifySeller = async (
     console.error("notifySeller error:", error.message || error);
   }
 };
-
 
 exports.placeOrder = async (req, res) => {
   try {
@@ -279,6 +283,21 @@ exports.placeOrder = async (req, res) => {
           console.log(`👑 Sent new order to admin`);
         }
       }
+      sendAdminNotification({
+        title: `New Order #${newOrder.orderId}`,
+        description: `Order worth ₹${newOrder.totalPrice} placed from store ${
+          sellerDoc.storeName || ""
+        }`,
+        type: "order",
+        image: sellerDoc?.image || "",
+        screen:'/orders',
+        city: sellerDoc?.city || "",
+        data: {
+          orderId: newOrder.orderId,
+          storeId: sellerDoc._id,
+          totalPrice: newOrder.totalPrice,
+        },
+      });
 
       return res
         .status(200)
@@ -924,7 +943,7 @@ exports.driver = async (req, res) => {
     const address = JSON.parse(req.body.address);
 
     const mobileNumber = address?.mobileNo;
-    
+
     const existingDriver = await driver.findOne({
       $or: [
         { email },
@@ -984,7 +1003,9 @@ exports.driver = async (req, res) => {
 
 exports.getDriver = async (req, res) => {
   try {
-    const Driver = await driver.find({approveStatus:{$ne:"pending_admin_approval"}}).lean();
+    const Driver = await driver
+      .find({ approveStatus: { $ne: "pending_admin_approval" } })
+      .lean();
 
     const ratings = await DriverRating.aggregate([
       {
@@ -1007,7 +1028,7 @@ exports.getDriver = async (req, res) => {
       averageRating: ratingMap[d._id.toString()] || 0,
     }));
 
-    return res.status(200).json({ message: "Drivers", Driver:updatedDrivers });
+    return res.status(200).json({ message: "Drivers", Driver: updatedDrivers });
   } catch (error) {
     console.error(error);
     return res
@@ -1080,7 +1101,12 @@ exports.editDriver = async (req, res) => {
 
 exports.getNotification = async (req, res) => {
   try {
-    const notifications = await Notification.find().sort({ createdAt: -1 });
+    const {type} = req.query
+    if (type === 'admin'){
+    const notifications = await Notification.find({type: { $ne: "general" } }).sort({ createdAt: -1 });
+    return res.status(200).json({ message: "✅ Notifications", notifications });
+    }
+    const notifications = await Notification.find({type:"general"}).sort({ createdAt: -1 });
     return res.status(200).json({ message: "✅ Notifications", notifications });
   } catch (error) {
     console.error("❌ Get Notification Error:", error);
@@ -1237,5 +1263,19 @@ exports.getBulkOrders = async (req, res) => {
       message: "Something went wrong",
       error: error.message,
     });
+  }
+};
+
+exports.markAllRead = async (req, res) => {
+  try {
+    await Notification.updateMany(
+      { type: { $ne: "general" }, isRead: false },
+      { $set: { isRead: true } }
+    );
+
+    return res.status(200).json({ message: "Marked all read" });
+  } catch (error) {
+    console.error("Mark read error:", error);
+    res.status(500).json({ message: "Failed" });
   }
 };

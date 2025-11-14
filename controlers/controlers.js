@@ -1,5 +1,6 @@
 const Intro = require('../modals/intro')
 const Event = require('../modals/event')
+const DownloadApp = require('../modals/appPages')
 const moment = require("moment");
 exports.intro=async (req,res) => {
     try{
@@ -103,4 +104,26 @@ return res.status(200).json({message:"Event Edited Successfuly",newEvent})
   console.error(error);
   return res.status(500).json({message:'An Error Occured'})
 }
+}
+
+exports.addDownloadAppPages = async (req, res) => {
+  try{
+    const {stream, appName, appLink, description} = req.body
+    const appImage = `/${req.files.image?.[0].key}`
+    const newApp = await DownloadApp.create({appImage, stream, appName, appLink, description})
+    return res.status(200).json({message:'App page created', newApp})
+  }catch(error){
+    console.error(error)
+    return res.status(500).json({message:'Server Error'})
+  }
+}
+
+exports.getDownloadAppPages = async (req, res) => {
+  try{
+    const Apps = await DownloadApp.find()
+    return res.json(Apps)
+  }catch(error){
+    console.error(error)
+    return res.status(500).json({message:'Server Error'})
+  }
 }

@@ -84,14 +84,13 @@ const storeScheema = new mongoose.Schema(
     sellerSignature: { type: String },
     devices: [
       {
-        deviceId: { type: String, required: true }, // unique device UUID from client
+        deviceId: { type: String }, // unique device UUID from client
         deviceType: {
           type: String,
-          enum: ["mobile", "tablet", "laptop"],
-          required: true,
+          enum: ["mobile", "tablet", "laptop"]
         },
         fcmToken: { type: String },
-        jwtToken: { type: String, required: true },
+        jwtToken: { type: String },
         createdAt: { type: Date, default: Date.now },
         lastActiveAt: { type: Date, default: Date.now },
       },

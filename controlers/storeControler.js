@@ -5,7 +5,7 @@ const admin = require("../firebase/firebase");
 const request = require("request");
 const Products = require("../modals/Product");
 const OtpModel = require("../modals/otp");
-const {sendVerificationEmail} = require("../config/nodeMailer");
+const { sendVerificationEmail } = require("../config/nodeMailer");
 const { otpTemplate } = require("../utils/emailTemplates");
 const CategoryModel = require("../modals/category");
 const { ZoneData } = require("../modals/cityZone"); // your Locations model
@@ -302,7 +302,42 @@ exports.storeEdit = async (req, res) => {
 
     // ✅ Owner info
     if (ownerName) updateObj.ownerName = ownerName;
-    if (PhoneNumber) updateObj.PhoneNumber = PhoneNumber;
+
+    // 🛑 Validate duplicate phone number when editing store
+    if (
+      PhoneNumber !== undefined &&
+      PhoneNumber !== "" &&
+      PhoneNumber !== "undefined"
+    ) {
+      const newPhone = PhoneNumber.toString().trim();
+
+      // 1️⃣ Get current store
+      const currentStore = await Store.findById(storeId).lean();
+      if (!currentStore) {
+        return res.status(404).json({ message: "Store not found" });
+      }
+
+      // 2️⃣ If phone is unchanged → allow
+      if (currentStore.PhoneNumber === newPhone) {
+        updateObj.PhoneNumber = newPhone;
+      } else {
+        // 3️⃣ If admin is trying to use another store's number → block
+        const existingStore = await Store.findOne({
+          PhoneNumber: newPhone,
+          _id: { $ne: storeId }, // exclude current store
+        });
+
+        if (existingStore) {
+          return res.status(409).json({
+            message: `Phone number ${newPhone} is already used by another store`,
+          });
+        }
+
+        // 4️⃣ Safe to update
+        updateObj.PhoneNumber = newPhone;
+      }
+    }
+
     if (email) updateObj.email = email;
     if (password) updateObj.password = password;
     if (openTime) updateObj.openTime = openTime;
@@ -311,13 +346,12 @@ exports.storeEdit = async (req, res) => {
     if (Description) updateObj.Description = Description;
     if (approveStatus) updateObj.approveStatus = approveStatus;
     if (isAssured !== undefined) {
-  updateObj.fivliaAssured = 
-    isAssured === true ||
-    isAssured === "true" ||
-    isAssured === 1 ||
-    isAssured === "1";
-}
-
+      updateObj.fivliaAssured =
+        isAssured === true ||
+        isAssured === "true" ||
+        isAssured === 1 ||
+        isAssured === "1";
+    }
 
     // ✅ Category
     if (categoryInput) {

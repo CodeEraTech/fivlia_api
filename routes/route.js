@@ -1,5 +1,6 @@
 const express = require("express");
 const upload = require("../midllerware/multer");
+const uploadCsv = require("../midllerware/csvUpload.js");
 const router = express.Router();
 const verifyToken = require("../midllerware/authToken");
 const accessKey = require("../midllerware/accessKey.js")
@@ -281,7 +282,8 @@ router.post("/bulkOrder/:productId", verifyToken, bulkOrder);
 router.post("/verifyPayment", verifyPayment);
 router.post("/filter", filter);
 router.post("/createStore", upload, createStore);
-router.post("/Product/bulk", upload, bulkProductUpload),
+router.post("/Product/bulk", uploadCsv, bulkProductUpload);
+
 router.put("/adminSetting", upload, adminSetting);
 router.post("/addFilter", addFilter);
 router.post("/address", verifyToken, addAddress);

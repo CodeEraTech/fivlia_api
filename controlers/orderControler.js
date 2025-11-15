@@ -801,6 +801,7 @@ exports.orderStatus = async (req, res) => {
         await Order.findByIdAndUpdate(updatedOrder._id, {
           storeInvoiceId,
           feeInvoiceId,
+          deliverBy:'admin',
           deliverStatus: true,
         });
 
@@ -1004,7 +1005,7 @@ exports.driver = async (req, res) => {
 exports.getDriver = async (req, res) => {
   try {
     const Driver = await driver
-      .find({ approveStatus: { $ne: "pending_admin_approval" } })
+      .find({ approveStatus: { $nin: ["pending_admin_approval", "rejected"] } })
       .lean();
 
     const ratings = await DriverRating.aggregate([

@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { generateSKU } = require("../config/counter");
 const admin = require("../firebase/firebase");
 const Products = require("../modals/Product");
 const Attribute = require("../modals/attribute");
@@ -17,6 +18,9 @@ const moment = require("moment-timezone");
 const Stock = require("../modals/StoreStock");
 const Rating = require("../modals/rating");
 const path = require("path");
+const csv = require("csv-parser");
+const fs = require("fs");
+const { fetchAndUploadImage } = require("../utils/fetchProductImage");
 
 exports.addAtribute = async (req, res) => {
   try {
@@ -933,7 +937,9 @@ exports.searchProduct = async (req, res) => {
       }
     }
 
-    const categoryArray = [...allCategoryIds].map((id) => new mongoose.Types.ObjectId(id));
+    const categoryArray = [...allCategoryIds].map(
+      (id) => new mongoose.Types.ObjectId(id)
+    );
 
     // 6️⃣ Fetch stock from allowed stores
     const stockDocs = await Stock.find({
@@ -949,7 +955,9 @@ exports.searchProduct = async (req, res) => {
 
     // Only products that have stock
     const stockProductIds = new Set(
-      stockDocs.flatMap((doc) => (doc.stock || []).map((item) => item.productId.toString()))
+      stockDocs.flatMap((doc) =>
+        (doc.stock || []).map((item) => item.productId.toString())
+      )
     );
 
     // 5️⃣ Build aggregation pipeline using Atlas Search if name exists
@@ -960,9 +968,27 @@ exports.searchProduct = async (req, res) => {
           index: "product_search",
           compound: {
             should: [
-              { autocomplete: { query: name, path: "productName", fuzzy: { maxEdits: 1, prefixLength: 2, maxExpansions: 50 } } },
-              { autocomplete: { query: name, path: "brand_Name.name", fuzzy: { maxEdits: 1, prefixLength: 2, maxExpansions: 50 } } },
-              { autocomplete: { query: name, path: "description", fuzzy: { maxEdits: 1, prefixLength: 2, maxExpansions: 50 } } },
+              {
+                autocomplete: {
+                  query: name,
+                  path: "productName",
+                  fuzzy: { maxEdits: 1, prefixLength: 2, maxExpansions: 50 },
+                },
+              },
+              {
+                autocomplete: {
+                  query: name,
+                  path: "brand_Name.name",
+                  fuzzy: { maxEdits: 1, prefixLength: 2, maxExpansions: 50 },
+                },
+              },
+              {
+                autocomplete: {
+                  query: name,
+                  path: "description",
+                  fuzzy: { maxEdits: 1, prefixLength: 2, maxExpansions: 50 },
+                },
+              },
             ],
           },
         },
@@ -972,7 +998,11 @@ exports.searchProduct = async (req, res) => {
     pipeline.push({
       $match: {
         online_visible: true,
-        _id: { $in: Array.from(stockProductIds).map((id) => new mongoose.Types.ObjectId(id)) },
+        _id: {
+          $in: Array.from(stockProductIds).map(
+            (id) => new mongoose.Types.ObjectId(id)
+          ),
+        },
         $or: [
           { "category._id": { $in: categoryArray } },
           { "subCategory._id": { $in: categoryArray } },
@@ -1419,24 +1449,108 @@ exports.filter = async (req, res) => {
 
 exports.bulkProductUpload = async (req, res) => {
   try {
-    const products = req.body;
-
-    if (!Array.isArray(products)) {
+    if (!req.file.mimetype.includes("csv")) {
       return res
         .status(400)
-        .json({ message: "Invalid format: Expected an array of products" });
+        .json({ message: "Please upload a valid CSV file" });
     }
 
-    const createdProducts = await Products.insertMany(products);
-    res.status(201).json({
-      message: "Products uploaded successfully",
-      count: createdProducts.length,
-    });
+    const rows = [];
+    fs.createReadStream(req.file.path)
+      .pipe(csv())
+      .on("data", (row) => rows.push(row))
+      .on("end", async () => {
+        let duplicates = 0;
+        const finalProducts = [];
+
+        // Load all existing names
+        const existingNames = new Set(
+          (await Products.find({}, "productName")).map((p) =>
+            (p.productName || "").toLowerCase()
+          )
+        );
+
+        for (let r of rows) {
+          // Normalize CSV keys (remove spaces, lowercase)
+          const normalizedRow = {};
+          for (let key in r) {
+            const cleanKey = key.toString().trim().toLowerCase();
+            normalizedRow[cleanKey] = r[key];
+          }
+
+          // Now safely read fields
+          const name = normalizedRow["name"]?.trim();
+          const tax = normalizedRow["tax"];
+          const mrp = normalizedRow["mrp"];
+          const price = normalizedRow["price"];
+          const isVeg = normalizedRow["isveg"] || normalizedRow["is_veg"];
+
+          // Skip invalid row
+          if (!name) continue;
+
+          // Skip duplicates
+          if (existingNames.has(name.toLowerCase())) {
+            duplicates++;
+            continue;
+          }
+          existingNames.add(name.toLowerCase());
+          // Fetch image
+          const imagePath = await fetchAndUploadImage(name);
+          const lastProduct = await Products.findOne({
+            sku: { $regex: /^FIV\d+$/ },
+          })
+            .sort({ createdAt: -1 })
+            .lean();
+
+          let nextNumber = 1;
+          if (lastProduct?.sku) {
+            const lastNumber = parseInt(lastProduct.sku.replace("FIV", ""), 10);
+            nextNumber = lastNumber + 1;
+          }
+
+          const sku = await generateSKU();
+
+          // Build product object exactly matching your schema
+          const product = {
+            productName: name,
+            productImageUrl: [imagePath],
+            productThumbnailUrl: imagePath,
+            isVeg: r.isVeg,
+            sku,
+            tax: String(r.tax),
+            variants: [
+              {
+                sell_price: Number(r.price),
+                mrp: Number(r.mrp),
+                image: imagePath,
+              },
+            ],
+          };
+
+          finalProducts.push(product);
+        }
+        // Insert in MongoDB in batches
+        const batchSize = 500;
+        for (let i = 0; i < finalProducts.length; i += batchSize) {
+          await Products.insertMany(finalProducts.slice(i, i + batchSize));
+        }
+
+        // Remove uploaded CSV
+        fs.unlinkSync(req.file.path);
+
+        res.status(201).json({
+          message: "Bulk upload complete",
+          added: finalProducts.length,
+          duplicates,
+          totalRows: rows.length,
+        });
+      });
   } catch (err) {
-    console.error(err);
+    console.error("Bulk upload error:", err);
     res.status(500).json({ message: "Bulk upload failed", error: err.message });
   }
 };
+
 exports.deleteProduct = async (req, res) => {
   try {
     const { id } = req.params;
@@ -2441,7 +2555,10 @@ exports.getSingleProduct = async (req, res) => {
     const { latitude: userLat, longitude: userLng } = user.location;
 
     // ✅ Step 2: Get stores near user
-    const { matchedStores = [] } = await getStoresWithinRadius(userLat, userLng);
+    const { matchedStores = [] } = await getStoresWithinRadius(
+      userLat,
+      userLng
+    );
     if (!matchedStores.length) {
       return res.status(200).json({
         message: "No stores near your location",
@@ -2450,11 +2567,13 @@ exports.getSingleProduct = async (req, res) => {
     }
 
     const allowedStoreIds = matchedStores.map((s) => s._id.toString());
-    const storeMap = Object.fromEntries(matchedStores.map((s) => [s._id.toString(), s]));
+    const storeMap = Object.fromEntries(
+      matchedStores.map((s) => [s._id.toString(), s])
+    );
 
     // ✅ Step 3: Find product (by ID or slug)
-   
-      product = await Products.findOne({ slug: slug }).lean();
+
+    product = await Products.findOne({ slug: slug }).lean();
 
     if (!product) {
       return res.status(404).json({ message: "Product not found" });

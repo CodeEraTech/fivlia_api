@@ -152,6 +152,15 @@ exports.driverOrderStatus = async (req, res) => {
     }
 
     if (orderStatus === "Delivered") {
+      if (updatedOrder.deliverStatus) {
+        console.log(
+          `Order ${updatedOrder.orderId} already processed for delivery.`
+        );
+      } 
+      else {
+        console.log(
+          `Processing delivery logic for order ${updatedOrder.orderId}...`
+        );
       let feeInvoiceId = await FeeInvoiceId(true);
       const otpRecord = await OtpModel.findOne({ orderId, otp });
       if (!otpRecord) {
@@ -186,7 +195,6 @@ exports.driverOrderStatus = async (req, res) => {
         { $inc: { wallet: creditToStore } },
         { new: true }
       );
-
       // ===> Update Store Transaction
       const data = await store_transaction.create({
         currentAmount: storeData.wallet,
@@ -226,7 +234,7 @@ exports.driverOrderStatus = async (req, res) => {
 
       const statusUpdate = await Order.findOneAndUpdate(
         { orderId },
-        { orderStatus, storeInvoiceId, feeInvoiceId, deliverStatus: true },
+        { orderStatus,deliverBy:'Driver', storeInvoiceId, feeInvoiceId, deliverStatus: true },
         { new: true }
       );
 
@@ -245,7 +253,7 @@ exports.driverOrderStatus = async (req, res) => {
       } catch (error) {
         console.error("Error generating thermal invoice:", error);
       }
-
+    
       if (user?.fcmToken) {
         try {
           await admin.messaging().send({
@@ -301,6 +309,7 @@ exports.driverOrderStatus = async (req, res) => {
         statusUpdate,
       });
     }
+    }
 
     // ===> Other status update (fallback)
     const statusUpdate = await Order.findOneAndUpdate(
@@ -317,6 +326,7 @@ exports.driverOrderStatus = async (req, res) => {
     console.error(error);
     return res.status(500).json({ message: "An error occurred" });
   }
+  
 };
 
 exports.acceptedOrder = async (req, res) => {

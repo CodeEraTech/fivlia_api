@@ -61,4 +61,15 @@ async function getNextDriverId(increment = true) {
   }
 }
 
-module.exports = { getNextOrderId,FeeInvoiceId,requestId,getNextDriverId };
+
+async function generateSKU() {
+  const counter = await Counter.findOneAndUpdate(
+    { _id: "product_sku" },
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true }
+  );
+
+  return `FIV${String(counter.seq).padStart(3, "0")}`;
+}
+
+module.exports = { getNextOrderId,FeeInvoiceId,requestId,getNextDriverId,generateSKU };

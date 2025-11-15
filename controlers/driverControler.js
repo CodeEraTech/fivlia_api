@@ -735,9 +735,9 @@ exports.tipDriver = async (req, res) => {
   try {
     const { driverId, orderId, note, tip, userId } = req.body;
     
-    if(tip == 0) {
-      return res.status(400).json({ message: "Tip must be greater than 0" });
-    }
+    // if(tip == 0) {
+    //   return res.status(400).json({ message: "Tip must be greater than 0" });
+    // }
     const order = await Order.findOne({orderId})
     const updatedDriver = await driver.findByIdAndUpdate(driverId,
       { $inc: { wallet: tip } },

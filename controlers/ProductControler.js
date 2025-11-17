@@ -1480,6 +1480,7 @@ exports.bulkProductUpload = async (req, res) => {
 
           // Now safely read fields
           const name = normalizedRow["name"]?.trim();
+          const description = normalizedRow["description"];
           const tax = normalizedRow["tax"];
           const mrp = normalizedRow["mrp"];
           const price = normalizedRow["price"];
@@ -1513,6 +1514,7 @@ exports.bulkProductUpload = async (req, res) => {
           // Build product object exactly matching your schema
           const product = {
             productName: name,
+            description: r.description,
             productImageUrl: [imagePath],
             productThumbnailUrl: imagePath,
             isVeg: r.isVeg,

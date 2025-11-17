@@ -1870,13 +1870,39 @@ exports.addCharity = async (req, res) => {
     });
   }
 }
+exports.getCharity = async (req, res) => {
+  try {
+    const { id } = req.query;
+
+    let data = [];
+
+    if (id) {
+      // If id is passed, get a single charity
+      data = await Charity.findById(id);
+    } else {
+      // Otherwise return all charities
+      data = await Charity.find();
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Charity data fetched successfully",
+      data: data,
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
 
 exports.createCharityContent = async (req, res) => {
     try {
         let data = req.body;
-
         if (req.files?.image) {
-            data.image = `/${req.files.image[0].path}`;
+            data.image = `/${req.files.image[0].key}`;
         }
         if (req.files?.MultipleImage) {
             data.gallery = req.files.MultipleImage.map(file => `/${file.key}`);
@@ -1952,4 +1978,15 @@ exports.updateCharityContent = async (req, res) => {
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }
+};
+
+exports.deleteCharityContent = async (req, res) => {
+  try {
+    const deleted = await CharityContent.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ success: false, message: 'Not found' });
+    return res.status(200).json({ success: true, message: 'Deleted' });
+  } catch (err) {
+    console.error('deleteCharityContent error:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
 };

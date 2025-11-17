@@ -34,6 +34,8 @@ const {
   addCharity,
   createCharityContent,
   getCharityContent,
+  getCharity,
+  deleteCharityContent,
   updateCharityContent
 } = require("../controlers/websiteapicontroler");
 
@@ -428,6 +430,9 @@ router.get("/getCharityContent", getCharityContent);
 
 router.post("/addDownloadAppPages", upload, addDownloadAppPages);
 router.get("/getDownloadAppPages", getDownloadAppPages);
+router.get("/getCharity", getCharity);
+
+router.delete("/deleteCharityContent", deleteCharityContent);
 
 router.get("/getBlog", getBlog);
 router.post("/addBlog", upload, addBlog);

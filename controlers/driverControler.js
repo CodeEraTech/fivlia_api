@@ -733,11 +733,12 @@ exports.saveDriverRating = async (req, res) => {
 
 exports.tipDriver = async (req, res) => {
   try {
-    const { driverId, orderId, note, tip, userId } = req.body;
+    const { driverId, orderId, note, tip, userId,type } = req.body;
     
-    // if(tip == 0) {
-    //   return res.status(400).json({ message: "Tip must be greater than 0" });
-    // }
+    if(type === 'instruction') {
+      const order = await Order.findOneAndUpdate({ orderId: orderId },{note},{ new: true })
+      return res.status(200).json({ message: "Instruction Given" });
+    }
     const order = await Order.findOne({orderId})
     const updatedDriver = await driver.findByIdAndUpdate(driverId,
       { $inc: { wallet: tip } },

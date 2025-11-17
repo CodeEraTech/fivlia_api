@@ -22,6 +22,7 @@ items: [
  deliveryPayout:Number,
  transactionId:String,
  deliverBy:String,
+ note:String,
  driver:{driverId:String,name:String,mobileNumber:String},
  deliverStatus:{type:Boolean,default:false}
 },{timestamps:true});

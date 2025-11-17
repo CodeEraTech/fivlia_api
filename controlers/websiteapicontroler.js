@@ -24,6 +24,8 @@ const { contactUsTemplate } = require("../utils/emailTemplates");
 const Blog = require("../modals/blog");
 const MapUsage = require("../modals/mapUsage");
 const haversine = require("haversine-distance");
+const Charity = require('../modals/Charity')
+const CharityContent = require('../modals/charityContent')
 
 exports.forwebbestselling = async (req, res) => {
   try {
@@ -1852,4 +1854,102 @@ exports.forwebGetSingleProduct = async (req, res) => {
       error: error.message,
     });
   }
+};
+
+exports.addCharity = async (req, res) => {
+  try{
+    const {title,shortDescription,content} = req.body
+    const image = `/${req.files.image[0].key}`
+    const newCharity = await Charity.create({title,shortDescription,content,image})
+    return res.status(200).json({message:'Sucessful',newCharity});
+  }catch(error){
+    console.error("❌Error in adding charity:", error);
+    return res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
+  }
+}
+
+exports.createCharityContent = async (req, res) => {
+    try {
+        let data = req.body;
+
+        if (req.files?.image) {
+            data.image = `/${req.files.image[0].path}`;
+        }
+        if (req.files?.MultipleImage) {
+            data.gallery = req.files.MultipleImage.map(file => `/${file.key}`);
+        }
+
+        const content = await CharityContent.create(data);
+
+        res.status(201).json({
+            success: true,
+            message: "Content created successfully",
+            data: content
+        });
+
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+exports.getCharityContent = async (req, res) => {
+    try {
+        const { slug, categoryId } = req.query;
+
+        let filter = {};
+        if (slug) filter.slug = slug;
+        if (categoryId) filter.categoryId = categoryId;
+
+        const result = await CharityContent.find(filter)
+            .populate("categoryId", "title slug")
+            .sort({ createdAt: -1 });
+
+        res.status(200).json({
+            success: true,
+            count: result.length,
+            data: result
+        });
+
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+exports.updateCharityContent = async (req, res) => {
+    try {
+        let updates = req.body;
+
+        if (req.files?.image) {
+            updates.image = req.files.image[0].path;
+        }
+
+        if (req.files?.MultipleImage) {
+            data.gallery = req.files.MultipleImage.map(file => `/${file.key}`);
+        }
+
+        const updated = await CharityContent.findByIdAndUpdate(
+            req.params.id,
+            updates,
+            { new: true }
+        );
+
+        if (!updated) {
+            return res.status(404).json({
+                success: false,
+                message: "Content not found"
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "Content updated successfully",
+            data: updated
+        });
+
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
 };

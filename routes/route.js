@@ -31,6 +31,10 @@ const {
   editBlog,
   getBlog,
   forwebGetSingleProduct,
+  addCharity,
+  createCharityContent,
+  getCharityContent,
+  updateCharityContent
 } = require("../controlers/websiteapicontroler");
 
 const {
@@ -416,6 +420,11 @@ router.get("/getBulkOrders", getBulkOrders);
 router.get("/getdeliveryStatus", getdeliveryStatus);
 router.get("/GetSubSubCategories/:subcatId", GetSubSubCategories);
 router.get("/GetSubCategories/:categoryId", GetSubCategories);
+
+router.post("/addCharity", upload, addCharity);
+router.post("/createCharityContent", upload, createCharityContent);
+router.post("/updateCharityContent", upload, updateCharityContent);
+router.get("/getCharityContent", getCharityContent);
 
 router.post("/addDownloadAppPages", upload, addDownloadAppPages);
 router.get("/getDownloadAppPages", getDownloadAppPages);

@@ -72,4 +72,44 @@ async function generateSKU() {
   return `FIV${String(counter.seq).padStart(3, "0")}`;
 }
 
-module.exports = { getNextOrderId,FeeInvoiceId,requestId,getNextDriverId,generateSKU };
+async function getNextCategoryId(increment = true) {
+  const counter = await Counter.findOneAndUpdate(
+    { _id: 'categoryId' },
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true }
+  );
+
+  return `CAT${String(counter.seq).padStart(2, "0")}`;
+}
+
+async function getNextSubCategoryId(increment = true) {
+  const counter = await Counter.findOneAndUpdate(
+    { _id: 'subCategoryId' },
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true }
+  );
+
+  return `SUB${String(counter.seq).padStart(2, "0")}`;
+}
+
+async function getNextSubbCategoryId(increment = true) {
+  const counter = await Counter.findOneAndUpdate(
+    { _id: 'subSubCategoryId' },
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true }
+  );
+
+  return `SUBB${String(counter.seq).padStart(2, "0")}`;
+}
+
+async function getNextBrandId(increment = true) {
+  const counter = await Counter.findOneAndUpdate(
+    { _id: 'brandId' },
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true }
+  );
+
+  return `BRD${String(counter.seq).padStart(2, "0")}`;
+}
+
+module.exports = { getNextOrderId,FeeInvoiceId,requestId,getNextDriverId,generateSKU,getNextCategoryId,getNextSubCategoryId,getNextSubbCategoryId,getNextBrandId };

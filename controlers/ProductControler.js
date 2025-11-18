@@ -20,7 +20,13 @@ const Rating = require("../modals/rating");
 const path = require("path");
 const csv = require("csv-parser");
 const fs = require("fs");
-const { fetchAndUploadImage } = require("../utils/fetchProductImage");
+
+const {
+  resolveCategory,
+  downloadImageToAWS,
+  FALLBACK,
+  buildLocationArray
+} = require("../utils/ProductBulkUploadFunctions");
 
 exports.addAtribute = async (req, res) => {
   try {
@@ -1447,112 +1453,6 @@ exports.filter = async (req, res) => {
   }
 };
 
-exports.bulkProductUpload = async (req, res) => {
-  try {
-    if (!req.file.mimetype.includes("csv")) {
-      return res
-        .status(400)
-        .json({ message: "Please upload a valid CSV file" });
-    }
-
-    const rows = [];
-    fs.createReadStream(req.file.path)
-      .pipe(csv())
-      .on("data", (row) => rows.push(row))
-      .on("end", async () => {
-        let duplicates = 0;
-        const finalProducts = [];
-
-        // Load all existing names
-        const existingNames = new Set(
-          (await Products.find({}, "productName")).map((p) =>
-            (p.productName || "").toLowerCase()
-          )
-        );
-
-        for (let r of rows) {
-          // Normalize CSV keys (remove spaces, lowercase)
-          const normalizedRow = {};
-          for (let key in r) {
-            const cleanKey = key.toString().trim().toLowerCase();
-            normalizedRow[cleanKey] = r[key];
-          }
-
-          // Now safely read fields
-          const name = normalizedRow["name"]?.trim();
-          const description = normalizedRow["description"];
-          const tax = normalizedRow["tax"];
-          const mrp = normalizedRow["mrp"];
-          const price = normalizedRow["price"];
-          const isVeg = normalizedRow["isveg"] || normalizedRow["is_veg"];
-
-          // Skip invalid row
-          if (!name) continue;
-
-          // Skip duplicates
-          if (existingNames.has(name.toLowerCase())) {
-            duplicates++;
-            continue;
-          }
-          existingNames.add(name.toLowerCase());
-          // Fetch image
-          const imagePath = await fetchAndUploadImage(name);
-          const lastProduct = await Products.findOne({
-            sku: { $regex: /^FIV\d+$/ },
-          })
-            .sort({ createdAt: -1 })
-            .lean();
-
-          let nextNumber = 1;
-          if (lastProduct?.sku) {
-            const lastNumber = parseInt(lastProduct.sku.replace("FIV", ""), 10);
-            nextNumber = lastNumber + 1;
-          }
-
-          const sku = await generateSKU();
-
-          // Build product object exactly matching your schema
-          const product = {
-            productName: name,
-            description: r.description,
-            productImageUrl: [imagePath],
-            productThumbnailUrl: imagePath,
-            isVeg: r.isVeg,
-            sku,
-            tax: String(r.tax),
-            variants: [
-              {
-                sell_price: Number(r.price),
-                mrp: Number(r.mrp),
-                image: imagePath,
-              },
-            ],
-          };
-
-          finalProducts.push(product);
-        }
-        // Insert in MongoDB in batches
-        const batchSize = 500;
-        for (let i = 0; i < finalProducts.length; i += batchSize) {
-          await Products.insertMany(finalProducts.slice(i, i + batchSize));
-        }
-
-        // Remove uploaded CSV
-        fs.unlinkSync(req.file.path);
-
-        res.status(201).json({
-          message: "Bulk upload complete",
-          added: finalProducts.length,
-          duplicates,
-          totalRows: rows.length,
-        });
-      });
-  } catch (err) {
-    console.error("Bulk upload error:", err);
-    res.status(500).json({ message: "Bulk upload failed", error: err.message });
-  }
-};
-
 exports.deleteProduct = async (req, res) => {
   try {
     const { id } = req.params;
@@ -2715,3 +2615,186 @@ exports.getSingleProduct = async (req, res) => {
 //     return res.status(500).json({ message: "Internal server error", error: error.message });
 //   }
 // };
+
+exports.bulkProductUpload = async (req, res) => {
+  try {
+    if (!req.file || !req.file.mimetype.includes("csv")) {
+      return res
+        .status(400)
+        .json({ message: "Please upload a valid CSV file" });
+    }
+
+    const rows = [];
+    fs.createReadStream(req.file.path)
+      .pipe(csv())
+      .on("data", (row) => rows.push(row))
+      .on("end", async () => {
+        let duplicates = 0;
+        const finalProducts = [];
+
+        // PREVIEW SUMMARY
+        const preview = {
+          invalidImages: [],
+          invalidCategories: [],
+          invalidBrands: [],
+          skipped: [],
+        };
+
+        // load existing names
+        const existingNames = new Set(
+          (await Products.find({}, "productName")).map((p) =>
+            (p.productName || "").toLowerCase()
+          )
+        );
+
+        let rowNumber = 1;
+        const zoneData = await ZoneData.find().lean();
+
+        for (const r of rows) {
+          const n = {};
+          for (let key in r) n[key.trim().toLowerCase()] = r[key];
+
+          const productName = n["productname"];
+          if (!productName) {
+            preview.skipped.push({
+              row: rowNumber,
+              reason: "missing_productname",
+            });
+            rowNumber++;
+            continue;
+          }
+
+          // duplicate check
+          if (existingNames.has(productName.toLowerCase())) {
+            duplicates++;
+            preview.skipped.push({
+              row: rowNumber,
+              productName,
+              reason: "duplicate_name",
+            });
+            rowNumber++;
+            continue;
+          }
+          existingNames.add(productName.toLowerCase());
+
+          // CATEGORY
+          const categoryInfo = await resolveCategory(n["category"]);
+          if (!categoryInfo.valid) {
+            preview.invalidCategories.push({
+              row: rowNumber,
+              productName,
+              category: n["category"],
+            });
+
+            preview.skipped.push({
+              row: rowNumber,
+              productName,
+              reason: "category_invalid",
+            });
+
+            rowNumber++;
+            continue;
+          }
+
+          // BRAND
+          const brandObj = await brand
+            .findOne({
+              brandId: n["brand"],
+            })
+            .lean();
+
+          if (!brandObj) {
+            preview.invalidBrands.push({
+              row: rowNumber,
+              productName,
+              brand: n["brand"],
+            });
+
+            preview.skipped.push({
+              row: rowNumber,
+              productName,
+              reason: "brand_not_found",
+            });
+
+            rowNumber++;
+            continue;
+          }
+
+          // IMAGE
+          const imgUrl = n["image"];
+          const img = await downloadImageToAWS(imgUrl);
+
+          if (img === FALLBACK) {
+            preview.invalidImages.push({
+              row: rowNumber,
+              productName,
+              imageUrl: imgUrl,
+              fallbackUsed: true,
+            });
+          }
+
+          // SKU
+          const sku = await generateSKU();
+
+          finalProducts.push({
+            productName,
+            sku,
+            category: categoryInfo.categoryArr,
+            subCategory: categoryInfo.subCategoryArr,
+            subSubCategory: categoryInfo.subSubCategoryArr,
+            brand_Name: brandObj
+              ? { _id: brandObj._id, name: brandObj.brandName }
+              : null,
+            productImageUrl: [img],
+            productThumbnailUrl: img,
+            mrp: Number(n["mrp"]) || 0,
+            sell_price: Number(n["price"]) || 0,
+            tax: n["tax"] || "0",
+            feature_product: Number(n["featureproduct"]) === 1,
+            isVeg: Number(n["isveg"]) || 0,
+            location: buildLocationArray(zoneData),
+            returnProduct: {
+              title: n["return policy"] || "",
+            },
+            description: n["description"] || "",
+            variants: [
+              {
+                sell_price: Number(n["price"]) || 0,
+                mrp: Number(n["mrp"]) || 0,
+                image: img,
+              },
+            ],
+          });
+
+          rowNumber++;
+        }
+
+        // insert in MongoDB batches
+        const batchSize = 500;
+        for (let i = 0; i < finalProducts.length; i += batchSize) {
+          await Products.insertMany(finalProducts.slice(i, i + batchSize));
+        }
+
+        // cleanup CSV
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (e) {
+          console.log("⚠ Failed to delete temp CSV:", e.message);
+        }
+
+        res.status(201).json({
+          message: "Bulk upload complete",
+          added: finalProducts.length,
+          duplicates,
+          totalRows: rows.length,
+          preview,
+        });
+      });
+  } catch (err) {
+    console.error("Bulk upload error:", err);
+    res.status(500).json({
+      message: "Bulk upload failed",
+      error: err.message,
+    });
+  }
+};

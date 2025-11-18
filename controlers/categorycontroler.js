@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const {getNextCategoryId,getNextSubCategoryId,getNextSubbCategoryId,getNextBrandId} = require("../config/counter");
 const Category = require("../modals/category");
 const Banner = require("../modals/banner");
 const Store = require("../modals/store");
@@ -736,8 +737,10 @@ exports.brand = async (req, res) => {
 
       return res.status(400).json({ message: "Image is required" });
     }
+    const brandId = await getNextBrandId()
     const newBrand = await brand.create({
       brandName,
+      brandId,
       brandLogo: image,
       description,
       featured,
@@ -830,7 +833,7 @@ exports.getBrand = async (req, res) => {
     }
 
     // 🔁 For all brands (no products or stock)
-    const brands = await brand.find({}).lean();
+    const brands = await brand.find({}).sort({ createdAt: -1 }).lean();
 
     const allBrands = [];
     const featuredBrands = [];
@@ -1137,9 +1140,11 @@ exports.addMainCategory = async (req, res) => {
     const setAttributes = await Attribute.find({
       _id: { $in: attributeArray },
     });
+    const categoryId = await getNextCategoryId();
 
     const newCategory = new Category({
       name,
+      categoryId,
       description,
       image: imagePath,
       subcat: [],
@@ -1158,6 +1163,92 @@ exports.addMainCategory = async (req, res) => {
       .json({ message: "Internal server error", error: error.message });
   }
 };
+
+exports.addSubCategory = async (req, res) => {
+  try {
+    const { name, description, mainCategoryId, attribute } = req.body;
+    const image = `/${req.files?.image?.[0]?.key}`;
+
+    // Validation
+    if (!name || !description || !image || !mainCategoryId) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+    
+    const subCategoryId = await getNextSubCategoryId();
+    // Create subcategory object
+    const newSubCategory = {
+      name,
+      subCategoryId,
+      description,
+      image,
+      status: true,
+      attribute: attribute ? JSON.parse(attribute) : [],
+    };
+
+    // Update the main category
+    const result = await Category.findByIdAndUpdate(
+      mainCategoryId,
+      { $push: { subcat: newSubCategory } },
+      { new: true }
+    );
+
+    // Success response
+    return res.status(200).json({
+      message: "Sub Category added",
+      subCategoryId: newSubCategory._id,
+      result
+    });
+  } catch (error) {
+    console.error("Error adding subcategory:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+exports.addSubSubCategory = async (req, res) => {
+  try {
+    const { subCategoryId, name, description, attribute } = req.body;
+
+    const image = `/${req.files.image[0].key}`;
+    
+    if (!subCategoryId || !name || !description || !image) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    // Custom ID (SUBB01, SUBB02...)
+    const subSubCategoryId = await getNextSubbCategoryId();
+
+    const newSubSubCategory = {
+      subSubCategoryId, // Your custom ID
+      name,
+      description,
+      image,
+      status: true,
+      attribute: attribute ? JSON.parse(attribute) : [],
+    };
+
+    const update = await Category.findOneAndUpdate(
+      {"subcat._id":subCategoryId},
+      { $push: { "subcat.$.subsubcat": newSubSubCategory } },
+      { new: true }
+    );
+
+    return res.status(201).json({
+      message: "Sub-Sub Category added",
+      subSubCategory: newSubSubCategory,
+    });
+
+  } catch (error) {
+    console.error("Server Error:", error);
+    return res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
 
 exports.getMainCategory = async (req, res) => {
   try {

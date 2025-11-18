@@ -24,8 +24,8 @@ const { contactUsTemplate } = require("../utils/emailTemplates");
 const Blog = require("../modals/blog");
 const MapUsage = require("../modals/mapUsage");
 const haversine = require("haversine-distance");
-const Charity = require('../modals/Charity')
-const CharityContent = require('../modals/charityContent')
+const Charity = require("../modals/Charity");
+const CharityContent = require("../modals/charityContent");
 
 exports.forwebbestselling = async (req, res) => {
   try {
@@ -1449,7 +1449,9 @@ exports.getAllSellerProducts = async (req, res) => {
     const seller = await Store.findOne({ _id: id }).select(
       "storeName sellerCategories advertisementImages"
     );
-    const stockEntries = stockData.flatMap((doc) => doc.stock || []);
+    const stockEntries = stockData
+      .flatMap((doc) => doc.stock || [])
+      .filter((s) => s.quantity > 0);
 
     if (!stockData || stockData.length === 0) {
       return res
@@ -1477,6 +1479,10 @@ exports.getAllSellerProducts = async (req, res) => {
         { path: "unit", select: "name" },
       ])
       .lean();
+
+    sellerProducts.sort((a, b) =>
+      a.productName.trim().localeCompare(b.productName.trim())
+    );
 
     const productsWithStock = await Promise.all(
       sellerProducts.map(async (prod) => {
@@ -1528,11 +1534,11 @@ exports.getAllSellerProducts = async (req, res) => {
       _id: { $in: categoryIds },
     }).lean();
 
-    productsWithStock.sort((a, b) => {
-      const aQty = a.inventory?.some((i) => i.quantity > 0) ? 1 : 0;
-      const bQty = b.inventory?.some((i) => i.quantity > 0) ? 1 : 0;
-      return bQty - aQty;
-    });
+    // productsWithStock.sort((a, b) => {
+    //   const aQty = a.inventory?.some((i) => i.quantity > 0) ? 1 : 0;
+    //   const bQty = b.inventory?.some((i) => i.quantity > 0) ? 1 : 0;
+    //   return bQty - aQty;
+    // });
 
     return res.status(200).json({
       sellerImage: seller.advertisementImages?.length
@@ -1857,19 +1863,24 @@ exports.forwebGetSingleProduct = async (req, res) => {
 };
 
 exports.addCharity = async (req, res) => {
-  try{
-    const {title,shortDescription,content} = req.body
-    const image = `/${req.files.image[0].key}`
-    const newCharity = await Charity.create({title,shortDescription,content,image})
-    return res.status(200).json({message:'Sucessful',newCharity});
-  }catch(error){
+  try {
+    const { title, shortDescription, content } = req.body;
+    const image = `/${req.files.image[0].key}`;
+    const newCharity = await Charity.create({
+      title,
+      shortDescription,
+      content,
+      image,
+    });
+    return res.status(200).json({ message: "Sucessful", newCharity });
+  } catch (error) {
     console.error("❌Error in adding charity:", error);
     return res.status(500).json({
       message: "Server error",
       error: error.message,
     });
   }
-}
+};
 exports.getCharity = async (req, res) => {
   try {
     const { id } = req.query;
@@ -1889,7 +1900,6 @@ exports.getCharity = async (req, res) => {
       message: "Charity data fetched successfully",
       data: data,
     });
-
   } catch (err) {
     return res.status(500).json({
       success: false,
@@ -1899,94 +1909,92 @@ exports.getCharity = async (req, res) => {
 };
 
 exports.createCharityContent = async (req, res) => {
-    try {
-        let data = req.body;
-        if (req.files?.image) {
-            data.image = `/${req.files.image[0].key}`;
-        }
-        if (req.files?.MultipleImage) {
-            data.gallery = req.files.MultipleImage.map(file => `/${file.key}`);
-        }
-
-        const content = await CharityContent.create(data);
-
-        res.status(201).json({
-            success: true,
-            message: "Content created successfully",
-            data: content
-        });
-
-    } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
+  try {
+    let data = req.body;
+    if (req.files?.image) {
+      data.image = `/${req.files.image[0].key}`;
     }
+    if (req.files?.MultipleImage) {
+      data.gallery = req.files.MultipleImage.map((file) => `/${file.key}`);
+    }
+
+    const content = await CharityContent.create(data);
+
+    res.status(201).json({
+      success: true,
+      message: "Content created successfully",
+      data: content,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 };
 
 exports.getCharityContent = async (req, res) => {
-    try {
-        const { slug, categoryId } = req.query;
+  try {
+    const { slug, categoryId } = req.query;
 
-        let filter = {};
-        if (slug) filter.slug = slug;
-        if (categoryId) filter.categoryId = categoryId;
+    let filter = {};
+    if (slug) filter.slug = slug;
+    if (categoryId) filter.categoryId = categoryId;
 
-        const result = await CharityContent.find(filter)
-            .populate("categoryId", "title slug")
-            .sort({ createdAt: -1 });
+    const result = await CharityContent.find(filter)
+      .populate("categoryId", "title slug")
+      .sort({ createdAt: -1 });
 
-        res.status(200).json({
-            success: true,
-            count: result.length,
-            data: result
-        });
-
-    } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
-    }
+    res.status(200).json({
+      success: true,
+      count: result.length,
+      data: result,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 };
 
 exports.updateCharityContent = async (req, res) => {
-    try {
-        let updates = req.body;
+  try {
+    let updates = req.body;
 
-        if (req.files?.image) {
-            updates.image = req.files.image[0].path;
-        }
-
-        if (req.files?.MultipleImage) {
-            data.gallery = req.files.MultipleImage.map(file => `/${file.key}`);
-        }
-
-        const updated = await CharityContent.findByIdAndUpdate(
-            req.params.id,
-            updates,
-            { new: true }
-        );
-
-        if (!updated) {
-            return res.status(404).json({
-                success: false,
-                message: "Content not found"
-            });
-        }
-
-        res.status(200).json({
-            success: true,
-            message: "Content updated successfully",
-            data: updated
-        });
-
-    } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
+    if (req.files?.image) {
+      updates.image = req.files.image[0].path;
     }
+
+    if (req.files?.MultipleImage) {
+      data.gallery = req.files.MultipleImage.map((file) => `/${file.key}`);
+    }
+
+    const updated = await CharityContent.findByIdAndUpdate(
+      req.params.id,
+      updates,
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({
+        success: false,
+        message: "Content not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Content updated successfully",
+      data: updated,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 };
 
 exports.deleteCharityContent = async (req, res) => {
   try {
     const deleted = await CharityContent.findByIdAndDelete(req.params.id);
-    if (!deleted) return res.status(404).json({ success: false, message: 'Not found' });
-    return res.status(200).json({ success: true, message: 'Deleted' });
+    if (!deleted)
+      return res.status(404).json({ success: false, message: "Not found" });
+    return res.status(200).json({ success: true, message: "Deleted" });
   } catch (err) {
-    console.error('deleteCharityContent error:', err);
+    console.error("deleteCharityContent error:", err);
     return res.status(500).json({ success: false, message: err.message });
   }
 };

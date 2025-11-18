@@ -4,6 +4,7 @@ const subSubCategorySchema = new mongoose.Schema({
   name:String,
   Selection: String,
   description:String,
+  subSubCategoryId:String,
   image: String,
   attribute:[{type:String}],
   status:{type:Boolean,default:true},
@@ -14,6 +15,7 @@ const subCategorySchema = new mongoose.Schema({
   name:String,
   Selection: String,
   image: String,
+  subCategoryId:String,
   description:String,
   subsubcat:[subSubCategorySchema],
   attribute:[{type:String}],
@@ -24,6 +26,7 @@ const subCategorySchema = new mongoose.Schema({
 const categorySchema = new mongoose.Schema({
   name:String,
   Selection: String,
+  categoryId:String,
   image: String,
   description:String,
   subcat: [subCategorySchema],

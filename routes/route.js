@@ -199,6 +199,8 @@ const {
   deleteFilterVal,
   addFiltersToCategory,
   addMainCategory,
+  addSubCategory,
+  addSubSubCategory,
   getMainCategory,
   editMainCategory,
   GetSubSubCategories,
@@ -302,6 +304,8 @@ router.post("/tipDriver", tipDriver);
 router.get("/getDriverRating/:driverId", getDriverRating);
 
 router.post("/addMainCategory", upload, addMainCategory);
+router.post("/addSubCategory", upload, addSubCategory);
+router.post("/addSubSubCategory", upload, addSubSubCategory);
 
 router.post("/storeLogin", storeLogin);
 router.post("/discount", discount);

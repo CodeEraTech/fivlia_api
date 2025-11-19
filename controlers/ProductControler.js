@@ -2709,7 +2709,14 @@ exports.bulkProductUpload = async (req, res) => {
 
         for (const r of rows) {
           const n = {};
-          for (let key in r) n[key.trim().toLowerCase()] = r[key];
+          for (let key in r) {
+            let cleanKey = key
+              .split("(")[0] // take only before '('
+              .trim() // trim spaces
+              .toLowerCase(); // normalize
+
+            n[cleanKey] = r[key];
+          }
 
           const productName = n["productname"];
           if (!productName) {
@@ -2807,6 +2814,14 @@ exports.bulkProductUpload = async (req, res) => {
             });
           }
 
+          let returnPolicyValue = "";
+          if (n["return policy"] !== undefined) {
+            const rp = String(n["return policy"]).trim();
+
+            if (rp === "0") returnPolicyValue = "No Return";
+            else if (rp === "1") returnPolicyValue = "3 Day Return";
+          }
+
           // SKU
           const sku = await generateSKU();
 
@@ -2826,7 +2841,7 @@ exports.bulkProductUpload = async (req, res) => {
             isVeg: Number(n["isveg"]) || 0,
             location: buildLocationArray(zoneData),
             returnProduct: {
-              title: n["return policy"] || "",
+              title: returnPolicyValue,
             },
             description: n["description"] || "",
             variants: [

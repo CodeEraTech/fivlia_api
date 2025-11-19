@@ -1,5 +1,9 @@
 const mongoose = require("mongoose");
-const { generateSKU } = require("../config/counter");
+const {
+  generateSKU,
+  getNextAttributeId,
+  getNextVariantId,
+} = require("../config/counter");
 const admin = require("../firebase/firebase");
 const Products = require("../modals/Product");
 const Attribute = require("../modals/attribute");
@@ -25,13 +29,19 @@ const {
   resolveCategory,
   downloadImageToAWS,
   FALLBACK,
-  buildLocationArray
+  buildLocationArray,
+  resolveVariantSimple,
 } = require("../utils/ProductBulkUploadFunctions");
 
 exports.addAtribute = async (req, res) => {
   try {
     const { Attribute_name, varient } = req.body;
-    const newAttribute = await Attribute.create({ Attribute_name, varient });
+    const attributeId = await getNextAttributeId();
+    const newAttribute = await Attribute.create({
+      Attribute_name,
+      attributeId,
+      varient,
+    });
     return res.status(200).json({ message: "Attribute Created", newAttribute });
   } catch (error) {
     console.error(error);
@@ -101,6 +111,53 @@ exports.deleteAttribute = async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "An error occured" });
+  }
+};
+
+exports.AddVarient = async (req, res) => {
+  try {
+    const { id } = req.params; // attribute _id
+    const { name } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ message: "Variant name is required" });
+    }
+
+    // Find attribute
+    const attributeDoc = await Attribute.findById(id);
+    if (!attributeDoc) {
+      return res.status(404).json({ message: "Attribute not found" });
+    }
+
+    let varients = attributeDoc.varient || [];
+
+    // Check if variant already exists
+    const existingIndex = varients.findIndex(
+      (v) => v.name.toLowerCase() === name.toLowerCase()
+    );
+
+    if (existingIndex !== -1) {
+      // Update existing name
+      varients[existingIndex].name = name;
+    } else {
+      // Create NEW variant with auto-increment variantId
+      const variantId = await getNextVariantId(); // VAR01, VAR02 etc
+
+      varients.push({
+        name,
+        variantId,
+      });
+    }
+
+    // Save updates
+    await Attribute.updateOne({ _id: id }, { $set: { varient: varients } });
+
+    return res.status(200).json({
+      message: "Variant updated successfully",
+    });
+  } catch (error) {
+    console.error("AddVarient Error:", error);
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
@@ -2720,6 +2777,23 @@ exports.bulkProductUpload = async (req, res) => {
             continue;
           }
 
+          let variantData = null;
+          if (n["attribute"]) {
+            variantData = await resolveVariantSimple(n["attribute"]);
+
+            if (!variantData) {
+              preview.skipped.push({
+                row: rowNumber,
+                productName,
+                reason: "invalid_attribute_variant",
+                value: n["attribute"],
+              });
+
+              rowNumber++;
+              continue;
+            }
+          }
+
           // IMAGE
           const imgUrl = n["image"];
           const img = await downloadImageToAWS(imgUrl);
@@ -2747,10 +2821,8 @@ exports.bulkProductUpload = async (req, res) => {
               : null,
             productImageUrl: [img],
             productThumbnailUrl: img,
-            mrp: Number(n["mrp"]) || 0,
-            sell_price: Number(n["price"]) || 0,
             tax: n["tax"] || "0",
-            feature_product: Number(n["featureproduct"]) === 1,
+            feature_product: Number(n["feature product"]) === 1,
             isVeg: Number(n["isveg"]) || 0,
             location: buildLocationArray(zoneData),
             returnProduct: {
@@ -2762,6 +2834,8 @@ exports.bulkProductUpload = async (req, res) => {
                 sell_price: Number(n["price"]) || 0,
                 mrp: Number(n["mrp"]) || 0,
                 image: img,
+                attributeName: variantData ? variantData.attributeName : "",
+                variantValue: variantData ? variantData.variantValue : "",
               },
             ],
           });

@@ -217,6 +217,7 @@ const {
   searchProduct,
   bestSelling,
   editAttributes,
+  AddVarient,
   unit,
   getUnit,
   getVarients,
@@ -283,6 +284,7 @@ router.post("/intro", upload, intro);
 router.post("/banner", upload, banner);
 router.post("/brand", upload, brand);
 router.post("/addAtribute", addAtribute);
+router.put("/addVarient/:id", AddVarient);
 router.post("/unit", unit);
 router.post("/addCart", upload, verifyToken, addCart);
 router.post("/placeOrder", placeOrder);

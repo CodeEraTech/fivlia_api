@@ -112,4 +112,24 @@ async function getNextBrandId(increment = true) {
   return `BRD${String(counter.seq).padStart(2, "0")}`;
 }
 
-module.exports = { getNextOrderId,FeeInvoiceId,requestId,getNextDriverId,generateSKU,getNextCategoryId,getNextSubCategoryId,getNextSubbCategoryId,getNextBrandId };
+async function getNextAttributeId(increment = true) {
+  const counter = await Counter.findOneAndUpdate(
+    { _id: 'attributeId' },
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true }
+  );
+
+  return `ATR${String(counter.seq).padStart(2, "0")}`;
+}
+
+async function getNextVariantId(increment = true) {
+  const counter = await Counter.findOneAndUpdate(
+    { _id: 'variantId' },
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true }
+  );
+
+  return `VAR${String(counter.seq).padStart(2, "0")}`;
+}
+
+module.exports = { getNextOrderId,FeeInvoiceId,requestId,getNextDriverId,generateSKU,getNextCategoryId,getNextSubCategoryId,getNextSubbCategoryId,getNextBrandId,getNextAttributeId,getNextVariantId };

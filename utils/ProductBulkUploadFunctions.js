@@ -1,5 +1,5 @@
 // ProductBulkUploadFunctions.js
-
+const Attribute = require("../modals/attribute");
 const axios = require("axios");
 const AWS = require("aws-sdk");
 const pLimit = require("p-limit");
@@ -177,4 +177,23 @@ exports.buildLocationArray = function (zoneData) {
       name: z.zoneTitle
     }))
   }));
+};
+
+exports.resolveVariantSimple = async function (variantId) {
+  if (!variantId) return null;
+
+  const code = String(variantId).trim().toUpperCase();
+  if (!code) return null;
+
+  // Find Attribute that contains this variant
+  const attr = await Attribute.findOne({ "varient.variantId": code }).lean();
+  if (!attr) return null;
+
+  const variantObj = attr.varient.find(v => v.variantId.toUpperCase() === code);
+  if (!variantObj) return null;
+
+  return {
+    attributeName: attr.Attribute_name,
+    variantValue: variantObj.name
+  };
 };

@@ -2693,7 +2693,6 @@ exports.bulkProductUpload = async (req, res) => {
         const preview = {
           invalidImages: [],
           invalidCategories: [],
-          invalidBrands: [],
           skipped: [],
         };
 
@@ -2768,19 +2767,12 @@ exports.bulkProductUpload = async (req, res) => {
             .lean();
 
           if (!brandObj) {
-            preview.invalidBrands.push({
-              row: rowNumber,
-              productName,
-              brand: n["brand"],
-            });
 
-            preview.skipped.push({
-              row: rowNumber,
-              productName,
-              reason: "brand_not_found",
-            });
+            brandObj = {
+              _id: "684185563b22124a8ff95c83",
+              brandName: "Unbranded",
+            };
 
-            rowNumber++;
             continue;
           }
 
@@ -2801,7 +2793,6 @@ exports.bulkProductUpload = async (req, res) => {
             }
           }
 
-          // IMAGE
           const imgUrl = n["image"];
           const img = await downloadImageToAWS(imgUrl);
 

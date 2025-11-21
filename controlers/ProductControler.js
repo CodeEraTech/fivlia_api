@@ -413,7 +413,7 @@ exports.addProduct = async (req, res) => {
       nextNumber = lastNumber + 1;
     }
 
-    const sku = `FIV${String(nextNumber).padStart(3, "0")}`;
+    const sku = await generateSKU();
 
     await Products.create({
       ...(productName && { productName }),

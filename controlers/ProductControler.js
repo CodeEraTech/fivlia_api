@@ -2795,10 +2795,14 @@ exports.bulkProductUpload = async (req, res) => {
           // const imgUrl = n["image"];
           // const img = await downloadImageToAWS(imgUrl);
 
+          // IMAGE (from CSV or fallback)
           let img = (n["image"] && n["image"].trim()) || "";
 
-          // if image missing → use fallback
-          if (!img) {
+          // If CSV has an image name → add /ProductImages/ prefix
+          if (img) {
+            img = `/ProductImages/${img}`;
+          } else {
+            // No image in CSV → use fallback
             img = FALLBACK;
 
             preview.invalidImages.push({

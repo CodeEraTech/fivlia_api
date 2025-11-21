@@ -11,7 +11,9 @@ const store_transaction = require("../modals/storeTransaction");
 const Transaction = require("../modals/driverModals/transaction");
 const Stock = require("../modals/StoreStock");
 const speakeasy = require("speakeasy");
-const crypto = require('crypto');
+const crypto = require("crypto");
+const ExpenseType = require("../modals/expenseType"); // correct import
+const Expenses = require("../modals/Expenses");
 
 exports.getDashboardStats = async (req, res) => {
   try {
@@ -429,30 +431,121 @@ exports.adminLogin = async (req, res) => {
 };
 
 exports.genrateKey = async (req, res) => {
-  try{
-    const {storeId,type} = req.body
-   if (type !== 'admin') {
-      return res.status(403).json({ message: '❌ Access Denied' });
+  try {
+    const { storeId, type } = req.body;
+    if (type !== "admin") {
+      return res.status(403).json({ message: "❌ Access Denied" });
     }
     // ✅ Find store by ID
     const store = await Store.findById(storeId);
     if (!store) {
-      return res.status(404).json({ message: '❌ Store not found' });
+      return res.status(404).json({ message: "❌ Store not found" });
     }
 
-    const generatedKey = crypto.randomBytes(16).toString('hex'); 
+    const generatedKey = crypto.randomBytes(16).toString("hex");
     store.accessKey = generatedKey;
     await store.save();
     return res.status(200).json({
-      message: '✅ Access key generated successfully',
+      message: "✅ Access key generated successfully",
       accessKey: generatedKey,
+    });
+  } catch (error) {
+    console.error("Error generating access key:", error);
+    return res.status(500).json({
+      message: "❌ Server error ",
+      error: error.message,
+    });
+  }
+};
+
+exports.addExpenseType = async (req, res) => {
+  try {
+    const { id } = req.query;
+    const { title } = req.body;
+
+    let newExpense;
+
+    if (id) {
+      newExpense = await ExpenseType.findByIdAndUpdate(
+        id,
+        { title },
+        { new: true }
+      );
+
+      // if nothing found → create new
+      if (!newExpense) {
+        newExpense = await ExpenseType.create({ title });
+        return res.status(200).json({
+          message: "New Expense Added",
+          newExpense,
+        });
+      }
+
+      return res.status(200).json({
+        message: "Expense Updated",
+        newExpense,
+      });
+    }
+
+    // no id → simple create
+    newExpense = await ExpenseType.create({ title });
+
+    return res.status(200).json({
+      message: "New Expense Added",
+      newExpense,
     });
 
   } catch (error) {
-    console.error('Error generating access key:', error);
-    return res.status(500).json({
-      message: '❌ Server error ',
-      error: error.message,
+    console.error(error);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
+
+
+exports.getExpenseType = async (req, res) => {
+  try {
+    const expenseType = await ExpenseType.find();
+    return res.status(200).json({ message: "Expenses", expenseType });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
+
+exports.addExpenses = async (req, res) => {
+  try {
+    const { title, type, amount, date } = req.body;
+    const newExpense = await Expenses.create({ title, type, amount, date });
+    return res.status(200).json({ message: "New Expense Added", newExpense });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
+
+exports.editExpenses = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, type, amount, date } = req.body;
+    const newExpense = await Expenses.findByIdAndUpdate(id, {
+      title,
+      type,
+      amount,
+      date,
     });
+    return res.status(200).json({ message: "Expense Edited", newExpense });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
+
+exports.getExpenses = async (req, res) => {
+  try {
+    const expenses = await Expenses.find();
+    return res.status(200).json({ message: "Expenses", expenses });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server Error" });
   }
 };

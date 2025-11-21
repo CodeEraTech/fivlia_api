@@ -68,7 +68,13 @@ const {
   getWithdrawalRequest,
   withdrawal,
   genrateKey,
-  adminLogin
+  adminLogin,
+  addExpenseType,
+  getExpenseType,
+  addExpenses,
+  getExpenses,
+  editExpenseType,
+  editExpenses
 } = require("../controlers/dashboardControler");
 const { getDeliveryEstimate } = require("../controlers/DeliveryControler");
 
@@ -223,6 +229,7 @@ const {
   getVarients,
   filter,
   bulkProductUpload,
+  bulkImageUpload,
   updateProduct,
   deleteProduct,
   getAttributesId,
@@ -261,6 +268,15 @@ router.get("/get-seller-report",  getSellerReport);
 
 // Admin Login
 router.post("/admin/login", adminLogin);
+
+router.post("/addExpenseType", addExpenseType);
+router.post("/addExpenses", addExpenses);
+
+router.put("/editExpenses/:id", editExpenses);
+
+router.get("/getExpenseType", getExpenseType);
+router.get("/getExpenses", getExpenses);
+
 // autocomplete search
 router.get("/autocomplete-search", getPlaceSuggestions);
 
@@ -293,6 +309,7 @@ router.post("/verifyPayment", verifyPayment);
 router.post("/filter", filter);
 router.post("/createStore", upload, createStore);
 router.post("/Product/bulk", uploadCsv, bulkProductUpload);
+router.post("/bulkImageUpload", upload, bulkImageUpload);
 
 router.put("/adminSetting", upload, adminSetting);
 router.post("/addFilter", addFilter);

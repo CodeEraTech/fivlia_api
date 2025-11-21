@@ -2767,7 +2767,6 @@ exports.bulkProductUpload = async (req, res) => {
             .lean();
 
           if (!brandObj) {
-
             brandObj = {
               _id: "684185563b22124a8ff95c83",
               brandName: "Unbranded",
@@ -2793,14 +2792,19 @@ exports.bulkProductUpload = async (req, res) => {
             }
           }
 
-          const imgUrl = n["image"];
-          const img = await downloadImageToAWS(imgUrl);
+          // const imgUrl = n["image"];
+          // const img = await downloadImageToAWS(imgUrl);
 
-          if (img === FALLBACK) {
+          let img = (n["image"] && n["image"].trim()) || "";
+
+          // if image missing → use fallback
+          if (!img) {
+            img = FALLBACK;
+
             preview.invalidImages.push({
               row: rowNumber,
               productName,
-              imageUrl: imgUrl,
+              imageUrl: "EMPTY",
               fallbackUsed: true,
             });
           }
@@ -2875,6 +2879,37 @@ exports.bulkProductUpload = async (req, res) => {
     res.status(500).json({
       message: "Bulk upload failed",
       error: err.message,
+    });
+  }
+};
+
+exports.bulkImageUpload = async (req, res) => {
+  try {
+    const files = req.files?.ProductImages;
+
+    if (!files || files.length === 0) {
+      return res.status(400).json({ message: "No images uploaded" });
+    }
+
+    // Prepare clean preview report
+    const images = files.map((file) => ({
+      fileName: file.originalname,
+      savedAs: file.key, // S3 storage path
+      mimeType: file.mimetype,
+      sizeInKB: Math.round(file.size / 1024),
+      url: file.location, // Direct AWS S3 URL
+    }));
+
+    return res.status(200).json({
+      message: "Bulk images uploaded successfully",
+      count: images.length,
+      images,
+    });
+  } catch (error) {
+    console.error("Bulk Upload Error:", error);
+    return res.status(500).json({
+      message: "Server Error",
+      error: error.message,
     });
   }
 };

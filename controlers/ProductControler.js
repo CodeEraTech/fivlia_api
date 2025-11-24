@@ -2903,8 +2903,7 @@ exports.bulkImageUpload = async (req, res) => {
       sizeInKB: Math.round(file.size / 1024),
       url: file.location, // Direct AWS S3 URL
     }));
-
-    return res.status(200).json({
+      return res.status(200).json({
       message: "Bulk images uploaded successfully",
       count: images.length,
       images,

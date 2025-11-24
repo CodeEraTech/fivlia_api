@@ -542,7 +542,7 @@ exports.editExpenses = async (req, res) => {
 
 exports.getExpenses = async (req, res) => {
   try {
-    const expenses = await Expenses.find();
+    const expenses = await Expenses.find().populate("type", "title");;
     return res.status(200).json({ message: "Expenses", expenses });
   } catch (error) {
     console.error(error);

@@ -1505,13 +1505,13 @@ exports.getAllSellerProducts = async (req, res) => {
           };
         });
 
-        const inventoryWithStock = (prod.inventory || []).map((inv) => {
+       const inventoryWithStock = (prod.variants || []).map((variant) => {
           const stockEntry = productStockEntries.find(
-            (s) => s.variantId?.toString() === inv.variantId?.toString()
+            (s) => s.variantId?.toString() === variant._id.toString()
           );
           return {
-            ...inv,
-            quantity: stockEntry?.quantity ?? 0, // overwrite with live stock quantity
+            variantId: variant._id,
+            quantity: stockEntry?.quantity ?? 0,
           };
         });
 
@@ -1549,7 +1549,7 @@ exports.getAllSellerProducts = async (req, res) => {
       products: productsWithStock,
       total,
       page: parseInt(page),
-      limit: parseInt(limit),
+      limit: parseInt(limit) || 100,
       totalPages: Math.ceil(total / limit),
     });
   } catch (error) {

@@ -73,8 +73,12 @@ const {
   getExpenseType,
   addExpenses,
   getExpenses,
-  editExpenseType,
-  editExpenses
+  editExpenses,
+  addRoles,
+  getRoles,
+  addStaff,
+  editStaff,
+  getStaff,
 } = require("../controlers/dashboardControler");
 const { getDeliveryEstimate } = require("../controlers/DeliveryControler");
 
@@ -271,12 +275,16 @@ router.post("/admin/login", adminLogin);
 
 router.post("/addExpenseType", addExpenseType);
 router.post("/addExpenses", addExpenses);
-
+router.post("/addRoles", addRoles);
+router.post("/addStaff", addStaff);
+  
 router.put("/editExpenses/:id", editExpenses);
+router.put("/editStaff/:id", editStaff);
 
 router.get("/getExpenseType", getExpenseType);
 router.get("/getExpenses", getExpenses);
-
+router.get("/getRoles", getRoles);
+router.get("/getStaff", getStaff);
 // autocomplete search
 router.get("/autocomplete-search", getPlaceSuggestions);
 

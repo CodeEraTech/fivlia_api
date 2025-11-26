@@ -14,7 +14,8 @@ const speakeasy = require("speakeasy");
 const crypto = require("crypto");
 const ExpenseType = require("../modals/expenseType"); // correct import
 const Expenses = require("../modals/Expenses");
-
+const Roles = require("../modals/roleBase/roles");
+const AdminStaff = require("../modals/roleBase/adminStaff")
 exports.getDashboardStats = async (req, res) => {
   try {
     const startOfMonth = new Date();
@@ -395,40 +396,72 @@ exports.withdrawal = async (req, res) => {
   }
 };
 
+// exports.adminLogin = async (req, res) => {
+//   try {
+//     const { username, password, otp } = req.body;
+
+//     // 1️⃣ Validate username/password
+//     if (
+//       username !== process.env.ADMIN_USERNAME ||
+//       password !== process.env.ADMIN_PASSWORD
+//     ) {
+//       return res.status(401).json({ message: "Invalid username or password" });
+//     }
+
+//     // 2️⃣ Verify OTP (Google Authenticator code)
+//     const verified = speakeasy.totp.verify({
+//       secret: process.env.ADMIN_2FA_SECRET,
+//       encoding: "base32",
+//       token: otp,
+//       window: 1, // allow small 30s drift
+//     });
+
+//     if (!verified) {
+//       return res.status(400).json({ message: "Invalid or expired OTP" });
+//     }
+
+//     // 3️⃣ Success (you can also generate JWT here if needed)
+//     return res.status(200).json({ message: "Login successful" });
+//   } catch (error) {
+//     console.error("Error verifying login:", error);
+//     return res.status(500).json({
+//       message: "Server error during login",
+//       error: error.message,
+//     });
+//   }
+// };
+
 exports.adminLogin = async (req, res) => {
   try {
-    const { username, password, otp } = req.body;
+    const { username, password } = req.body;
 
-    // 1️⃣ Validate username/password
-    if (
-      username !== process.env.ADMIN_USERNAME ||
-      password !== process.env.ADMIN_PASSWORD
-    ) {
-      return res.status(401).json({ message: "Invalid username or password" });
+    const user = await AdminStaff.findOne({ email: username }).populate("roleId");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
     }
 
-    // 2️⃣ Verify OTP (Google Authenticator code)
-    const verified = speakeasy.totp.verify({
-      secret: process.env.ADMIN_2FA_SECRET,
-      encoding: "base32",
-      token: otp,
-      window: 1, // allow small 30s drift
+    if (user.password !== password) {
+      return res.status(401).json({ message: "Invalid password" });
+    }
+
+    return res.status(200).json({
+      message: "Login successful",
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.roleId?.roles,
+        permissions: user.roleId?.permissions || []
+      }
     });
 
-    if (!verified) {
-      return res.status(400).json({ message: "Invalid or expired OTP" });
-    }
-
-    // 3️⃣ Success (you can also generate JWT here if needed)
-    return res.status(200).json({ message: "Login successful" });
   } catch (error) {
-    console.error("Error verifying login:", error);
-    return res.status(500).json({
-      message: "Server error during login",
-      error: error.message,
-    });
+    console.error("Login error:", error);
+    return res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
 
 exports.genrateKey = async (req, res) => {
   try {
@@ -494,13 +527,11 @@ exports.addExpenseType = async (req, res) => {
       message: "New Expense Added",
       newExpense,
     });
-
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Server Error" });
   }
 };
-
 
 exports.getExpenseType = async (req, res) => {
   try {
@@ -542,10 +573,88 @@ exports.editExpenses = async (req, res) => {
 
 exports.getExpenses = async (req, res) => {
   try {
-    const expenses = await Expenses.find().populate("type", "title");;
+    const expenses = await Expenses.find().populate("type", "title");
     return res.status(200).json({ message: "Expenses", expenses });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Server Error" });
   }
 };
+
+exports.addRoles = async (req, res) => {
+  try {
+    const { id } = req.query;
+    const { roles, permissions } = req.body;
+        let newRole;
+
+    if (id) {
+        newRole = await Roles.findByIdAndUpdate(
+        id,
+        { roles, permissions },
+        { new: true }
+      );
+
+      // if nothing found → create new
+      if (!newRole) {
+        newRole = await Roles.create({ roles, permissions });
+        return res.status(200).json({
+          message: "New Role Added",
+          newRole,
+        });
+      }
+
+      return res.status(200).json({
+        message: "Role Updated",
+        newRole,
+      });
+    }
+    newRole = await Roles.create({ roles, permissions });
+    return res.status(200).json({ message: "New Role Created", newRole });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
+
+exports.getRoles = async (req, res) =>{
+  try {
+    const roles = await Roles.find();
+    return res.status(200).json({ message: "roles", roles });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server Error" });
+  }
+}
+
+exports.addStaff = async (req, res) => {
+  try {
+    const {name, email, password, roleId} = req.body
+    const newAdminStaff = await AdminStaff.create({name, email, password, roleId})
+    return res.status(200).json({ message: "New Staff Member Created", newAdminStaff });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};
+
+exports.editStaff = async (req, res) => {
+  try{
+    const {id} = req.params
+    const {name, email, password, roleId} = req.body
+    const newAdminStaff = await AdminStaff.findByIdAndUpdate(id,{name, email, password, roleId},{new:true})
+    return res.status(200).json({ message: "Staff Updated Successfully", newAdminStaff });
+  }catch(error){
+    console.error(error);
+    return res.status(500).json({ message: "Server Error" });
+  }
+}
+
+exports.getStaff = async (req, res) => {
+  try {
+    const staff = await AdminStaff.find().populate("roleId")
+    res.json(staff)
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server Error" });
+  }
+}

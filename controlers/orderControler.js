@@ -1,4 +1,6 @@
 const { Order, TempOrder } = require("../modals/order");
+const { ZoneData } = require("../modals/cityZone");
+const admin = require("../firebase/firebase");
 const Products = require("../modals/Product");
 const { Cart } = require("../modals/cart");
 const autoAssignDriver = require("../config/driverOrderAccept/AutoAssignDriver");
@@ -16,7 +18,7 @@ const Assign = require("../modals/driverModals/assignments");
 const sendNotification = require("../firebase/pushnotification");
 const Store = require("../modals/store");
 const DriverRating = require("../modals/DriverRating");
-const { getStoresWithinRadius } = require("../config/google");
+const { getStoresWithinRadius, isWithinZone } = require("../config/google");
 const { sellerSocketMap, adminSocketMap } = require("../utils/driverSocketMap");
 const { sendAdminNotification } = require("../utils/sendAdminNotification");
 const {
@@ -139,7 +141,7 @@ exports.placeOrder = async (req, res) => {
     const { cartIds, addressId, storeId, paymentMode } = req.body;
 
     let nextOrderId = await getNextOrderId(false);
-
+    console.log(`${nextOrderId} recived`);
     const chargesData = await SettingAdmin.findOne();
 
     let deliveryChargeRaw = chargesData.Delivery_Charges || 0;
@@ -187,7 +189,7 @@ exports.placeOrder = async (req, res) => {
     const storeExistsInZone = matchedStores.some(
       (store) => store._id.toString() === storeId.toString()
     );
-
+    console.log(`${storeExistsInZone} storeExistsInZone`);
     if (!storeExistsInZone) {
       return res.status(400).json({
         message: "This store does not deliver to your address location.",
@@ -225,6 +227,7 @@ exports.placeOrder = async (req, res) => {
 
     if (paymentMode === true) {
       let nextOrderId = await getNextOrderId(true);
+      console.log(`${nextOrderId} goes for cash on delivery`);
       const newOrder = await Order.create({
         orderId: nextOrderId,
         items: orderItems,
@@ -239,6 +242,7 @@ exports.placeOrder = async (req, res) => {
         platformFee: chargesData.Platform_Fee,
       });
 
+      console.log(`${nextOrderId} doc created`);
       for (const item of cartItems) {
         const dataStock = await stock.updateOne(
           {
@@ -256,6 +260,8 @@ exports.placeOrder = async (req, res) => {
           { $inc: { purchases: item.quantity } }
         );
         await Cart.deleteMany({ _id: { $in: cartIds } });
+
+        console.log(`${nextOrderId} stock deducted cart deleted`);
       }
       const sellerDoc = await Store.findById(storeId);
 
@@ -265,7 +271,9 @@ exports.placeOrder = async (req, res) => {
           `New Order #${newOrder.orderId} Received`,
           `You’ve received a new order worth ₹${newOrder.totalPrice}. Please confirm and prepare for dispatch.`
         );
-
+        console.log(
+          `${nextOrderId} notification started for seller-> ${sellerDoc.storeName}`
+        );
         repeatNotifyStore(newOrder.orderId, sellerDoc);
 
         const sellerSocket = sellerSocketMap.get(sellerDoc._id.toString());
@@ -280,7 +288,7 @@ exports.placeOrder = async (req, res) => {
             storeId: sellerDoc._id,
             totalPrice: newOrder.totalPrice,
           });
-          console.log(`👑 Sent new order to admin`);
+          console.log(`👑 Sent new order(${newOrder.orderId}) to admin`);
         }
       }
       sendAdminNotification({
@@ -290,7 +298,7 @@ exports.placeOrder = async (req, res) => {
         }`,
         type: "order",
         image: sellerDoc?.image || "",
-        screen:'/orders',
+        screen: "/orders",
         city: sellerDoc?.city || "",
         data: {
           orderId: newOrder.orderId,
@@ -298,7 +306,7 @@ exports.placeOrder = async (req, res) => {
           totalPrice: newOrder.totalPrice,
         },
       });
-
+      console.log(`Order(${newOrder.orderId}) placed successfully`);
       return res
         .status(200)
         .json({ message: "Order placed successfully", order: newOrder });
@@ -342,12 +350,14 @@ exports.verifyPayment = async (req, res) => {
   try {
     const { tempOrderId, paymentStatus, transactionId } = req.body;
 
+    console.log("tempOrderId", tempOrderId);
     // 1. Check if temp order exists
     const tempOrder = await TempOrder.findById(tempOrderId);
     if (!tempOrder)
       return res.status(404).json({ message: "Temp order not found" });
 
     if (paymentStatus === false) {
+      console.log(`paymentStatus false ${tempOrder}`);
       // ❌ Payment failed -> just delete temp order and return
       await TempOrder.findByIdAndDelete(tempOrderId);
 
@@ -397,11 +407,13 @@ exports.verifyPayment = async (req, res) => {
 
     await Cart.deleteMany({ _id: { $in: tempOrder.cartIds } });
     // 5. Delete the temp order
+    console.log(`order updated temp order deleted ${tempOrder.orderId}`);
     await TempOrder.findByIdAndDelete(tempOrderId);
 
     const sellerDoc = await Store.findById(tempOrder.storeId);
 
     if (sellerDoc) {
+      console.log(`seller notified `);
       await notifySeller(
         sellerDoc,
         `New Order #${finalOrder.orderId} Received`,
@@ -659,8 +671,12 @@ exports.orderStatus = async (req, res) => {
         mobileNumber: driverDoc.address?.mobileNo || "",
       };
 
+      if (!status || status === "" || status === undefined) {
+        updateData.orderStatus = "Going to Pickup";
+      }
       // ✅ Fetch the order before update to get user & store info for notification
       const orderDoc = await Order.findById(id).lean();
+
       if (orderDoc) {
         const user = await User.findById(orderDoc.userId).lean();
         const storeData = await Store.findById(orderDoc.storeId).lean();
@@ -699,6 +715,14 @@ exports.orderStatus = async (req, res) => {
       }
     }
 
+    const orderOnTheWay = await Order.exists({
+      _id: id,
+      orderStatus: { $in: ["On The Way", "Going to Pickup", "On Way"] },
+    });
+
+    if (orderOnTheWay && status === "Accepted") {
+      return res.status(200).json({ message: "Order Already Accepted" });
+    }
     // 1. Update order status
     const updatedOrder = await Order.findByIdAndUpdate(id, updateData, {
       new: true,
@@ -801,7 +825,7 @@ exports.orderStatus = async (req, res) => {
         await Order.findByIdAndUpdate(updatedOrder._id, {
           storeInvoiceId,
           feeInvoiceId,
-          deliverBy:'admin',
+          deliverBy: "admin",
           deliverStatus: true,
         });
 
@@ -1102,12 +1126,18 @@ exports.editDriver = async (req, res) => {
 
 exports.getNotification = async (req, res) => {
   try {
-    const {type} = req.query
-    if (type === 'admin'){
-    const notifications = await Notification.find({type: { $ne: "general" } }).sort({ createdAt: -1 });
-    return res.status(200).json({ message: "✅ Notifications", notifications });
+    const { type } = req.query;
+    if (type === "admin") {
+      const notifications = await Notification.find({
+        type: { $ne: "general" },
+      }).sort({ createdAt: -1 });
+      return res
+        .status(200)
+        .json({ message: "✅ Notifications", notifications });
     }
-    const notifications = await Notification.find({type:"general"}).sort({ createdAt: -1 });
+    const notifications = await Notification.find({ type: "general" }).sort({
+      createdAt: -1,
+    });
     return res.status(200).json({ message: "✅ Notifications", notifications });
   } catch (error) {
     console.error("❌ Get Notification Error:", error);
@@ -1119,15 +1149,20 @@ exports.getNotification = async (req, res) => {
 
 exports.notification = async (req, res) => {
   try {
-    const { title, description, city } = req.body;
+    const { title, description, sendType, city, zone } = req.body;
+
+    const cityArr = Array.isArray(city) ? city : city ? [city] : [];
+    const zoneArr = Array.isArray(zone) ? zone : zone ? [zone] : [];
+
     const rawImagePath = req.files?.image?.[0]?.key || "";
     const image = rawImagePath ? `/${rawImagePath}` : "";
-    // console.log(image);
     const newNotification = await Notification.create({
       title,
+      sendType,
       description,
       image,
-      city,
+      city: cityArr,
+      zone: zoneArr,
     });
 
     return res.status(200).json({
@@ -1146,9 +1181,19 @@ exports.notification = async (req, res) => {
 exports.editNotification = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, city } = req.body;
+    const { title, description, sendType, city, zone } = req.body;
+
+    const cityArr = Array.isArray(city) ? city : city ? [city] : [];
+    const zoneArr = Array.isArray(zone) ? zone : zone ? [zone] : [];
+
     const rawImagePath = req.files?.image?.[0]?.key || "";
-    const updateData = { title, description, city };
+    const updateData = {
+      title,
+      description,
+      sendType,
+      city: cityArr,
+      zone: zoneArr,
+    };
 
     if (rawImagePath) {
       updateData.image = `/${rawImagePath}`;
@@ -1183,6 +1228,181 @@ exports.deleteNotification = async (req, res) => {
       message: "❌ Failed to create notification",
       error: error.message,
     });
+  }
+};
+
+exports.sendNotifications = async (req, res) => {
+  try {
+    const { title, description, sendType, city = [], zone = [] } = req.body;
+
+    let tokens = [];
+
+    // Load all zone data once
+    const cityZoneDocs = await ZoneData.find({}).lean();
+
+    const isAllCity = city.includes("all");
+    const isAllZone = zone.includes("all");
+
+    /* ---------------------------------------------------------
+       1️⃣ USER — Match by location → zone radius
+    --------------------------------------------------------- */
+    if (sendType === "user" || sendType === "all") {
+      const users = await User.find({
+        fcmToken: { $exists: true },
+      }).select("fcmToken location");
+
+      for (const u of users) {
+        if (!u.fcmToken) continue;
+
+        // ALL CITY → include all users
+        if (isAllCity) {
+          tokens.push(u.fcmToken);
+          continue;
+        }
+
+        // Missing location → skip (unless ALL city)
+        if (!u.location?.latitude) continue;
+
+        const userLat = u.location.latitude;
+        const userLng = u.location.longitude;
+
+        for (const cityId of city) {
+          const cityDoc = cityZoneDocs.find((x) => x._id.toString() === cityId);
+          // console.log('cityDoc',cityDoc)
+          if (!cityDoc) continue;
+
+          let zonesToCheck = isAllZone
+            ? cityDoc.zones.filter((z) => z.status)
+            : cityDoc.zones.filter((z) => zone.includes(z._id.toString()));
+          // console.log('zonesToCheck',zonesToCheck)
+          const matched = zonesToCheck.some((z) =>
+            isWithinZone(userLat, userLng, z)
+          );
+          // console.log('user matched',matched)
+          if (matched) {
+            tokens.push(u.fcmToken);
+            break;
+          }
+        }
+      }
+    }
+
+    /* ---------------------------------------------------------
+       2️⃣ SELLER — Match by city + zone (store has zones)
+    --------------------------------------------------------- */
+    if (sendType === "seller" || sendType === "all") {
+      const stores = await Store.find({}).select(
+        "fcmToken fcmTokenMobile devices city zone"
+      );
+
+      for (const s of stores) {
+        let sellerTokens = [];
+
+        if (s.fcmToken) sellerTokens.push(s.fcmToken);
+        if (s.fcmTokenMobile) sellerTokens.push(s.fcmTokenMobile);
+
+        if (s.devices?.length) {
+          s.devices.forEach((d) => d.fcmToken && sellerTokens.push(d.fcmToken));
+        }
+
+        if (sellerTokens.length === 0) continue;
+
+        // ALL CITY → include all sellers
+        if (isAllCity) {
+          tokens.push(...sellerTokens);
+          continue;
+        }
+
+        const storeCity = s.city?._id?.toString();
+        if (!storeCity) continue;
+        if (!city.includes(storeCity)) continue;
+
+        // ALL ZONE → include all sellers of selected city
+        if (isAllZone) {
+          tokens.push(...sellerTokens);
+          continue;
+        }
+
+        const storeZoneIds = (s.zone || []).map((z) => z._id.toString());
+        const intersects = storeZoneIds.some((zid) => zone.includes(zid));
+        // console.log('seller intersects',intersects)
+        if (intersects) {
+          tokens.push(...sellerTokens);
+        }
+      }
+    }
+
+    /* ---------------------------------------------------------
+       3️⃣ DRIVER — Match by Firestore location against zones
+    --------------------------------------------------------- */
+    if (sendType === "driver" || sendType === "all") {
+      const drivers = await driver
+        .find({ fcmToken: { $exists: true } })
+        .select("fcmToken");
+
+      // 🔥 Driver location comes from FIRESTORE → fetch here
+      for (const dr of drivers) {
+        if (!dr.fcmToken) continue;
+
+        // ALL CITY → include all drivers
+        if (isAllCity) {
+          tokens.push(dr.fcmToken);
+          continue;
+        }
+
+        // fetch location from firestore
+        const driverDocRef = admin
+          .firestore()
+          .collection("updates")
+          .doc(String(dr._id));
+        const driverSnapshot = await driverDocRef.get();
+        if (!driverSnapshot.exists) continue;
+        const driverData = driverSnapshot.data();
+
+        const dLat = driverData.latitude;
+        const dLng = driverData.longitude;
+
+        for (const cityId of city) {
+          const cityDoc = cityZoneDocs.find((x) => x._id.toString() === cityId);
+          if (!cityDoc) continue;
+
+          let zonesToCheck = isAllZone
+            ? cityDoc.zones
+            : cityDoc.zones.filter((z) => zone.includes(z._id.toString()));
+
+          const matched = zonesToCheck.some((z) => isWithinZone(dLat, dLng, z));
+          // console.log('driver matched',matched)
+          if (matched) {
+            tokens.push(dr.fcmToken);
+            break;
+          }
+        }
+      }
+    }
+
+    /* ---------------------------------------------------------
+       4️⃣ SEND NOTIFICATIONS
+    --------------------------------------------------------- */
+    tokens = [...new Set(tokens)].filter(Boolean);
+
+    if (tokens.length === 0)
+      return res.status(400).json({ message: "No recipients found" });
+
+    const response = await admin.messaging().sendEachForMulticast({
+      tokens,
+      notification: { title, body: description },
+      data: { click_action: "FLUTTER_NOTIFICATION_CLICK" },
+    });
+
+    res.json({
+      message: "Notification sent",
+      totalSentTo: tokens.length,
+      success: response.successCount,
+      failed: response.failureCount,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server Error", error: err.message });
   }
 };
 
@@ -1266,6 +1486,23 @@ exports.getBulkOrders = async (req, res) => {
     });
   }
 };
+
+exports.updateBulkOrders = async (req,res) => {
+  try{
+  const {id} = req.params
+  const {status} = req.body
+  const updatedOrder = await BulkOrderRequest.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true }
+  );
+
+  return res.status(200).json({message:"completed", data: updatedOrder,})
+  }catch(error){
+    console.error(error)
+    return res.status(500).json({message:"Server Error"})
+  }
+}
 
 exports.markAllRead = async (req, res) => {
   try {

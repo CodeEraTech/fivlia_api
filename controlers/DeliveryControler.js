@@ -11,11 +11,12 @@ const { getDistance } = require("../config/Ola");
 const MapUsage = require("../modals/mapUsage");
 const haversine = require("haversine-distance");
 
-function addFiveMinutes(durationText) {
+function addFiveMinutes(durationText,settings) {
   const match = durationText.match(/(\d+)\s*min/);
   if (match) {
     const originalMinutes = parseInt(match[1]);
-    const newMinutes = originalMinutes + 5;
+    const addedTime = settings.extraTime
+    const newMinutes = originalMinutes + addedTime;
     return `${newMinutes} mins`;
   }
   return durationText;
@@ -160,7 +161,7 @@ const getDeliveryEstimate = async (req, res) => {
         storeName: store.storeName,
         city: store.city?.name || null,
         distance: result.distanceText,
-        duration: addFiveMinutes(result.trafficDurationText),
+        duration: addFiveMinutes(result.trafficDurationText,settings),
         raw: result,
       },
     ];

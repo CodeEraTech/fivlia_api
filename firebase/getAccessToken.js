@@ -21,11 +21,15 @@ const jwtClient = new google.auth.JWT({
 const getAccessToken = async () => {
   try {
     const tokens = await jwtClient.authorize();
+
+    console.log("ACCESS TOKEN:", tokens.access_token);
+
     return tokens.access_token;
   } catch (err) {
     console.error("❌ Failed to get access token:", err.message);
     return null;
   }
 };
+// getAccessToken();
 
 module.exports = getAccessToken;

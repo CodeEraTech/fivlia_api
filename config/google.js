@@ -202,4 +202,5 @@ module.exports = {
   getStoresWithinRadius,
   getBannersWithinRadius,
   findAvailableDriversNearUser,
+  isWithinZone
 };

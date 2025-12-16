@@ -477,18 +477,24 @@ exports.getProduct = async (req, res) => {
     const skip = (page - 1) * limit;
     const userId = req.user._id;
 
+    console.time("USER_FETCH");
+
     const user = await User.findById(userId).lean();
+    console.timeEnd("USER_FETCH");
+
     if (!user?.location?.latitude || !user?.location?.longitude) {
       return res.status(400).json({ message: "User location not found" });
     }
 
     const userLat = user.location.latitude;
     const userLng = user.location.longitude;
+    console.time("STORE_RADIUS + CART");
 
     const [stores, cartDocs] = await Promise.all([
       getStoresWithinRadius(userLat, userLng),
       Cart.find({ userId }).lean(),
     ]);
+    console.timeEnd("STORE_RADIUS + CART");
 
     const allowedStores = Array.isArray(stores?.matchedStores)
       ? stores.matchedStores
@@ -513,6 +519,7 @@ exports.getProduct = async (req, res) => {
         ? [store.Category.toString()]
         : []
     );
+    console.time("CATEGORY_RESOLUTION");
 
     if (storeCategoryIds.length < 1) {
       allowedStores.forEach((store) => {
@@ -544,27 +551,35 @@ exports.getProduct = async (req, res) => {
     }
 
     const categoryArray = [...allCategoryIds];
+    console.timeEnd("CATEGORY_RESOLUTION");
 
+    console.time("STOCK_QUERY");
     const stockDocs = await Stock.find({
       storeId: { $in: allowedStoreIds },
     }).lean();
+    console.timeEnd("STOCK_QUERY");
 
-    const stockMap = {};
-    const stockDetailMap = {};
+    const stockByProductVariant = {};
 
-    for (const doc of stockDocs) {
-      (doc.stock || []).forEach((entry) => {
-        const key = `${entry.productId}_${entry.variantId}_${doc.storeId}`;
-        stockMap[key] = entry.quantity;
-        stockDetailMap[key] = entry;
-      });
+     for (const doc of stockDocs) {
+      const storeId = doc.storeId.toString();
+      for (const entry of doc.stock || []) {
+        const productId = entry.productId.toString();
+        const variantId = entry.variantId.toString();
+
+        if (!stockByProductVariant[productId]) {
+          stockByProductVariant[productId] = {};
+        }
+        if (!stockByProductVariant[productId][variantId]) {
+          stockByProductVariant[productId][variantId] = [];
+        }
+
+        stockByProductVariant[productId][variantId].push({
+          storeId,
+          stock: entry,
+        });
+      }
     }
-
-    const stockProductIds = new Set(
-      stockDocs.flatMap((doc) =>
-        (doc.stock || []).map((item) => item.productId.toString())
-      )
-    );
 
     // ✅ Build product query (include all products in allowed categories, regardless of stock)
     let productQuery = {
@@ -594,12 +609,15 @@ exports.getProduct = async (req, res) => {
       ];
     }
 
+    console.time("PRODUCT_QUERY");
     const products = await Products.find(productQuery).lean();
+    console.timeEnd("PRODUCT_QUERY");
+    console.log("PRODUCT_COUNT:", products.length);
 
-    const storeMap = {};
-    allowedStores.forEach((s) => {
-      storeMap[s._id.toString()] = s;
-    });
+    const storeMapById = {};
+    for (const store of allowedStores) {
+      storeMapById[store._id.toString()] = store;
+    }
 
     const enrichedProducts = [];
 
@@ -609,12 +627,13 @@ exports.getProduct = async (req, res) => {
 
       const variantOptions = [];
 
-      product.variants.forEach((variant) => {
-        allowedStoreIds.forEach((storeId) => {
-          const key = `${product._id}_${variant._id}_${storeId}`;
-          const stockEntry = stockDetailMap[key];
-          const store = storeMap[storeId];
-          if (!store || !stockEntry) return;
+      for (const variant of product.variants) {
+        const productStocks =
+          stockByProductVariant[product._id]?.[variant._id] || [];
+
+        for (const { storeId, stock } of productStocks) {
+          const store = storeMapById[storeId];
+          if (!store) continue;
 
           variantOptions.push({
             productId: product._id,
@@ -624,12 +643,12 @@ exports.getProduct = async (req, res) => {
             official: store.soldBy?.official || 0,
             rating: 5,
             distance: store.distance || 999999,
-            price: stockEntry.price ?? variant.sell_price ?? 0,
-            mrp: stockEntry.mrp ?? variant.mrp ?? 0,
-            quantity: stockEntry.quantity,
+            price: stock.price ?? variant.sell_price ?? 0,
+            mrp: stock.mrp ?? variant.mrp ?? 0,
+            quantity: stock.quantity,
           });
-        });
-      });
+        }
+      }
 
       // ✅ Sort & select best option
       variantOptions.sort((a, b) => {
@@ -703,7 +722,7 @@ exports.getProduct = async (req, res) => {
         filter = await Filters.find({ _id: { $in: filterIds } }).lean();
       }
     }
-
+    console.time("TOTAL_API_TIME");
     return res.status(200).json({
       message: "Products fetched successfully.",
       filter,
@@ -2903,7 +2922,7 @@ exports.bulkImageUpload = async (req, res) => {
       sizeInKB: Math.round(file.size / 1024),
       url: file.location, // Direct AWS S3 URL
     }));
-      return res.status(200).json({
+    return res.status(200).json({
       message: "Bulk images uploaded successfully",
       count: images.length,
       images,

@@ -89,6 +89,8 @@ const storeScheema = new mongoose.Schema(
           type: String,
           enum: ["mobile", "tablet", "laptop"]
         },
+        platform:String,
+        deviceName: { type: String }, 
         fcmToken: { type: String },
         jwtToken: { type: String },
         createdAt: { type: Date, default: Date.now },

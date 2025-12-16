@@ -8,12 +8,18 @@ const notificationSchema = new mongoose.Schema(
       enum: ["order", "seller", "driver", "wallet", "general"],
       default: "general",
     },
+    sendType: {
+        type: String,
+        enum: ["seller", "driver", "user", "all"],
+        default: "user",
+    },
     description: String,
     data: { type: Object, default: {} },
     isRead: { type: Boolean, default: false },
     image: String,
-    city: String,
-    screen:String
+    city: [{type: String}],
+    zone: [{type: String}],
+    screen: String,
   },
   { timestamps: true }
 );

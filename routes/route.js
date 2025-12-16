@@ -3,6 +3,9 @@ const upload = require("../midllerware/multer");
 const uploadCsv = require("../midllerware/csvUpload.js");
 const router = express.Router();
 const verifyToken = require("../midllerware/authToken");
+const attachStaffRole = require("../midllerware/attachStaffRole.js");
+const checkPermission = require("../midllerware/checkPermission.js");
+
 const accessKey = require("../midllerware/accessKey.js")
 //seo
 const { createSitemap, getSitemap } = require("../controlers/seoControler");
@@ -174,8 +177,10 @@ const {
   editNotification,
   deleteNotification,
   getNotification,
+  sendNotifications,
   bulkOrder,
   getBulkOrders,
+  updateBulkOrders,
   markAllRead
 } = require("../controlers/orderControler");
 
@@ -276,7 +281,7 @@ router.post("/admin/login", adminLogin);
 router.post("/addExpenseType", addExpenseType);
 router.post("/addExpenses", addExpenses);
 router.post("/addRoles", addRoles);
-router.post("/addStaff", addStaff);
+router.post("/addStaff", attachStaffRole, checkPermission("STAFF_ADD_EDIT"), addStaff);
   
 router.put("/editExpenses/:id", editExpenses);
 router.put("/editStaff/:id", editStaff);
@@ -313,6 +318,7 @@ router.post("/unit", unit);
 router.post("/addCart", upload, verifyToken, addCart);
 router.post("/placeOrder", placeOrder);
 router.post("/bulkOrder/:productId", verifyToken, bulkOrder);
+router.put("/update-bulk-orders/:id", updateBulkOrders);
 router.post("/verifyPayment", verifyPayment);
 router.post("/filter", filter);
 router.post("/createStore", upload, createStore);
@@ -339,6 +345,7 @@ router.post("/discount", discount);
 router.post("/addCity", addCity);
 router.post("/location", verifyToken, updateLocation);
 router.post("/notification", upload, notification);
+router.post("/send-notification", sendNotifications);
 router.post("/driverLogin", driverLogin);
 router.post("/activeStatus", activeStatus);
 router.post("/addPage", addPage);

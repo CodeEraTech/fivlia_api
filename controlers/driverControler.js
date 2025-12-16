@@ -101,7 +101,8 @@ exports.driverOrderStatus = async (req, res) => {
     const { orderStatus, orderId, otp } = req.body;
 
     // ===> On The Way block
-    if (orderStatus === "On The Way") {       //On Way
+    if (orderStatus === "On The Way" || orderStatus === "On Way") {
+      //On Way
       const setting = await SettingAdmin.findOne();
       const authSettings = setting?.Auth?.[0] || {};
 
@@ -152,163 +153,174 @@ exports.driverOrderStatus = async (req, res) => {
     }
 
     if (orderStatus === "Delivered") {
-      if (updatedOrder.deliverStatus) {
-        console.log(
-          `Order ${updatedOrder.orderId} already processed for delivery.`
-        );
-      } 
-      else {
-        console.log(
-          `Processing delivery logic for order ${updatedOrder.orderId}...`
-        );
-      let feeInvoiceId = await FeeInvoiceId(true);
-      const otpRecord = await OtpModel.findOne({ orderId, otp });
-      if (!otpRecord) {
-        return res.status(400).json({ message: "Invalid OTP" });
-      }
-      if (otpRecord.expiresAt < Date.now()) {
-        return res.status(400).json({ message: "OTP expired" });
-      }
-
-      const order = await Order.findOne({ orderId }).populate("userId").lean();
-      const user = order.userId;
-
-      if (!order) return res.status(404).json({ message: "Order not found" });
-
-      const storeBefore = await Store.findById(order.storeId).lean();
-      const store = storeBefore; // just renaming for clarity
-
-      const totalCommission = order.items.reduce((sum, item) => {
-        const itemTotal = item.price * item.quantity;
-        const commissionAmount = ((item.commision || 0) / 100) * itemTotal;
-        return sum + commissionAmount;
-      }, 0);
-
-      let creditToStore = order.totalPrice;
-      if (!store.Authorized_Store) {
-        creditToStore = order.totalPrice - totalCommission; // deduct commission
-      }
-
-      // ===> Update Store Wallet
-      const storeData = await Store.findByIdAndUpdate(
-        order.storeId,
-        { $inc: { wallet: creditToStore } },
-        { new: true }
-      );
-      // ===> Update Store Transaction
-      const data = await store_transaction.create({
-        currentAmount: storeData.wallet,
-        lastAmount: storeBefore.wallet,
-        type: "Credit",
-        amount: creditToStore,
-        orderId: order.orderId,
-        storeId: order.storeId,
-        description: store.Authorized_Store
-          ? "Full amount credited (Authorized Store)"
-          : `Credited after commission cut (${totalCommission} deducted)`,
+      const alreadyDelivered = await Order.exists({
+        orderId,
+        deliverStatus: true,
       });
-      // console.log(data)
-      // ===> Update Admin Wallet only if commission > 0
-      if (!store.Authorized_Store && totalCommission > 0) {
-        const lastAmount = await admin_transaction
-          .findById("68ea20d2c05a14a96c12788d")
+      if (alreadyDelivered) {
+        console.log(
+          `Order ${orderId} already processed for delivery.`
+        );
+      } else {
+        console.log(
+          `Processing delivery logic for order ${orderId}...`
+        );
+        let feeInvoiceId = await FeeInvoiceId(true);
+        const otpRecord = await OtpModel.findOne({ orderId, otp });
+        if (!otpRecord) {
+          return res.status(400).json({ message: "Invalid OTP" });
+        }
+        if (otpRecord.expiresAt < Date.now()) {
+          return res.status(400).json({ message: "OTP expired" });
+        }
+
+        const order = await Order.findOne({ orderId })
+          .populate("userId")
           .lean();
-        const updatedWallet = await admin_transaction.findByIdAndUpdate(
-          "68ea20d2c05a14a96c12788d",
-          { $inc: { wallet: totalCommission } },
+        const user = order.userId;
+
+        if (!order) return res.status(404).json({ message: "Order not found" });
+
+        const storeBefore = await Store.findById(order.storeId).lean();
+        const store = storeBefore; // just renaming for clarity
+
+        const totalCommission = order.items.reduce((sum, item) => {
+          const itemTotal = item.price * item.quantity;
+          const commissionAmount = ((item.commision || 0) / 100) * itemTotal;
+          return sum + commissionAmount;
+        }, 0);
+
+        let creditToStore = order.totalPrice;
+        if (!store.Authorized_Store) {
+          creditToStore = order.totalPrice - totalCommission; // deduct commission
+        }
+
+        // ===> Update Store Wallet
+        const storeData = await Store.findByIdAndUpdate(
+          order.storeId,
+          { $inc: { wallet: creditToStore } },
+          { new: true }
+        );
+        // ===> Update Store Transaction
+        const data = await store_transaction.create({
+          currentAmount: storeData.wallet,
+          lastAmount: storeBefore.wallet,
+          type: "Credit",
+          amount: creditToStore,
+          orderId: order.orderId,
+          storeId: order.storeId,
+          description: store.Authorized_Store
+            ? "Full amount credited (Authorized Store)"
+            : `Credited after commission cut (${totalCommission} deducted)`,
+        });
+        // console.log(data)
+        // ===> Update Admin Wallet only if commission > 0
+        if (!store.Authorized_Store && totalCommission > 0) {
+          const lastAmount = await admin_transaction
+            .findById("68ea20d2c05a14a96c12788d")
+            .lean();
+          const updatedWallet = await admin_transaction.findByIdAndUpdate(
+            "68ea20d2c05a14a96c12788d",
+            { $inc: { wallet: totalCommission } },
+            { new: true }
+          );
+
+          await admin_transaction.create({
+            currentAmount: updatedWallet.wallet,
+            lastAmount: lastAmount.wallet,
+            type: "Credit",
+            amount: totalCommission,
+            orderId: order.orderId,
+            description: "Commission credited to Admin wallet",
+          });
+        }
+
+        // ===> Generate Store Invoice ID
+        const storeInvoiceId = await generateStoreInvoiceId(order.storeId);
+
+        const statusUpdate = await Order.findOneAndUpdate(
+          { orderId },
+          {
+            orderStatus,
+            deliverBy: "Driver",
+            storeInvoiceId,
+            feeInvoiceId,
+            deliverStatus: true,
+          },
           { new: true }
         );
 
-        await admin_transaction.create({
-          currentAmount: updatedWallet.wallet,
-          lastAmount: lastAmount.wallet,
-          type: "Credit",
-          amount: totalCommission,
-          orderId: order.orderId,
-          description: "Commission credited to Admin wallet",
+        // ✅ Clean up OTP and Assignments
+        await OtpModel.deleteOne({ _id: otpRecord._id });
+        await Assign.deleteOne({ orderId: orderId, orderStatus: "Accepted" });
+
+        // if (activeIntervals.has(orderId)) {
+        //   clearInterval(activeIntervals.get(orderId));
+        //   activeIntervals.delete(orderId);
+        //   console.log(`🛑 Stopped location interval for order ${orderId}`);
+        // }
+        // ✅ Generate Thermal Invoice
+        try {
+          await generateAndSendThermalInvoice(orderId);
+        } catch (error) {
+          console.error("Error generating thermal invoice:", error);
+        }
+
+        if (user?.fcmToken) {
+          try {
+            await admin.messaging().send({
+              token: user.fcmToken,
+              notification: {
+                title: "Order Delivered 🎉",
+                body: `Your order #${orderId} has been delivered successfully.`,
+              },
+              android: {
+                notification: {
+                  channelId: "default_channel",
+                  sound: "default",
+                },
+              },
+              data: {
+                type: "delivered",
+                orderId: orderId.toString(),
+              },
+            });
+            console.log("✅ Notification sent to user");
+          } catch (err) {
+            console.warn("⚠️ User FCM send failed:", err.message);
+          }
+        }
+
+        if (store?.fcmToken) {
+          try {
+            await admin.messaging().send({
+              token: store.fcmToken,
+              notification: {
+                title: "Order Delivered 🎉",
+                body: `Driver delivered order #${orderId}.`,
+              },
+              android: {
+                notification: {
+                  channelId: "default_channel",
+                  sound: "default",
+                },
+              },
+              data: {
+                type: "delivered",
+                orderId: orderId.toString(),
+              },
+            });
+            console.log("✅ Notification sent to store");
+          } catch (err) {
+            console.warn("⚠️ Store FCM send failed:", err.message);
+          }
+        }
+
+        return res.status(200).json({
+          message: "Order Delivered Successfully",
+          statusUpdate,
         });
       }
-
-      // ===> Generate Store Invoice ID
-      const storeInvoiceId = await generateStoreInvoiceId(order.storeId);
-
-      const statusUpdate = await Order.findOneAndUpdate(
-        { orderId },
-        { orderStatus,deliverBy:'Driver', storeInvoiceId, feeInvoiceId, deliverStatus: true },
-        { new: true }
-      );
-
-      // ✅ Clean up OTP and Assignments
-      await OtpModel.deleteOne({ _id: otpRecord._id });
-      await Assign.deleteOne({ orderId: orderId, orderStatus: "Accepted" });
-
-      // if (activeIntervals.has(orderId)) {
-      //   clearInterval(activeIntervals.get(orderId));
-      //   activeIntervals.delete(orderId);
-      //   console.log(`🛑 Stopped location interval for order ${orderId}`);
-      // }
-      // ✅ Generate Thermal Invoice
-      try {
-        await generateAndSendThermalInvoice(orderId);
-      } catch (error) {
-        console.error("Error generating thermal invoice:", error);
-      }
-    
-      if (user?.fcmToken) {
-        try {
-          await admin.messaging().send({
-            token: user.fcmToken,
-            notification: {
-              title: "Order Delivered 🎉",
-              body: `Your order #${orderId} has been delivered successfully.`,
-            },
-            android: {
-              notification: {
-                channelId: "default_channel",
-                sound: "default",
-              },
-            },
-            data: {
-              type: "delivered",
-              orderId: orderId.toString(),
-            },
-          });
-          console.log("✅ Notification sent to user");
-        } catch (err) {
-          console.warn("⚠️ User FCM send failed:", err.message);
-        }
-      }
-
-      if (store?.fcmToken) {
-        try {
-          await admin.messaging().send({
-            token: store.fcmToken,
-            notification: {
-              title: "Order Delivered 🎉",
-              body: `Driver delivered order #${orderId}.`,
-            },
-            android: {
-              notification: {
-                channelId: "default_channel",
-                sound: "default",
-              },
-            },
-            data: {
-              type: "delivered",
-              orderId: orderId.toString(),
-            },
-          });
-          console.log("✅ Notification sent to store");
-        } catch (err) {
-          console.warn("⚠️ Store FCM send failed:", err.message);
-        }
-      }
-
-      return res.status(200).json({
-        message: "Order Delivered Successfully",
-        statusUpdate,
-      });
-    }
     }
 
     // ===> Other status update (fallback)
@@ -326,7 +338,6 @@ exports.driverOrderStatus = async (req, res) => {
     console.error(error);
     return res.status(500).json({ message: "An error occurred" });
   }
-  
 };
 
 exports.acceptedOrder = async (req, res) => {
@@ -334,7 +345,7 @@ exports.acceptedOrder = async (req, res) => {
     const { mobileNumber } = req.params;
     const AcceptedOrders = await Order.find({
       "driver.mobileNumber": mobileNumber,
-      orderStatus: { $in: ["On The Way", "Going to Pickup"] },
+      orderStatus: { $in: ["On The Way", "Going to Pickup", "On Way"] },
     });
     const enrichedOrders = await Promise.all(
       AcceptedOrders.map(async (order) => {
@@ -465,7 +476,7 @@ exports.driverWallet = async (req, res) => {
 exports.transactionList = async (req, res) => {
   try {
     const { driverId } = req.params;
-    const transactionList = await Transaction.find({ driverId });
+    const transactionList = await Transaction.find({ driverId }).sort({createdAt:-1});
     const driverWallet = await driver.findOne({ _id: driverId });
     totalAmount = driverWallet.wallet;
     return res
@@ -733,15 +744,25 @@ exports.saveDriverRating = async (req, res) => {
 
 exports.tipDriver = async (req, res) => {
   try {
-    const { driverId, orderId, note, tip, userId,type } = req.body;
-    
-    if(type === 'instruction') {
-      const order = await Order.findOneAndUpdate({ orderId: orderId },{note},{ new: true })
+    const { driverId, orderId, note, tip, userId, type } = req.body;
+
+    if (type === "instruction") {
+      const order = await Order.findOneAndUpdate(
+        { orderId: orderId },
+        { note },
+        { new: true }
+      );
       return res.status(200).json({ message: "Instruction Given" });
     }
-    const order = await Order.findOne({orderId})
-    const updatedDriver = await driver.findByIdAndUpdate(driverId,
-      { $inc: { wallet: tip } },
+    const order = await Order.findOne({ orderId });
+
+    // Calculate 2% tax
+    const tax = (tip * 2) / 100;
+    const netTip = tip - tax;
+
+    const updatedDriver = await driver.findByIdAndUpdate(
+      driverId,
+      { $inc: { wallet: netTip } },
       { new: true }
     );
     if (!updatedDriver) {
@@ -751,21 +772,37 @@ exports.tipDriver = async (req, res) => {
 
     const Tip = await Transaction.create({
       driverId,
-      orderId:order._id,
+      orderId: order._id,
       description,
-      amount: tip,
+      amount: netTip,
       userId,
       type: "credit",
     });
+    const lastAmount = await admin_transaction
+      .findById("68ea20d2c05a14a96c12788d")
+      .lean();
+    const updatedWallet = await admin_transaction.findByIdAndUpdate(
+      "68ea20d2c05a14a96c12788d",
+      { $inc: { wallet: tax } },
+      { new: true }
+    );
+
+    await admin_transaction.create({
+      currentAmount: updatedWallet.wallet,
+      lastAmount: lastAmount.wallet,
+      type: "Credit",
+      amount: tax,
+      orderId: order.orderId,
+      description: "Tip Tax (2%) credited to Admin wallet",
+    });
+
     return res.status(200).json({ message: "Tip Given", Tip });
   } catch (error) {
     console.error("Error Tipping Driver:", error);
-    return res
-      .status(500)
-      .json({
-        message: "Server error while Tipping Driver",
-        error: error.message,
-      });
+    return res.status(500).json({
+      message: "Server error while Tipping Driver",
+      error: error.message,
+    });
   }
 };
 

@@ -6,7 +6,7 @@ const bulkOrderRequestSchema = new mongoose.Schema(
     productId: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
     status: {
       type: String,
-      enum: ["pending", "contacted", "converted", "rejected"],
+      enum: ["pending", "completed", "converted", "rejected"],
       default: "pending",
     },
   },

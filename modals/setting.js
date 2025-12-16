@@ -36,6 +36,7 @@ maxPrice:Number,
 minWithdrawal:Number,
 freeDeliveryLimit:Number,
 minimumOrderCancelTime:Number,
+extraTime:Number,
 imageLink:String,
 
 });

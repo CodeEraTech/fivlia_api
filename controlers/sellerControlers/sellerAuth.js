@@ -599,6 +599,8 @@ exports.verifyOtpSeller = async (req, res) => {
       accessKey,
       token,
       deviceId,
+      deviceName,
+      platform,
       deviceType, // mobile | tablet | browser
     } = req.body;
     if (type === "admin") {
@@ -637,9 +639,9 @@ exports.verifyOtpSeller = async (req, res) => {
       });
     }
 
-    if (!PhoneNumber) {
-      return res.status(400).json({ message: "Mobile number is required" });
-    }
+    // if (!PhoneNumber) {
+    //   return res.status(400).json({ message: "Mobile number is required" });
+    // }
     // ======================= LOGIN FLOW =======================
     if (type === "login") {
       // if (!deviceId || !deviceType) {
@@ -682,7 +684,9 @@ exports.verifyOtpSeller = async (req, res) => {
 
       if (existingDeviceIndex !== -1) {
         // Same device: update token and time
-        sellerDoc.devices[existingDeviceIndex].fcmToken = token || '';
+        if (token) {
+          sellerDoc.devices[existingDeviceIndex].fcmToken = token;
+        }
         sellerDoc.devices[existingDeviceIndex].jwtToken = jwttoken;
         sellerDoc.devices[existingDeviceIndex].lastActiveAt = new Date();
       } else {
@@ -699,6 +703,7 @@ exports.verifyOtpSeller = async (req, res) => {
           return res.status(403).json({
             message:
               "You can only log in from 2 mobile devices at a time. Please log out from another phone first.",
+            sellerId: sellerDoc._id,
           });
         }
 
@@ -706,6 +711,7 @@ exports.verifyOtpSeller = async (req, res) => {
           return res.status(403).json({
             message:
               "You can only log in from 1 browser at a time. Please log out from your other browser session first.",
+            sellerId: sellerDoc._id,
           });
         }
 
@@ -713,18 +719,26 @@ exports.verifyOtpSeller = async (req, res) => {
           return res.status(403).json({
             message:
               "You have reached the maximum of 3 active devices. Please log out from one device before logging in again.",
+            sellerId: sellerDoc._id,
           });
         }
 
         // --- STEP 3: Add new device ---
-        sellerDoc.devices.push({
+        const newDevice = {
           deviceId,
           deviceType,
-          fcmToken: token,
+          deviceName,
+          platform,
           jwtToken: jwttoken,
           createdAt: new Date(),
           lastActiveAt: new Date(),
-        });
+        };
+
+        if (token) {
+          newDevice.fcmToken = token; // only add if not null
+        }
+
+        sellerDoc.devices.push(newDevice);
       }
 
       // Save
@@ -739,6 +753,8 @@ exports.verifyOtpSeller = async (req, res) => {
         activeDevices: sellerDoc.devices.map((d) => ({
           deviceId: d.deviceId,
           deviceType: d.deviceType,
+          deviceName,
+          platform,
           createdAt: d.createdAt,
         })),
       });
@@ -1050,14 +1066,13 @@ exports.getAllStore = async (req, res) => {
 exports.logoutSeller = async (req, res) => {
   try {
     const { sellerId, deviceId } = req.body;
-
     if (!sellerId) {
       return res.status(400).json({ message: "Seller ID is required" });
     }
 
     const sellerDoc = await seller.findById(sellerId);
     if (!sellerDoc) {
-      return res.status(404).json({ message: "Seller not found" });
+      return res.status(204).json({ message: "Seller not found" });
     }
 
     // ✅ Logout from one specific device
@@ -1072,15 +1087,15 @@ exports.logoutSeller = async (req, res) => {
       (d) => d.deviceId !== deviceId
     );
     const afterCount = sellerDoc.devices.length;
-
     if (beforeCount === afterCount) {
-      return res.status(404).json({
+      return res.status(204).json({
         message: "No device found with the given deviceId",
       });
     }
 
     await sellerDoc.save();
-
+    console.log(`id's`, sellerId, deviceId);
+    console.log("succeed");
     return res.status(200).json({
       message: "Logout successful",
       remainingDevices: sellerDoc.devices.map((d) => ({

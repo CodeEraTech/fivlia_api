@@ -309,7 +309,11 @@ exports.storeEdit = async (req, res) => {
       PhoneNumber !== "" &&
       PhoneNumber !== "undefined"
     ) {
-      const newPhone = PhoneNumber.toString().trim();
+      let newPhone = PhoneNumber.toString().trim();
+
+      if (!newPhone.startsWith("+91")) {
+        newPhone = "+91" + newPhone;
+      }
 
       // 1️⃣ Get current store
       const currentStore = await Store.findById(storeId).lean();

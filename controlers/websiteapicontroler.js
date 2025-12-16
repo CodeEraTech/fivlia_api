@@ -335,13 +335,26 @@ exports.forwebgetProduct = async (req, res) => {
       storeId: { $in: allowedStoreIds },
     }).lean();
 
-    const stockDetailMap = {};
+    const stockByProductVariant = {};
 
     for (const doc of stockDocs) {
-      (doc.stock || []).forEach((entry) => {
-        const key = `${entry.productId}_${entry.variantId}_${doc.storeId}`;
-        stockDetailMap[key] = entry;
-      });
+      const storeId = doc.storeId.toString();
+      for (const entry of doc.stock || []) {
+        const productId = entry.productId.toString();
+        const variantId = entry.variantId.toString();
+
+        if (!stockByProductVariant[productId]) {
+          stockByProductVariant[productId] = {};
+        }
+        if (!stockByProductVariant[productId][variantId]) {
+          stockByProductVariant[productId][variantId] = [];
+        }
+
+        stockByProductVariant[productId][variantId].push({
+          storeId,
+          stock: entry,
+        });
+      }
     }
 
     // 4. Build product query
@@ -392,9 +405,10 @@ exports.forwebgetProduct = async (req, res) => {
       const variantOptions = [];
 
       for (const variant of product.variants) {
-        for (const storeId of allowedStoreIds) {
-          const key = `${product._id}_${variant._id}_${storeId}`;
-          const stockEntry = stockDetailMap[key];
+        const productStocks =
+          stockByProductVariant[product._id]?.[variant._id] || [];
+
+        for (const { storeId, stockEntry } of productStocks) {
           const store = storeMap[storeId];
           if (!store) continue;
 
@@ -1505,7 +1519,7 @@ exports.getAllSellerProducts = async (req, res) => {
           };
         });
 
-       const inventoryWithStock = (prod.variants || []).map((variant) => {
+        const inventoryWithStock = (prod.variants || []).map((variant) => {
           const stockEntry = productStockEntries.find(
             (s) => s.variantId?.toString() === variant._id.toString()
           );

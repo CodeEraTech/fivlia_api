@@ -10,12 +10,13 @@ const admin_transaction = require("../modals/adminTranaction");
 const store_transaction = require("../modals/storeTransaction");
 const Transaction = require("../modals/driverModals/transaction");
 const Stock = require("../modals/StoreStock");
+const jwt = require("jsonwebtoken");
 const speakeasy = require("speakeasy");
 const crypto = require("crypto");
 const ExpenseType = require("../modals/expenseType"); // correct import
 const Expenses = require("../modals/Expenses");
 const Roles = require("../modals/roleBase/roles");
-const AdminStaff = require("../modals/roleBase/adminStaff")
+const AdminStaff = require("../modals/roleBase/adminStaff");
 exports.getDashboardStats = async (req, res) => {
   try {
     const startOfMonth = new Date();
@@ -348,17 +349,17 @@ exports.withdrawal = async (req, res) => {
     const { id, action, type } = req.params;
     const { note, image } = req.body || {};
 
+    const defaultNotes = {
+      accept: "The withdrawal request has been accepted successfully.",
+      decline: "The withdrawal request has been declined.",
+    };
+
     if (type === "seller") {
       const request = await store_transaction.findOne({
         storeId: id,
         type: "debit",
         status: "Pending",
       });
-
-      const defaultNotes = {
-        accept: "The withdrawal request has;y been accepted successfully.",
-        decline: "The withdrawal request has been declined.",
-      };
 
       request.status = action === "accept" ? "Accepted" : "Declined";
       request.Note = note || defaultNotes[action];
@@ -388,6 +389,32 @@ exports.withdrawal = async (req, res) => {
         request,
       });
     }
+
+    const request = await Transaction.findOne({
+      driverId: id,
+      type: "debit",
+      status: "Pending",
+    });
+
+    request.status = action === "accept" ? "Accepted" : "Declined";
+    request.description = note || defaultNotes[action];
+    if (req.files?.image?.[0]) request.image = `/${req.files.image?.[0].key}`;
+
+    if (action === "accept") {
+      const driver = await Driver.findById(request.driverId);
+      if (!driver) return res.status(404).json({ message: "Driver not found" });
+
+      // Reduce wallet amount
+      driver.wallet = Math.max(0, driver.wallet - request.amount);
+      await driver.save();
+    }
+
+    await request.save();
+
+    return res.status(200).json({
+      message: `Withdrawal request ${request.status.toLowerCase()} successfully`,
+      request,
+    });
   } catch (error) {
     console.error(error);
     return res
@@ -433,35 +460,84 @@ exports.withdrawal = async (req, res) => {
 
 exports.adminLogin = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, password, otp, step } = req.body;
 
-    const user = await AdminStaff.findOne({ email: username }).populate("roleId");
+    const user = await AdminStaff.findOne({ email: username }).populate(
+      "roleId"
+    );
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(400).json({ message: "User not found" });
     }
 
-    if (user.password !== password) {
-      return res.status(401).json({ message: "Invalid password" });
-    }
-
-    return res.status(200).json({
-      message: "Login successful",
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.roleId?.roles,
-        permissions: user.roleId?.permissions || []
-      }
+    const jwttoken = jwt.sign({ _id: user._id }, process.env.jwtSecretKey, {
+      expiresIn: "1d",
     });
 
+    // Step 1: Validate password
+    if (!step || step === 1) {
+      if (user.password !== password) {
+        return res.status(401).json({ message: "Invalid password" });
+      }
+
+      const userRole = user.roleId?.roles?.toLowerCase() || "";
+
+      // If user is admin → return requiresOTP = true
+      if (userRole === "admin") {
+        return res.status(200).json({
+          message: "Password correct. OTP required.",
+          requiresOTP: true,
+        });
+      }
+
+      // Non-admin → login successful immediately
+      return res.status(200).json({
+        message: "Login successful",
+        requiresOTP: false,
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          jwttoken,
+          role: user.roleId?.roles,
+          permissions: user.roleId?.permissions || [],
+        },
+      });
+    }
+
+    // Step 2 → OTP verification (only for admin)
+    if (step === 2) {
+      const verified = speakeasy.totp.verify({
+        secret: process.env.ADMIN_2FA_SECRET,
+        encoding: "base32",
+        token: otp,
+        window: 1,
+      });
+
+      if (!verified) {
+        return res.status(400).json({ message: "Invalid or expired OTP" });
+      }
+
+      return res.status(200).json({
+        message: "Admin login successful",
+        requiresOTP: false,
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          jwttoken,
+          role: user.roleId?.roles,
+          permissions: user.roleId?.permissions || [],
+        },
+      });
+    }
   } catch (error) {
     console.error("Login error:", error);
-    return res.status(500).json({ message: "Server error", error: error.message });
+    return res
+      .status(500)
+      .json({ message: "Server error", error: error.message });
   }
 };
-
 
 exports.genrateKey = async (req, res) => {
   try {
@@ -585,10 +661,10 @@ exports.addRoles = async (req, res) => {
   try {
     const { id } = req.query;
     const { roles, permissions } = req.body;
-        let newRole;
+    let newRole;
 
     if (id) {
-        newRole = await Roles.findByIdAndUpdate(
+      newRole = await Roles.findByIdAndUpdate(
         id,
         { roles, permissions },
         { new: true }
@@ -616,7 +692,7 @@ exports.addRoles = async (req, res) => {
   }
 };
 
-exports.getRoles = async (req, res) =>{
+exports.getRoles = async (req, res) => {
   try {
     const roles = await Roles.find();
     return res.status(200).json({ message: "roles", roles });
@@ -624,13 +700,20 @@ exports.getRoles = async (req, res) =>{
     console.error(error);
     return res.status(500).json({ message: "Server Error" });
   }
-}
+};
 
 exports.addStaff = async (req, res) => {
   try {
-    const {name, email, password, roleId} = req.body
-    const newAdminStaff = await AdminStaff.create({name, email, password, roleId})
-    return res.status(200).json({ message: "New Staff Member Created", newAdminStaff });
+    const { name, email, password, roleId } = req.body;
+    const newAdminStaff = await AdminStaff.create({
+      name,
+      email,
+      password,
+      roleId,
+    });
+    return res
+      .status(200)
+      .json({ message: "New Staff Member Created", newAdminStaff });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Server Error" });
@@ -638,23 +721,40 @@ exports.addStaff = async (req, res) => {
 };
 
 exports.editStaff = async (req, res) => {
-  try{
-    const {id} = req.params
-    const {name, email, password, roleId} = req.body
-    const newAdminStaff = await AdminStaff.findByIdAndUpdate(id,{name, email, password, roleId},{new:true})
-    return res.status(200).json({ message: "Staff Updated Successfully", newAdminStaff });
-  }catch(error){
-    console.error(error);
-    return res.status(500).json({ message: "Server Error" });
-  }
-}
-
-exports.getStaff = async (req, res) => {
   try {
-    const staff = await AdminStaff.find().populate("roleId")
-    res.json(staff)
+    const { id } = req.params;
+    const { name, email, password, roleId } = req.body;
+    const staff = await AdminStaff.findById(id);
+
+    if (!staff) {
+      return res.status(404).json({ message: "Staff not found" });
+    }
+
+    // Block editing of admin user
+    if (staff.roles === "Admin") {
+      return res.status(403).json({ message: "Admin user cannot be edited" });
+    }
+
+    const newAdminStaff = await AdminStaff.findByIdAndUpdate(
+      id,
+      { name, email, password, roleId },
+      { new: true }
+    );
+    return res
+      .status(200)
+      .json({ message: "Staff Updated Successfully", newAdminStaff });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Server Error" });
   }
-}
+};
+
+exports.getStaff = async (req, res) => {
+  try {
+    const staff = await AdminStaff.find().populate("roleId");
+    res.json(staff);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server Error" });
+  }
+};

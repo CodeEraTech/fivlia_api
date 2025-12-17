@@ -100,7 +100,7 @@ exports.driverOrderStatus = async (req, res) => {
     const { orderStatus, orderId, otp } = req.body;
 
     // ===> On The Way block
-    if (orderStatus === "On The Way" || orderStatus === "On Way") {
+    if (orderStatus === "On Way") {
       //On Way
       const setting = await SettingAdmin.findOne();
       const authSettings = setting?.Auth?.[0] || {};

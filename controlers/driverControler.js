@@ -438,6 +438,7 @@ exports.driverWallet = async (req, res) => {
     let totalDeliveryCharge =
       deliveryChargeRaw / (1 + deliveryGstPercent / 100);
 
+    const taxedAmount = deliveryChargeRaw - totalDeliveryCharge;
     const payout = order.deliveryPayout || totalDeliveryCharge;
 
     if (!payout) {
@@ -460,6 +461,25 @@ exports.driverWallet = async (req, res) => {
       amount: payout,
       orderId: order._id,
       description: `Payout for Order #${orderId}`,
+    });
+
+    const lastAmount = await admin_transaction
+      .findById("68ea20d2c05a14a96c12788d")
+      .lean();
+
+    const updatedWallet = await admin_transaction.findByIdAndUpdate(
+      "68ea20d2c05a14a96c12788d",
+      { $inc: { wallet: taxedAmount } },
+      { new: true }
+    );
+
+    await admin_transaction.create({
+      currentAmount: updatedWallet.wallet,
+      lastAmount: lastAmount.wallet,
+      type: "Credit",
+      amount: taxedAmount,
+      orderId: order.orderId,
+      description: "Delivery Charge GST credited to Admin wallet",
     });
 
     return res
@@ -756,7 +776,7 @@ exports.tipDriver = async (req, res) => {
     }
     const order = await Order.findOne({ orderId });
 
-    const razorpayFee = (tip * 2.5) / 100;        // 2.5%
+    const razorpayFee = (tip * 2.5) / 100; // 2.5%
     const netAmount = tip - razorpayFee;
     const gstOnFee = (netAmount * 18) / 100; // 18% GST
     const totalDeduction = razorpayFee + gstOnFee;
@@ -795,7 +815,7 @@ exports.tipDriver = async (req, res) => {
       type: "Credit",
       amount: totalDeduction,
       orderId: order.orderId,
-      description: "Tip Tax (2.5%) credited to Admin wallet",
+      description: "Tip Tax (2.5% = 18%) credited to Admin wallet",
     });
 
     return res.status(200).json({ message: "Tip Given", Tip });

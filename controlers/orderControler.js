@@ -761,10 +761,14 @@ exports.orderStatus = async (req, res) => {
           return sum + commissionAmount;
         }, 0);
 
+        const itemTotal = updatedOrder.items.reduce((sum, item) => {
+          return sum + item.price * item.quantity;
+        }, 0);
+
         // 🏦 Credit Store Wallet
-        let creditToStore = updatedOrder.itemTotal;
+        let creditToStore = itemTotal;
         if (!store.Authorized_Store) {
-          creditToStore = updatedOrder.itemTotal - totalCommission;
+          creditToStore = itemTotal - totalCommission;
         }
 
         const storeData = await Store.findByIdAndUpdate(
@@ -1487,22 +1491,22 @@ exports.getBulkOrders = async (req, res) => {
   }
 };
 
-exports.updateBulkOrders = async (req,res) => {
-  try{
-  const {id} = req.params
-  const {status} = req.body
-  const updatedOrder = await BulkOrderRequest.findByIdAndUpdate(
+exports.updateBulkOrders = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const updatedOrder = await BulkOrderRequest.findByIdAndUpdate(
       id,
       { status },
       { new: true }
-  );
+    );
 
-  return res.status(200).json({message:"completed", data: updatedOrder,})
-  }catch(error){
-    console.error(error)
-    return res.status(500).json({message:"Server Error"})
+    return res.status(200).json({ message: "completed", data: updatedOrder });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server Error" });
   }
-}
+};
 
 exports.markAllRead = async (req, res) => {
   try {

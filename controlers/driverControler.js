@@ -151,19 +151,15 @@ exports.driverOrderStatus = async (req, res) => {
       });
     }
 
-    if (orderStatus === "Delivered") {      
+    if (orderStatus === "Delivered") {
       const alreadyDelivered = await Order.exists({
         orderId,
         deliverStatus: true,
       });
       if (alreadyDelivered) {
-        console.log(
-          `Order ${orderId} already processed for delivery.`
-        );
+        console.log(`Order ${orderId} already processed for delivery.`);
       } else {
-        console.log(
-          `Processing delivery logic for order ${orderId}...`
-        );
+        console.log(`Processing delivery logic for order ${orderId}...`);
         let feeInvoiceId = await FeeInvoiceId(true);
         const otpRecord = await OtpModel.findOne({ orderId, otp });
         if (!otpRecord) {
@@ -189,9 +185,12 @@ exports.driverOrderStatus = async (req, res) => {
           return sum + commissionAmount;
         }, 0);
 
-        let creditToStore = order.itemTotal;
+        const itemTotal = updatedOrder.items.reduce((sum, item) => {
+          return sum + item.price * item.quantity;
+        }, 0);
+        let creditToStore = itemTotal;
         if (!store.Authorized_Store) {
-          creditToStore = order.itemTotal - totalCommission; // deduct commission
+          creditToStore = itemTotal - totalCommission; // deduct commission
         }
 
         // ===> Update Store Wallet
@@ -475,7 +474,9 @@ exports.driverWallet = async (req, res) => {
 exports.transactionList = async (req, res) => {
   try {
     const { driverId } = req.params;
-    const transactionList = await Transaction.find({ driverId }).sort({createdAt:-1});
+    const transactionList = await Transaction.find({ driverId }).sort({
+      createdAt: -1,
+    });
     const driverWallet = await driver.findOne({ _id: driverId });
     totalAmount = driverWallet.wallet;
     return res
@@ -755,9 +756,10 @@ exports.tipDriver = async (req, res) => {
     }
     const order = await Order.findOne({ orderId });
 
-    // Calculate 2% tax
-    const tax = (tip * 2) / 100;
-    const netTip = tip - tax;
+    const razorpayFee = (tip * 2.5) / 100;        // 2%
+    const gstOnFee = (razorpayFee * 18) / 100; // 18% GST
+    const totalDeduction = razorpayFee + gstOnFee;
+    const netTip = tip - totalDeduction;
 
     const updatedDriver = await driver.findByIdAndUpdate(
       driverId,
@@ -777,23 +779,23 @@ exports.tipDriver = async (req, res) => {
       userId,
       type: "credit",
     });
-    // const lastAmount = await admin_transaction
-    //   .findById("68ea20d2c05a14a96c12788d")
-    //   .lean();
-    // const updatedWallet = await admin_transaction.findByIdAndUpdate(
-    //   "68ea20d2c05a14a96c12788d",
-    //   { $inc: { wallet: tax } },
-    //   { new: true }
-    // );
+    const lastAmount = await admin_transaction
+      .findById("68ea20d2c05a14a96c12788d")
+      .lean();
+    const updatedWallet = await admin_transaction.findByIdAndUpdate(
+      "68ea20d2c05a14a96c12788d",
+      { $inc: { wallet: totalDeduction } },
+      { new: true }
+    );
 
-    // await admin_transaction.create({
-    //   currentAmount: updatedWallet.wallet,
-    //   lastAmount: lastAmount.wallet,
-    //   type: "Credit",
-    //   amount: tax,
-    //   orderId: order.orderId,
-    //   description: "Tip Tax (2%) credited to Admin wallet",
-    // });
+    await admin_transaction.create({
+      currentAmount: updatedWallet.wallet,
+      lastAmount: lastAmount.wallet,
+      type: "Credit",
+      amount: totalDeduction,
+      orderId: order.orderId,
+      description: "Tip Tax (2.5%) credited to Admin wallet",
+    });
 
     return res.status(200).json({ message: "Tip Given", Tip });
   } catch (error) {

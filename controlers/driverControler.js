@@ -756,8 +756,9 @@ exports.tipDriver = async (req, res) => {
     }
     const order = await Order.findOne({ orderId });
 
-    const razorpayFee = (tip * 2.5) / 100;        // 2%
-    const gstOnFee = (razorpayFee * 18) / 100; // 18% GST
+    const razorpayFee = (tip * 2.5) / 100;        // 2.5%
+    const netAmount = tip - razorpayFee;
+    const gstOnFee = (netAmount * 18) / 100; // 18% GST
     const totalDeduction = razorpayFee + gstOnFee;
     const netTip = tip - totalDeduction;
 

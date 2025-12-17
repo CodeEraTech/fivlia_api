@@ -762,9 +762,9 @@ exports.orderStatus = async (req, res) => {
         }, 0);
 
         // 🏦 Credit Store Wallet
-        let creditToStore = updatedOrder.totalPrice;
+        let creditToStore = updatedOrder.itemTotal;
         if (!store.Authorized_Store) {
-          creditToStore = updatedOrder.totalPrice - totalCommission;
+          creditToStore = updatedOrder.itemTotal - totalCommission;
         }
 
         const storeData = await Store.findByIdAndUpdate(

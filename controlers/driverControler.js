@@ -17,7 +17,6 @@ const { FeeInvoiceId } = require("../config/counter");
 const { sendMessages } = require("../utils/sendMessages");
 const sendDriverLocationToUser = require("../utils/sendLatLongToUser");
 const DriverRating = require("../modals/DriverRating");
-
 const {
   generateAndSendThermalInvoice,
   generateStoreInvoiceId,
@@ -152,7 +151,7 @@ exports.driverOrderStatus = async (req, res) => {
       });
     }
 
-    if (orderStatus === "Delivered") {
+    if (orderStatus === "Delivered") {      
       const alreadyDelivered = await Order.exists({
         orderId,
         deliverStatus: true,
@@ -190,9 +189,9 @@ exports.driverOrderStatus = async (req, res) => {
           return sum + commissionAmount;
         }, 0);
 
-        let creditToStore = order.totalPrice;
+        let creditToStore = order.itemTotal;
         if (!store.Authorized_Store) {
-          creditToStore = order.totalPrice - totalCommission; // deduct commission
+          creditToStore = order.itemTotal - totalCommission; // deduct commission
         }
 
         // ===> Update Store Wallet
@@ -778,23 +777,23 @@ exports.tipDriver = async (req, res) => {
       userId,
       type: "credit",
     });
-    const lastAmount = await admin_transaction
-      .findById("68ea20d2c05a14a96c12788d")
-      .lean();
-    const updatedWallet = await admin_transaction.findByIdAndUpdate(
-      "68ea20d2c05a14a96c12788d",
-      { $inc: { wallet: tax } },
-      { new: true }
-    );
+    // const lastAmount = await admin_transaction
+    //   .findById("68ea20d2c05a14a96c12788d")
+    //   .lean();
+    // const updatedWallet = await admin_transaction.findByIdAndUpdate(
+    //   "68ea20d2c05a14a96c12788d",
+    //   { $inc: { wallet: tax } },
+    //   { new: true }
+    // );
 
-    await admin_transaction.create({
-      currentAmount: updatedWallet.wallet,
-      lastAmount: lastAmount.wallet,
-      type: "Credit",
-      amount: tax,
-      orderId: order.orderId,
-      description: "Tip Tax (2%) credited to Admin wallet",
-    });
+    // await admin_transaction.create({
+    //   currentAmount: updatedWallet.wallet,
+    //   lastAmount: lastAmount.wallet,
+    //   type: "Credit",
+    //   amount: tax,
+    //   orderId: order.orderId,
+    //   description: "Tip Tax (2%) credited to Admin wallet",
+    // });
 
     return res.status(200).json({ message: "Tip Given", Tip });
   } catch (error) {

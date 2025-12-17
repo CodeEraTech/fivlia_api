@@ -185,7 +185,7 @@ exports.driverOrderStatus = async (req, res) => {
           return sum + commissionAmount;
         }, 0);
 
-        const itemTotal = updatedOrder.items.reduce((sum, item) => {
+        const itemTotal = order.items.reduce((sum, item) => {
           return sum + item.price * item.quantity;
         }, 0);
         let creditToStore = itemTotal;

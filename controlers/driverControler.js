@@ -64,6 +64,58 @@ exports.driverLogin = async (req, res) => {
   }
 };
 
+exports.checkDriverDeviceLogin = async (req, res) => {
+  try {
+    const { mobileNumber, driverDeviceId } = req.body;
+
+    // Validation checks — always return isValid: false
+    if (!mobileNumber) {
+      return res.status(400).json({
+        message: "Mobile number is required",
+        isValid: false,
+      });
+    }
+
+    if (!driverDeviceId) {
+      return res.status(400).json({
+        message: "Driver device ID is required",
+        isValid: false,
+      });
+    }
+
+    // Find driver by mobile number
+    const driverData = await driver.findOne({
+      "address.mobileNo": mobileNumber,
+    });
+
+    if (!driverData) {
+      return res.status(400).json({
+        message: "Driver not found",
+        isValid: false,
+      });
+    }
+
+    // Compare device ID
+    if (driverData.driverDeviceId === driverDeviceId) {
+      return res.status(200).json({
+        message: "Device match — valid driver login",
+        isValid: true,
+      });
+    } else {
+      return res.status(400).json({
+        message: "Device mismatch — login from different device",
+        isValid: false,
+      });
+    }
+  } catch (error) {
+    //console.error("Check Driver Device Login Error:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+      isValid: false,
+    });
+  }
+};
+
 exports.acceptOrder = async (req, res) => {
   try {
     const { orderId, status, driverId } = req.body;

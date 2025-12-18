@@ -60,7 +60,8 @@ const {
   getDriverReferralSeller,
   saveDriverRating,
   tipDriver,
-  getDriverRating
+  getDriverRating,
+  checkDriverDeviceLogin
 } = require("../controlers/driverControler");
 
 const {
@@ -330,6 +331,7 @@ router.post("/addFilter", addFilter);
 router.post("/address", verifyToken, addAddress);
 router.post("/updateStock/:productId", updateStock);
 router.post("/driver", upload, driver);
+router.post("/check-driver-device", upload, checkDriverDeviceLogin);
 router.post("/deliveryStatus", upload, deliveryStatus);
 router.put("/rating", verifyToken, rating);
 router.post("/withdrawalRequest", withdrawalRequest);
@@ -480,6 +482,7 @@ router.post("/addEvent", upload, addEvent);
 router.put("/editEvent/:id", upload, editEvent);
 
 router.put("/editProfile/:id", upload, editProfile);
+
 router.put("/driverWallet/:orderId", driverWallet);
 router.put("/driverOrderStatus", driverOrderStatus);
 router.put("/editBrand/:id", upload, editBrand);

@@ -217,52 +217,72 @@ exports.walletAdmin = async (req, res) => {
 
 exports.adminTranaction = async (req, res) => {
   try {
-    const transactions = await admin_transaction.aggregate([
-      // Sort latest first
-      { $sort: { createdAt: -1 } },
+    const { startDate, endDate } = req.query;
 
-      // Join with orders collection
-      {
-        $lookup: {
-          from: "orders", // collection name in MongoDB (lowercase, plural)
-          localField: "orderId",
-          foreignField: "orderId",
-          as: "orderData",
+    const matchStage = {};
+
+    if (startDate || endDate) {
+      matchStage.createdAt = {};
+
+      if (startDate) {
+        matchStage.createdAt.$gte = new Date(startDate);
+      }
+
+      if (endDate) {
+        matchStage.createdAt.$lte = new Date(endDate);
+      }
+    }
+
+    const transactions = await admin_transaction.aggregate(
+      [
+        // Sort latest first
+        Object.keys(matchStage).length ? { $match: matchStage } : null,
+
+        { $sort: { createdAt: -1 } },
+
+        // Join with orders collection
+        {
+          $lookup: {
+            from: "orders", // collection name in MongoDB (lowercase, plural)
+            localField: "orderId",
+            foreignField: "orderId",
+            as: "orderData",
+          },
         },
-      },
 
-      // Unwind to convert orderData array → object
-      { $unwind: { path: "$orderData", preserveNullAndEmptyArrays: true } },
+        // Unwind to convert orderData array → object
+        { $unwind: { path: "$orderData", preserveNullAndEmptyArrays: true } },
 
-      // Join with store collection using storeId from orderData
-      {
-        $lookup: {
-          from: "stores",
-          localField: "orderData.storeId",
-          foreignField: "_id",
-          as: "storeData",
+        // Join with store collection using storeId from orderData
+        {
+          $lookup: {
+            from: "stores",
+            localField: "orderData.storeId",
+            foreignField: "_id",
+            as: "storeData",
+          },
         },
-      },
 
-      { $unwind: { path: "$storeData", preserveNullAndEmptyArrays: true } },
+        { $unwind: { path: "$storeData", preserveNullAndEmptyArrays: true } },
 
-      // Add projected fields for cleaner response
-      {
-        $project: {
-          _id: 1,
-          currentAmount: 1,
-          lastAmount: 1,
-          type: 1,
-          amount: 1,
-          orderId: 1,
-          description: 1,
-          createdAt: 1,
-          updatedAt: 1,
-          storeName: "$storeData.storeName",
-          city: "$storeData.city.name",
+        // Add projected fields for cleaner response
+        {
+          $project: {
+            _id: 1,
+            currentAmount: 1,
+            lastAmount: 1,
+            type: 1,
+            amount: 1,
+            orderId: 1,
+            description: 1,
+            createdAt: 1,
+            updatedAt: 1,
+            storeName: "$storeData.storeName",
+            city: "$storeData.city.name",
+          },
         },
-      },
-    ]);
+      ].filter(Boolean)
+    );
 
     return res.status(200).json({
       message: "Transaction history with store info",

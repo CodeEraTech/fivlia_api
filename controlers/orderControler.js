@@ -976,7 +976,7 @@ exports.driver = async (req, res) => {
     const existingDriver = await driver.findOne({
       $or: [
         { email },
-        { "address.mobile": mobileNumber }, // check nested field
+        { "address.mobileNo": mobileNumber }, // check nested field
         { "address.phone": mobileNumber },
       ],
     });
@@ -998,7 +998,6 @@ exports.driver = async (req, res) => {
     const dlFrontKey = req.files?.drivingLicence?.[0]?.key;
     const dlBackKey = req.files?.drivingLicence?.[1]?.key;
 
-    const totalDrivers = await driver.countDocuments();
     const driverId = nextDriverId;
     const newDriver = await driver.create({
       driverId,

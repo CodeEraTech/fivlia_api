@@ -15,7 +15,7 @@ function addFiveMinutes(durationText,settings) {
   const match = durationText.match(/(\d+)\s*min/);
   if (match) {
     const originalMinutes = parseInt(match[1]);
-    const addedTime = settings.extraTime
+    const addedTime = settings.extraTime || 0
     const newMinutes = originalMinutes + addedTime;
     return `${newMinutes} mins`;
   }

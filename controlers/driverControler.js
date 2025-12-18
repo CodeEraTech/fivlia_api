@@ -28,7 +28,7 @@ const order = require("../modals/order");
 
 exports.driverLogin = async (req, res) => {
   try {
-    const { mobileNumber, password, fcmToken } = req.body;
+    const { mobileNumber,driverDeviceId, password, fcmToken } = req.body;
 
     const exist = await driver.findOne({
       "address.mobileNo": mobileNumber,
@@ -43,6 +43,10 @@ exports.driverLogin = async (req, res) => {
     }
     if (fcmToken) {
       await driver.findByIdAndUpdate(exist._id, { fcmToken });
+    }
+
+    if (driverDeviceId) {
+      await driver.findByIdAndUpdate(exist._id, { driverDeviceId });
     }
 
     const token = jwt.sign({ _id: exist._id }, process.env.jwtSecretKey);
@@ -102,9 +106,9 @@ exports.checkDriverDeviceLogin = async (req, res) => {
         isValid: true,
       });
     } else {
-      return res.status(200).json({
-        message: "Device match — valid driver login",
-        isValid: true,
+      return res.status(400).json({
+        message: "Device mismatch — login from different device",
+        isValid: false,
       });
     }
   } catch (error) {

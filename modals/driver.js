@@ -11,6 +11,7 @@ const driverSchema = new mongoose.Schema({
    vehicleType:String,
    vehicleRegistrationNumber:String,
    drivingLicenseNumber:String,
+   driverDeviceId:String,
    approveStatus: { type: String, enum: ['pending_admin_approval', 'approved', 'rejected'] },
    address:{
     city:String,

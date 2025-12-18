@@ -106,9 +106,9 @@ exports.checkDriverDeviceLogin = async (req, res) => {
         isValid: true,
       });
     } else {
-      return res.status(200).json({
-        message: "Device match — valid driver login",
-        isValid: true,
+      return res.status(400).json({
+        message: "Device mismatch — login from different device",
+        isValid: false,
       });
     }
   } catch (error) {

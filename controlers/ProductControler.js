@@ -2257,12 +2257,26 @@ exports.updateStock = async (req, res) => {
 exports.adminProducts = async (req, res) => {
   try {
     const {
+      id,
       page = 1,
       limit = 10,
       search = "",
       city = "",
       category = "",
     } = req.query;
+
+    if (id) {
+      const product = await Products.findById(id).lean();
+
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+
+      return res.status(200).json({
+        message: "Product",
+        Product: product,
+      });
+    }
 
     const pageNum = Number(page);
     const limitNum = Number(limit);
@@ -2286,9 +2300,20 @@ exports.adminProducts = async (req, res) => {
       query["category.name"] = category;
     }
 
+    const projection = {
+      productName: 1,
+      sku: 1,
+      productThumbnailUrl: 1,
+      location: 1,
+      category: 1,
+      variants: 1,
+      status: 1,
+      createdAt: 1,
+    };
+
     // Get paginated products
     const [products, total] = await Promise.all([
-      Products.find(query)
+      Products.find(query, projection)
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limitNum)

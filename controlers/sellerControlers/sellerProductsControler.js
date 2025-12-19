@@ -404,9 +404,7 @@ exports.getSellerProducts = async (req, res) => {
 
   try {
     if (!sellerId) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Missing sellerId" });
+      return res.status(400).json({ success: false, message: "Missing sellerId" });
     }
 
     let productMatch = {};
@@ -420,6 +418,7 @@ exports.getSellerProducts = async (req, res) => {
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
+    /* ---------------- STOCK ---------------- */
     const stockData = await Stock.findOne({ storeId: sellerId }).lean();
     const stockEntries = stockData?.stock || [];
 
@@ -428,65 +427,85 @@ exports.getSellerProducts = async (req, res) => {
       .filter(Boolean)
       .map((id) => new mongoose.Types.ObjectId(id));
 
-    // Count total seller products
+    /* ---------------- TOTAL (UNCHANGED LOGIC) ---------------- */
     const total = await Product.countDocuments({ _id: { $in: productIds } });
 
+    /* ---------------- PRODUCTS ---------------- */
     const sellerProducts = await Product.find({
       _id: { $in: productIds },
-      ...productMatch, // your search filter
+      ...productMatch,
     })
       .skip(skip)
       .limit(parseInt(limit))
       .select(
-        "productName mrp sku sell_price productThumbnailUrl category subCategory subSubCategory variants sku"
+        "productName mrp sku sell_price productThumbnailUrl category subCategory subSubCategory variants"
       )
-      .populate({ path: "category", model: "Category" })
       .lean();
 
+    /* ---------------- CATEGORY PREFETCH (OPTIMIZATION ONLY) ---------------- */
+    const categoryIds = [
+      ...new Set(
+        sellerProducts
+          .map((p) => p.category?.[0]?._id?.toString())
+          .filter(Boolean)
+      ),
+    ];
+
+    const categories = await Category.find({ _id: { $in: categoryIds } }).lean();
+
+    const categoryMap = {};
+    categories.forEach((cat) => {
+      categoryMap[cat._id.toString()] = cat;
+    });
+
+    /* ---------------- RESPONSE BUILD (LOGIC PRESERVED) ---------------- */
     const products = await Promise.all(
-      sellerProducts.map(async (sp) => {
-        const prod = sp;
+      sellerProducts.map(async (prod) => {
+        const productIdStr = prod._id.toString();
 
         const subCategoryId = prod.subCategory?.[0]?._id?.toString();
         const subSubCategoryId = prod.subSubCategory?.[0]?._id?.toString();
-        const categoryId = prod.category?.[0]?._id;
+        const categoryId = prod.category?.[0]?._id?.toString();
 
         let commission = 0;
         let categoryName = "Uncategorized";
 
-        if (categoryId) {
-          // 🛠️ Manually fetch category with subcat
-          const fullCategory = await Category.findById(categoryId).lean();
-          categoryName = fullCategory?.name ?? "Uncategorized";
+        const fullCategory = categoryMap[categoryId];
 
-          if (fullCategory?.subcat && (subSubCategoryId || subCategoryId)) {
+        if (fullCategory) {
+          categoryName = fullCategory.name ?? "Uncategorized";
+
+          if (fullCategory.subcat && (subSubCategoryId || subCategoryId)) {
             const matchedSubcat = fullCategory.subcat.find(
               (sub) => sub._id.toString() === subCategoryId
             );
 
-            if (matchedSubcat && Array.isArray(matchedSubcat.subsubcat)) {
+            if (matchedSubcat?.subsubcat?.length) {
               const matchedSubSubCat = matchedSubcat.subsubcat.find(
-                (subsub) => subsub._id.toString() === subSubCategoryId
+                (ss) => ss._id.toString() === subSubCategoryId
               );
               commission =
-                matchedSubSubCat?.commison ?? matchedSubcat?.commison ?? 0;
+                matchedSubSubCat?.commison ??
+                matchedSubcat?.commison ??
+                0;
             } else {
               commission = matchedSubcat?.commison ?? 0;
             }
           }
         }
+
         const firstStockEntry = stockEntries.find(
-          (s) => s.productId.toString() === prod._id.toString()
+          (s) => s.productId.toString() === productIdStr
         );
 
         const variantsWithStock = (prod.variants || []).map((variant) => {
-          const key = `${prod._id.toString()}_${variant._id.toString()}`;
           const stockEntry =
             stockEntries.find(
               (s) =>
-                s.productId.toString() === prod._id.toString() &&
-                s.variantId.toString() === variant._id.toString()
+                s.productId.toString() === productIdStr &&
+                s.variantId?.toString() === variant._id.toString()
             ) || null;
+
           return {
             ...variant,
             stock: stockEntry?.quantity ?? 0,
@@ -495,15 +514,16 @@ exports.getSellerProducts = async (req, res) => {
             status: stockEntry?.status ?? false,
           };
         });
+
         return {
-          sellerProductId: sp._id,
+          sellerProductId: prod._id,
           productId: prod._id,
           productName: prod.productName,
-          sku:prod.sku,
+          sku: prod.sku,
           productThumbnailUrl: prod.productThumbnailUrl,
           category: categoryName,
-          mrp: sp.mrp == 0 ? prod.mrp : sp.mrp,
-          sell_price: sp.sell_price == 0 ? prod.sell_price : sp.sell_price,
+          mrp: prod.mrp == 0 ? prod.mrp : prod.mrp,
+          sell_price: prod.sell_price == 0 ? prod.sell_price : prod.sell_price,
           variants: variantsWithStock,
           status: firstStockEntry?.status ?? false,
           commission,

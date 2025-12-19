@@ -974,6 +974,10 @@ exports.driver = async (req, res) => {
     const mobileNumber = address?.mobileNo;
 
     const existingDriver = await driver.findOne({
+      $and: [
+        { approveStatus: { $ne: "rejected" } },
+        { approveStatus: { $ne: "pending_admin_approval" } },
+      ],
       $or: [
         { email },
         { "address.mobileNo": mobileNumber }, // check nested field

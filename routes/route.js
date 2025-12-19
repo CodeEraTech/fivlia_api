@@ -485,7 +485,7 @@ router.put("/editProfile/:id", upload, editProfile);
 
 router.put("/driverWallet/:orderId", driverWallet);
 router.put("/driverOrderStatus", driverOrderStatus);
-router.put("/editBrand/:id", upload, editBrand);
+router.put("/editBrand/:id", attachStaffRole, checkPermission("BRAND_ADD_EDIT"), upload, editBrand);
 router.put("/editMainCategory", upload, editMainCategory);
 router.put("/editDriver/:driverId", upload, editDriver);
 router.put("/storeEdit/:storeId", upload, storeEdit);

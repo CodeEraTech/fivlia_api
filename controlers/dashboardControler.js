@@ -750,8 +750,11 @@ exports.editStaff = async (req, res) => {
       return res.status(404).json({ message: "Staff not found" });
     }
 
+    const staffRole = await Roles.findById(staff.roleId);  //eg->admin
+    const editRole = await Roles.findById(roleId);
+
     // Block editing of admin user
-    if (staff.roles === "Admin") {
+    if (staffRole.roles !== "Admin" && editRole.roles === "Admin") {
       return res.status(403).json({ message: "Admin user cannot be edited" });
     }
 

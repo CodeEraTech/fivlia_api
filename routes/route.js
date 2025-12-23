@@ -7,6 +7,9 @@ const attachStaffRole = require("../midllerware/attachStaffRole.js");
 const checkPermission = require("../midllerware/checkPermission.js");
 
 const accessKey = require("../midllerware/accessKey.js")
+
+//admin api 
+const { getFrenchise } = require("../controlers/adminApiControlers.js");
 //seo
 const { createSitemap, getSitemap } = require("../controlers/seoControler");
 //invoice
@@ -274,6 +277,8 @@ const { getPlaceSuggestions } = require("../utils/olaAutocomplete.js");
 const { trackMapUsage } = require("../controlers/mapUsageController.js");
 const { getSellerReport } = require("../controlers/reportController.js");
 
+
+router.get("/get-frenchise-enquiry",  getFrenchise);
 // reports apis
 router.get("/get-seller-report",  getSellerReport);
 

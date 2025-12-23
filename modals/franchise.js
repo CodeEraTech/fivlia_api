@@ -9,6 +9,6 @@ city:String,
 message:String,
 franchiseInvestment:Boolean,
 investWithUs:Boolean,
-});
+},{timestamps:true});
 
 module.exports = mongoose.model('franchise', franchiseSchema);

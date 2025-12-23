@@ -39,7 +39,8 @@ const {
   getCharityContent,
   getCharity,
   deleteCharityContent,
-  updateCharityContent
+  updateCharityContent,
+  frenchiseEnquiry
 } = require("../controlers/websiteapicontroler");
 
 const {
@@ -279,12 +280,12 @@ router.get("/get-seller-report",  getSellerReport);
 // Admin Login
 router.post("/admin/login", adminLogin);
 
-router.post("/addExpenseType", addExpenseType);
-router.post("/addExpenses", addExpenses);
+router.post("/addExpenseType", attachStaffRole, checkPermission("EXPENSE_ADD_EDIT"), addExpenseType);
+router.post("/addExpenses", attachStaffRole, checkPermission("EXPENSE_ADD_EDIT"), addExpenses);
 router.post("/addRoles", addRoles);
 router.post("/addStaff", attachStaffRole, checkPermission("STAFF_ADD_EDIT"), addStaff);
   
-router.put("/editExpenses/:id", editExpenses);
+router.put("/editExpenses/:id",attachStaffRole, checkPermission("EXPENSE_ADD_EDIT"), editExpenses);
 router.put("/editStaff/:id", editStaff);
 
 router.get("/getExpenseType", getExpenseType);
@@ -465,6 +466,7 @@ router.get("/GetSubCategories/:categoryId", GetSubCategories);
 
 router.post("/addCharity", upload, addCharity);
 router.post("/createCharityContent", upload, createCharityContent);
+router.post("/frenchise-enquiry", frenchiseEnquiry);
 router.post("/updateCharityContent", upload, updateCharityContent);
 router.get("/getCharityContent", getCharityContent);
 

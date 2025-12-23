@@ -26,6 +26,7 @@ const MapUsage = require("../modals/mapUsage");
 const haversine = require("haversine-distance");
 const Charity = require("../modals/Charity");
 const CharityContent = require("../modals/charityContent");
+const Franchise = require("../modals/franchise");
 
 exports.forwebbestselling = async (req, res) => {
   try {
@@ -2012,3 +2013,15 @@ exports.deleteCharityContent = async (req, res) => {
     return res.status(500).json({ success: false, message: err.message });
   }
 };
+
+exports.frenchiseEnquiry = async (req, res) => {
+  try{
+    const { fullName, phone, email, state, city, message, franchiseInvestment, investWithUs } = req.body
+    const franchise =  await Franchise.create({fullName, phone, email, state, city, message, franchiseInvestment, investWithUs})
+
+    return res.status(200).json({message: "Request sent", franchise})
+  }catch(error){
+    console.error(error)
+    return res.status(500).json({message: "Server error"})
+  }
+}

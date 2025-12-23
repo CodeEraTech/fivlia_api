@@ -1,125 +1,89 @@
-exports.getSellerProducts = async (req, res) => {
-  const { sellerId, page = 1, limit, search = "", category = "" } = req.query;
+const mongoose = require("mongoose");
 
+exports.getSellerReport = async (req, res) => {
   try {
-    if (!sellerId) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Missing sellerId" });
-    }
+    const {catergoryId, zone, city} = req.query
+    const reports = await Order.aggregate([
+      // Filter only delivered orders
+      {
+        $match: {
+          orderStatus: "Delivered",
+        },
+      },
+      // Join store collection
+      {
+        $lookup: {
+          from: "stores",
+          localField: "storeId",
+          foreignField: "_id",
+          as: "storeData",
+        },
+      },
+      {
+        $unwind: {
+          path: "$storeData",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
 
-    let productMatch = {};
-    if (search) {
-      productMatch.productName = { $regex: search, $options: "i" };
-    }
+      // Join admin_transactions collection
+      {
+        $lookup: {
+          from: "admin_transactions",
+          localField: "orderId",
+          foreignField: "orderId",
+          as: "txnData",
+        },
+      },
 
-    if (category) {
-      productMatch["category._id"] = new mongoose.Types.ObjectId(category);
-    }
+      // Project fields
+      {
+        $project: {
+          _id: 0,
+          orderId: 1,
+          orderStatus: 1,
+          paymentStatus: 1,
+          createdAt: 1,
+          totalPrice: 1,
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+          sellerName: "$storeData.storeName",
+          city: { $ifNull: ["$storeData.city.name", "-"] },
+          zone: {
+            $ifNull: [{ $arrayElemAt: ["$storeData.zone.title", 0] }, "-"],
+          },
 
-    const stockData = await Stock.findOne({ storeId: sellerId }).lean();
-    const stockEntries = stockData?.stock || [];
+          commission: { $arrayElemAt: ["$txnData.amount", 0] },
 
-    const productIds = stockEntries
-      .map((s) => s.productId)
-      .filter(Boolean)
-      .map((id) => new mongoose.Types.ObjectId(id));
+          items: {
+            $map: {
+              input: "$items",
+              as: "item",
+              in: {
+                productName: "$$item.name",
+                image: "$$item.image",
+                quantity: "$$item.quantity",
+                price: "$$item.price",
+                gst: "$$item.gst",
+              },
+            },
+          },
+        },
+      },
 
-    // Count total seller products
-    const total = await Product.countDocuments({ _id: { $in: productIds } });
+      // Sort latest orders first
+      {
+        $sort: { createdAt: -1 },
+      },
+    ]);
 
-    const sellerProducts = await Product.find({
-      _id: { $in: productIds },
-      ...productMatch, // your search filter
-    })
-      .skip(skip)
-      .limit(parseInt(limit))
-      .select(
-        "productName mrp sku sell_price productThumbnailUrl category subCategory subSubCategory variants sku"
-      )
-      .populate({ path: "category", model: "Category" })
-      .lean();
-
-    const products = await Promise.all(
-      sellerProducts.map(async (sp) => {
-        const prod = sp;
-
-        const subCategoryId = prod.subCategory?.[0]?._id?.toString();
-        const subSubCategoryId = prod.subSubCategory?.[0]?._id?.toString();
-        const categoryId = prod.category?.[0]?._id;
-
-        let commission = 0;
-        let categoryName = "Uncategorized";
-
-        if (categoryId) {
-          // 🛠️ Manually fetch category with subcat
-          const fullCategory = await Category.findById(categoryId).lean();
-          categoryName = fullCategory?.name ?? "Uncategorized";
-
-          if (fullCategory?.subcat && (subSubCategoryId || subCategoryId)) {
-            const matchedSubcat = fullCategory.subcat.find(
-              (sub) => sub._id.toString() === subCategoryId
-            );
-
-            if (matchedSubcat && Array.isArray(matchedSubcat.subsubcat)) {
-              const matchedSubSubCat = matchedSubcat.subsubcat.find(
-                (subsub) => subsub._id.toString() === subSubCategoryId
-              );
-              commission =
-                matchedSubSubCat?.commison ?? matchedSubcat?.commison ?? 0;
-            } else {
-              commission = matchedSubcat?.commison ?? 0;
-            }
-          }
-        }
-        const firstStockEntry = stockEntries.find(
-          (s) => s.productId.toString() === prod._id.toString()
-        );
-
-        const variantsWithStock = (prod.variants || []).map((variant) => {
-          const key = `${prod._id.toString()}_${variant._id.toString()}`;
-          const stockEntry =
-            stockEntries.find(
-              (s) =>
-                s.productId.toString() === prod._id.toString() &&
-                s.variantId.toString() === variant._id.toString()
-            ) || null;
-          return {
-            ...variant,
-            stock: stockEntry?.quantity ?? 0,
-            mrp: stockEntry?.mrp || variant.mrp,
-            sell_price: stockEntry?.price || variant.sell_price,
-            status: stockEntry?.status ?? false,
-          };
-        });
-        return {
-          sellerProductId: sp._id,
-          productId: prod._id,
-          productName: prod.productName,
-          sku:prod.sku,
-          productThumbnailUrl: prod.productThumbnailUrl,
-          category: categoryName,
-          mrp: sp.mrp == 0 ? prod.mrp : sp.mrp,
-          sell_price: sp.sell_price == 0 ? prod.sell_price : sp.sell_price,
-          variants: variantsWithStock,
-          status: firstStockEntry?.status ?? false,
-          commission,
-        };
-      })
-    );
-
-    res.json({
-      success: true,
-      products,
-      total,
-      page: parseInt(page),
-      limit: parseInt(limit),
-      totalPages: Math.ceil(total / limit),
+    return res.status(200).json({
+      data: reports,
     });
-  } catch (err) {
-    console.error("Error in getSellerProducts:", err);
-    res.status(500).json({ success: false, message: "Server error" });
+  } catch (error) {
+    console.error("Error in getSellerReport:", error);
+    return res.status(500).json({
+      message: "Internal Server Error",
+      error: error.message,
+    });
   }
 };

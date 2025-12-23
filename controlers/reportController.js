@@ -4,14 +4,25 @@ const { Order } = require("../modals/order");
 
 exports.getSellerReport = async (req, res) => {
   try {
+    const { categoryId, zone, city } = req.query;
+
+    const matchOrder = {
+      orderStatus: "Delivered",
+    };
+
+    const matchStore = {};
+    if (city) {
+      matchStore["storeData.city._id"] = new mongoose.Types.ObjectId(city);
+    }
+    if (zone) {
+      matchStore["storeData.zone._id"] = new mongoose.Types.ObjectId(zone);
+    }
+
     const reports = await Order.aggregate([
-      // Filter only delivered orders
-      {
-        $match: {
-          orderStatus: "Delivered",
-        },
-      },
-      // Join store collection
+      // 🔥 Delivered only
+      { $match: matchOrder },
+
+      // 🔗 Store join
       {
         $lookup: {
           from: "stores",
@@ -20,14 +31,12 @@ exports.getSellerReport = async (req, res) => {
           as: "storeData",
         },
       },
-      {
-        $unwind: {
-          path: "$storeData",
-          preserveNullAndEmptyArrays: true,
-        },
-      },
+      { $unwind: "$storeData" },
 
-      // Join admin_transactions collection
+      // 🎯 City / Zone filter
+      { $match: matchStore },
+
+      // 🔗 Transactions
       {
         $lookup: {
           from: "admin_transactions",
@@ -37,7 +46,27 @@ exports.getSellerReport = async (req, res) => {
         },
       },
 
-      // Project fields
+      // 🎯 Category filter (items only)
+      {
+        $addFields: {
+          items: categoryId
+            ? {
+                $filter: {
+                  input: "$items",
+                  as: "item",
+                  cond: {
+                    $eq: [
+                      "$$item.categoryId",
+                      new mongoose.Types.ObjectId(categoryId),
+                    ],
+                  },
+                },
+              }
+            : "$items",
+        },
+      },
+
+      // 🧾 Projection
       {
         $project: {
           _id: 0,
@@ -48,10 +77,8 @@ exports.getSellerReport = async (req, res) => {
           totalPrice: 1,
 
           sellerName: "$storeData.storeName",
-          city: { $ifNull: ["$storeData.city.name", "-"] },
-          zone: {
-            $ifNull: [{ $arrayElemAt: ["$storeData.zone.title", 0] }, "-"],
-          },
+          city: "$storeData.city.name",
+          zone: "$storeData.zone.title",
 
           commission: { $arrayElemAt: ["$txnData.amount", 0] },
 
@@ -71,15 +98,11 @@ exports.getSellerReport = async (req, res) => {
         },
       },
 
-      // Sort latest orders first
-      {
-        $sort: { createdAt: -1 },
-      },
+      // ⏱ Latest first
+      { $sort: { createdAt: -1 } },
     ]);
 
-    return res.status(200).json({
-      data: reports,
-    });
+    return res.status(200).json({ data: reports });
   } catch (error) {
     console.error("Error in getSellerReport:", error);
     return res.status(500).json({

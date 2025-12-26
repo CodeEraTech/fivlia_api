@@ -14,6 +14,7 @@ const Stock = require("../../modals/StoreStock");
 const jwt = require("jsonwebtoken");
 const sellerProduct = require("../../modals/sellerModals/sellerProduct");
 const store_transaction = require("../../modals/storeTransaction");
+const sellerCoupon = require("../../modals/sellerCoupon");
 const { requestId } = require("../../config/counter");
 const { whatsappOtp } = require("../../config/whatsappsender");
 const { sendMessages } = require("../../utils/sendMessages");
@@ -1111,5 +1112,117 @@ exports.logoutSeller = async (req, res) => {
     });
   }
 };
+
+exports.createSellerCoupon = async (req, res) => {
+  try {
+    const { storeId, offer, title, limit, expireDate } = req.body;
+    const newOffer = await sellerCoupon.create({
+      storeId,
+      offer,
+      title,
+      limit,
+      expireDate,
+    });
+    return res.status(200).json({ message: "New coupon created", newOffer });
+  } catch (error) {
+    cosnole.error(error);
+    return res.status(200).json({ message: "Server error" });
+  }
+};
+
+exports.getCoupons = async (req, res) => {
+  try {
+    const {storeId} = req.params
+    const coupons = await sellerCoupon.find({storeId});
+    return res.status(200).json({ message: "New coupon created", coupons });
+  } catch (error) {
+    cosnole.error(error);
+    return res.status(200).json({ message: "Server error" });
+  }
+};
+
+exports.editSellerCoupon = async (req, res) => {
+  try {
+    const { couponId } = req.params;
+    const { title, offer, limit, expireDate, status } = req.body;
+
+    if (!couponId) {
+      return res.status(400).json({ message: "Coupon ID is required" });
+    }
+
+    // 🧱 Build dynamic update object
+    const updateData = {};
+
+    if (title !== undefined) {
+      updateData.title = title;
+    }
+
+    if (offer !== undefined) {
+      if (Number(offer) <= 0 || Number(offer) > 100) {
+        return res
+          .status(400)
+          .json({ message: "Offer must be between 1–100%" });
+      }
+      updateData.offer = Number(offer);
+    }
+
+    if (limit !== undefined) {
+      if (Number(limit) <= 0) {
+        return res
+          .status(400)
+          .json({ message: "Limit must be greater than zero" });
+      }
+      updateData.limit = Number(limit);
+    }
+
+    if (expireDate !== undefined) {
+      if (new Date(expireDate) <= new Date()) {
+        return res
+          .status(400)
+          .json({ message: "Expiry date must be in the future" });
+      }
+      updateData.expireDate = expireDate;
+    }
+
+    if (status !== undefined) {
+      if (typeof status !== "boolean") {
+        return res
+          .status(400)
+          .json({ message: "Status must be true or false" });
+      }
+      updateData.status = status;
+    }
+
+    // 🛑 Nothing to update
+    if (Object.keys(updateData).length === 0) {
+      return res
+        .status(400)
+        .json({ message: "No valid fields provided to update" });
+    }
+
+    // 🔄 Update coupon
+    const updatedCoupon = await sellerCoupon.findByIdAndUpdate(
+      couponId,
+      updateData,
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
+
+    if (!updatedCoupon) {
+      return res.status(404).json({ message: "Coupon not found" });
+    }
+
+    return res.status(200).json({
+      message: "Coupon updated successfully",
+      coupon: updatedCoupon,
+    });
+  } catch (error) {
+    console.error("Edit Coupon Error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
 
 // https://api.fivlia.in/getSellerProducts?categories=683eeb6ff6f5264ba0295760%683ed131f6f5264ba0295759&subCategories=683ef865f6f5264ba0295774%683ed131f6f5264ba0295755&subsubCategories=683ef865f6f5264ba0295724%683ed131f6f5264ba0295715

@@ -122,6 +122,9 @@ const {
   editSellerProfile,
   sellerWithdrawalRequest,
   getAllStore,
+  getCoupons,
+  createSellerCoupon,
+  editSellerCoupon,
   logoutSeller
 } = require("../controlers/sellerControlers/sellerAuth");
 
@@ -370,6 +373,9 @@ router.get("/sendEmailVerification", sendEmailVerification);
 // router.post('/addSellerProduct/:id', upload, addSellerProduct)
 router.post("/seller/verifyOtp", verifyOtpSeller);
 router.post("/seller/withdrawalRequest", sellerWithdrawalRequest);
+router.post("/seller/create-seller-coupon", createSellerCoupon);
+router.post("/seller/edit-seller-coupon/:couponId", editSellerCoupon);
+router.get("/seller/get-coupons/:storeId", getCoupons);
 // router.put('/editSellerProduct/:id', upload, editSellerProduct)
 // router.put('/updateSellerStock/:id', updateSellerStock)
 router.put("/acceptDeclineRequest", acceptDeclineRequest);

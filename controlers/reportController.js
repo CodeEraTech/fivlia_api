@@ -1,14 +1,21 @@
 const mongoose = require("mongoose");
-const Store = require("../modals/store");
 const { Order } = require("../modals/order");
 
 exports.getSellerReport = async (req, res) => {
   try {
-    const { categoryId, zone, city } = req.query;
+    const { categoryId, zone, city, fromDate, toDate } = req.query;
 
     const matchOrder = {
       orderStatus: "Delivered",
     };
+
+    // 🔫 date range filter
+    if (fromDate && toDate) {
+      matchOrder.createdAt = {
+        $gte: new Date(fromDate),
+        $lte: new Date(toDate),
+      };
+    }
 
     const matchStore = {};
     if (city) {
@@ -18,11 +25,11 @@ exports.getSellerReport = async (req, res) => {
       matchStore["storeData.zone._id"] = new mongoose.Types.ObjectId(zone);
     }
 
-    const reports = await Order.aggregate([
-      // 🔥 Delivered only
+    const pipeline = [
+      // delivered + date filter
       { $match: matchOrder },
 
-      // 🔗 Store join
+      // store join
       {
         $lookup: {
           from: "stores",
@@ -33,10 +40,10 @@ exports.getSellerReport = async (req, res) => {
       },
       { $unwind: "$storeData" },
 
-      // 🎯 City / Zone filter
+      // city / zone filter
       { $match: matchStore },
 
-      // 🔗 Transactions
+      // transactions
       {
         $lookup: {
           from: "admin_transactions",
@@ -46,63 +53,143 @@ exports.getSellerReport = async (req, res) => {
         },
       },
 
-      // 🎯 Category filter (items only)
+      // break items
+      { $unwind: "$items" },
+
+      // product join
       {
-        $addFields: {
-          items: categoryId
-            ? {
-                $filter: {
-                  input: "$items",
-                  as: "item",
-                  cond: {
-                    $eq: [
-                      "$$item.categoryId",
-                      new mongoose.Types.ObjectId(categoryId),
-                    ],
-                  },
-                },
-              }
-            : "$items",
+        $lookup: {
+          from: "products",
+          localField: "items.productId",
+          foreignField: "_id",
+          as: "productData",
         },
       },
+      { $unwind: "$productData" },
+    ];
 
-      // 🧾 Projection
+    // 🎯 category filter
+    if (categoryId) {
+      pipeline.push({
+        $match: {
+          "productData.category._id": new mongoose.Types.ObjectId(categoryId),
+        },
+      });
+    }
+
+    // regroup
+    pipeline.push(
       {
-        $project: {
-          _id: 0,
-          orderId: 1,
-          orderStatus: 1,
-          paymentStatus: 1,
-          createdAt: 1,
-          totalPrice: 1,
+        $group: {
+          _id: "$_id",
+          orderId: { $first: "$orderId" },
+          orderStatus: { $first: "$orderStatus" },
+          paymentStatus: { $first: "$paymentStatus" },
+          createdAt: { $first: "$createdAt" },
+          totalPrice: { $first: "$totalPrice" },
 
-          sellerName: "$storeData.storeName",
-          city: "$storeData.city.name",
-          zone: "$storeData.zone.title",
+          sellerName: { $first: "$storeData.storeName" },
+          city: { $first: "$storeData.city.name" },
+          zone: { $first: "$storeData.zone.title" },
 
-          commission: { $arrayElemAt: ["$txnData.amount", 0] },
+          commission: {
+            $first: { $arrayElemAt: ["$txnData.amount", 0] },
+          },
 
           items: {
-            $map: {
-              input: "$items",
-              as: "item",
-              in: {
-                productName: "$$item.name",
-                image: "$$item.image",
-                quantity: "$$item.quantity",
-                price: "$$item.price",
-                gst: "$$item.gst",
+            $push: {
+              productId: "$items.productId",
+              productName: "$items.name",
+              image: "$items.image",
+              quantity: "$items.quantity",
+              price: "$items.price",
+              gst: "$items.gst",
+
+              // 💰 category straight from product
+              category: {
+                _id: { $arrayElemAt: ["$productData.category._id", 0] },
+                name: { $arrayElemAt: ["$productData.category.name", 0] },
               },
             },
           },
         },
       },
 
-      // ⏱ Latest first
-      { $sort: { createdAt: -1 } },
-    ]);
+      // latest first
+      { $sort: { createdAt: -1 } }
+    );
 
-    return res.status(200).json({ data: reports });
+    const reports = await Order.aggregate(pipeline);
+
+    const summaryPipeline = [
+      { $match: matchOrder },
+
+      { $unwind: "$items" },
+
+      {
+        $group: {
+          _id: "$_id",
+
+          // order totals
+          totalPrice: { $first: "$totalPrice" },
+          deliveryPayout: { $first: "$deliveryPayout" },
+
+          // item total
+          itemTotal: {
+            $sum: {
+              $multiply: ["$items.price", "$items.quantity"],
+            },
+          },
+
+          // commission per item
+          totalCommission: {
+            $sum: {
+              $multiply: [
+                {
+                  $divide: ["$items.commision", 100],
+                },
+                {
+                  $multiply: ["$items.price", "$items.quantity"],
+                },
+              ],
+            },
+          },
+        },
+      },
+
+      {
+        $group: {
+          _id: null,
+
+          // 💰 revenue
+          totalRevenue: { $sum: "$totalPrice" },
+
+          // 🧑‍✈️ driver income
+          driverPaid: { $sum: "$deliveryPayout" },
+
+          // 🏪 seller wallet credit
+          sellerPaid: {
+            $sum: {
+              $subtract: ["$itemTotal", "$totalCommission"],
+            },
+          },
+
+          // 🏦 admin profit
+          totalProfit: { $sum: "$totalCommission" },
+        },
+      },
+    ];
+    const summaryAgg = await Order.aggregate(summaryPipeline);
+
+    return res
+      .status(200)
+      .json({
+        data: reports,
+        totalRevenue: summaryAgg[0]?.totalRevenue || 0,
+        driverPaid: summaryAgg[0]?.driverPaid || 0,
+        sellerPaid: summaryAgg[0]?.sellerPaid || 0,
+        totalProfit: summaryAgg[0]?.totalProfit || 0,
+      });
   } catch (error) {
     console.error("Error in getSellerReport:", error);
     return res.status(500).json({

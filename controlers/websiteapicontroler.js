@@ -1320,7 +1320,7 @@ exports.getDeliveryEstimateForWebsite = async (req, res) => {
       );
 
       if (olaResult?.status === "OK") {
-        duration = addFiveMinutes(olaResult.duration.text);
+        duration = addFiveMinutes(olaResult.duration.text, settings);
       }
     }
 

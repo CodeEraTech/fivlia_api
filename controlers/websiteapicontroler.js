@@ -1014,6 +1014,13 @@ exports.forwebsearchProduct = async (req, res) => {
     // Execute aggregation
     const products = await Products.aggregate(pipeline);
 
+    const sellers = name
+      ? await Store.find({
+          _id: { $in: allowedStoreIds },
+          storeName: { $regex: name, $options: "i" },
+        }).lean()
+      : [];
+
     // Enrich product objects with inventory, price, best store etc.
     for (const product of products) {
       let bestStore = null;
@@ -1057,6 +1064,7 @@ exports.forwebsearchProduct = async (req, res) => {
     return res.status(200).json({
       message: "Search results fetched successfully.",
       products,
+      sellers,
       count: products.length,
     });
   } catch (error) {
@@ -2015,13 +2023,31 @@ exports.deleteCharityContent = async (req, res) => {
 };
 
 exports.frenchiseEnquiry = async (req, res) => {
-  try{
-    const { fullName, phone, email, state, city, message, franchiseInvestment, investWithUs } = req.body
-    const franchise =  await Franchise.create({fullName, phone, email, state, city, message, franchiseInvestment, investWithUs})
+  try {
+    const {
+      fullName,
+      phone,
+      email,
+      state,
+      city,
+      message,
+      franchiseInvestment,
+      investWithUs,
+    } = req.body;
+    const franchise = await Franchise.create({
+      fullName,
+      phone,
+      email,
+      state,
+      city,
+      message,
+      franchiseInvestment,
+      investWithUs,
+    });
 
-    return res.status(200).json({message: "Request sent", franchise})
-  }catch(error){
-    console.error(error)
-    return res.status(500).json({message: "Server error"})
+    return res.status(200).json({ message: "Request sent", franchise });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
   }
-}
+};

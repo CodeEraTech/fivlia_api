@@ -35,7 +35,7 @@ exports.driverLogin = async (req, res) => {
     });
 
     if (exist.status !== true) {
-      return res.status(400).json({ message: "Driver is blocked" });
+      return res.status(400).json({ message: "Your account is currently disabled. Please contact support for assistance" });
     }
     // console.log(exist)
     if (!exist) {

@@ -1162,14 +1162,20 @@ exports.searchProduct = async (req, res) => {
       }
     }
 
-    const ratings = await Rating.find({ storeId: sellers._id });
+    const ratings = await Rating.find({ storeId: { $in: sellerIds } });
 
     // Calculate average rating
-    const averageRating =
-      ratings.reduce((sum, rating) => sum + rating.rating, 0) /
-        ratings.length || 0;
-    sellers.push({
-      averageRating: averageRating.toFixed(1),
+    const ratingMap = {};
+
+    ratings.forEach((r) => {
+      if (!ratingMap[r.storeId]) ratingMap[r.storeId] = [];
+      ratingMap[r.storeId].push(r.rating);
+    });
+
+    sellers.forEach((seller) => {
+      const r = ratingMap[seller._id] || [];
+      const avg = r.length ? r.reduce((a, b) => a + b, 0) / r.length : 0;
+      seller.averageRating = Number(avg.toFixed(1));
     });
 
     return res.status(200).json({

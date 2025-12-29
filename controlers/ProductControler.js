@@ -1162,6 +1162,16 @@ exports.searchProduct = async (req, res) => {
       }
     }
 
+    const ratings = await Rating.find({ storeId: store._id });
+
+    // Calculate average rating
+    const averageRating =
+      ratings.reduce((sum, rating) => sum + rating.rating, 0) /
+        ratings.length || 0;
+    sellers.push({
+      averageRating: averageRating.toFixed(1),
+    });
+
     return res.status(200).json({
       message: "Search results fetched successfully.",
       products,

@@ -15,7 +15,7 @@ const autoAssignDriver = async (orderId) => {
     const user = await Address.findById(order.addressId);
     const userLat = user.latitude;
     const userLng = user.longitude;
-    const drivers = await driver.find({ activeStatus: 'online' });
+    const drivers = await driver.find({ activeStatus: 'online', status: true });
     const busyAssignments = await Assign.find({ orderStatus: 'Accepted' }).select('driverId');
     const busyDriverIds = busyAssignments.map(a => String(a.driverId));
 

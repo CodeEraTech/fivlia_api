@@ -28,11 +28,15 @@ const order = require("../modals/order");
 
 exports.driverLogin = async (req, res) => {
   try {
-    const { mobileNumber,driverDeviceId, password, fcmToken } = req.body;
+    const { mobileNumber, driverDeviceId, password, fcmToken } = req.body;
 
     const exist = await driver.findOne({
       "address.mobileNo": mobileNumber,
     });
+
+    if (exist.status !== true) {
+      return res.status(400).json({ message: "Driver is blocked" });
+    }
     // console.log(exist)
     if (!exist) {
       return res.status(400).json({ message: "User Not Found" });

@@ -4,7 +4,7 @@ const driverSchema = new mongoose.Schema({
    driverId:String,
    driverName:String,
    image:String,
-   status:Boolean,
+   status:{type:Boolean, default:true},
    email:String,
    password:String,
    wallet:Number,

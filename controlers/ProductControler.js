@@ -1162,7 +1162,9 @@ exports.searchProduct = async (req, res) => {
       }
     }
 
-    const ratings = await Rating.find({ storeId: { $in: sellers._id } });
+    const sellerIds = sellers.map((s) => s._id);
+
+    const ratings = await Rating.find({ storeId: { $in: sellerIds } });
 
     // Calculate average rating
     const ratingMap = {};

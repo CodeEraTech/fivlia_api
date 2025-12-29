@@ -561,7 +561,7 @@ exports.getProduct = async (req, res) => {
 
     const stockByProductVariant = {};
 
-     for (const doc of stockDocs) {
+    for (const doc of stockDocs) {
       const storeId = doc.storeId.toString();
       for (const entry of doc.stock || []) {
         const productId = entry.productId.toString();
@@ -1097,6 +1097,12 @@ exports.searchProduct = async (req, res) => {
 
     const products = await Products.aggregate(pipeline);
 
+    const sellers = name
+      ? await Store.find({
+          _id: { $in: allowedStoreIds },
+          storeName: { $regex: name, $options: "i" },
+        }).lean()
+      : [];
     // 6️⃣ Map stores for quick access
     const storeMap = {};
     allowedStores.forEach((store) => (storeMap[store._id.toString()] = store));
@@ -1159,6 +1165,7 @@ exports.searchProduct = async (req, res) => {
     return res.status(200).json({
       message: "Search results fetched successfully.",
       products,
+      sellers,
       count: products.length,
     });
   } catch (error) {

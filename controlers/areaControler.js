@@ -29,6 +29,42 @@ exports.AvalibleCity = async (req, res) => {
   }
 };
 
+exports.AddZone = async (req, res) => {
+  try {
+    const { city, address, zoneTitle, latitude, longitude, range } = req.body;
+
+    if (!city || !address || !latitude || !longitude || !range || !zoneTitle) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+
+    const zone = {
+      address,
+      zoneTitle,
+      latitude,
+      longitude,
+      range,
+      status: true,
+      cashOnDelivery: false,
+      createdAt: new Date()
+    };
+
+    // Try to update an existing city document by pushing new zone
+    const result = await ZoneData.findOneAndUpdate(
+      { city },
+      { $push: { zones: zone } },
+      { upsert: true } // If city doesn't exist, create it
+    );
+
+     return res.status(200).json({
+        message: "Zone saved successfully",
+        city,
+      });
+  } catch (err) {
+    console.error("Error saving location:", err);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+};
+
 exports.addCity = async (req, res) => {
   try {
     const { city, zone } = req.body;

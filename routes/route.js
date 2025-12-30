@@ -266,6 +266,7 @@ const {
   updateCityStatus,
   getAviableCity,
   getCity,
+  AddZone,
   updateZoneStatus,
   getAllZone,
   getZone,
@@ -356,6 +357,7 @@ router.post("/storeLogin", storeLogin);
 router.post("/discount", discount);
 router.post("/addCity", addCity);
 router.post("/addcitydata", AvalibleCity);
+router.post("/add-location", AddZone);
 router.post("/location", verifyToken, updateLocation);
 router.post("/notification", upload, notification);
 router.post("/send-notification", sendNotifications);

@@ -7,6 +7,28 @@ const StoreStock = require("../modals/StoreStock");
 const Store = require("../modals/store");
 const haversine = require("haversine-distance");
 
+
+exports.AvalibleCity = async (req, res) => {
+  try {
+    const { city, state, fullAddress, latitude, longitude } = req.body;
+
+    const dataToInsert = {
+      city,
+      state,
+      fullAddress,
+      latitude,
+      longitude,
+      status: true,
+      createdAt: new Date()
+    };
+    const result = await CityData.create(dataToInsert);
+    res.status(200).json({ message: "City added successfully", result: result });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error adding city", error: err.message });
+  }
+};
+
 exports.addCity = async (req, res) => {
   try {
     const { city, zone } = req.body;

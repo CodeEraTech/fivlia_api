@@ -262,6 +262,7 @@ const {
 const cityZone = require("../modals/cityZone");
 const {
   addCity,
+  AvalibleCity,
   updateCityStatus,
   getAviableCity,
   getCity,
@@ -354,6 +355,7 @@ router.post("/addSubSubCategory", upload, addSubSubCategory);
 router.post("/storeLogin", storeLogin);
 router.post("/discount", discount);
 router.post("/addCity", addCity);
+router.post("/addcitydata", AvalibleCity);
 router.post("/location", verifyToken, updateLocation);
 router.post("/notification", upload, notification);
 router.post("/send-notification", sendNotifications);

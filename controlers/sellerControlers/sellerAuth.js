@@ -5,7 +5,6 @@ const { SettingAdmin } = require("../../modals/setting");
 const { ZoneData } = require("../../modals/cityZone");
 const { sendVerificationEmail } = require("../../config/nodeMailer");
 const OtpModel = require("../../modals/otp");
-const request = require("request");
 const crypto = require("crypto");
 const { otpTemplate } = require("../../utils/emailTemplates");
 const Products = require("../../modals/Product");
@@ -192,6 +191,7 @@ exports.getSellerRequest = async (req, res) => {
       imageRequest,
       productRequest,
       brandRequest,
+      sellerOfferRequest
     ] = await Promise.all([
       seller
         .find({ approveStatus: "pending_admin_approval" })
@@ -214,6 +214,9 @@ exports.getSellerRequest = async (req, res) => {
       Products.find({ sellerProductStatus: "submit_brand_approval" }).sort({
         createdAt: -1,
       }),
+      sellerCoupon.find({approvalStatus:"pending"}).sort({
+        createdAt: -1,
+      })
     ]);
 
     return res.status(200).json({
@@ -223,6 +226,7 @@ exports.getSellerRequest = async (req, res) => {
       imageRequest,
       productRequest,
       brandRequest,
+      sellerOfferRequest
     });
   } catch (error) {
     console.error(error);
@@ -386,7 +390,7 @@ exports.getSeller = async (req, res) => {
 
 exports.acceptDeclineRequest = async (req, res) => {
   try {
-    const { type, approval, id, productId, isImage, isLocation, description } =
+    const { type, approval, id, couponId, productId, isImage, isLocation, description } =
       req.body;
 
     // ---------- PRODUCT APPROVAL ----------
@@ -444,6 +448,16 @@ exports.acceptDeclineRequest = async (req, res) => {
       });
     }
 
+    if(couponId) {
+      const updatedCoupon = await sellerCoupon.findByIdAndUpdate(
+      couponId,
+      { approvalStatus: approval },
+      {
+        new: true,
+      }
+    );
+    return res.status(200).json({ message: `Offer request ${approval}`, updatedCoupon });
+    }
     // ---------- LOCATION UPDATE ----------
     if (isLocation) {
       const sellerDoc = await seller.findById(id);
@@ -1115,25 +1129,38 @@ exports.logoutSeller = async (req, res) => {
 
 exports.createSellerCoupon = async (req, res) => {
   try {
-    const { storeId, offer, title, limit, expireDate } = req.body;
+    const { storeId, offer, title, limit, fromTo, validDays } = req.body;
+
+    const image = `/${req.files.image?.[0].key}`;
+
+    const startDate = new Date(fromTo);
+
+    const expireDate = new Date(startDate);
+    expireDate.setDate(startDate.getDate() + Number(validDays));
+
     const newOffer = await sellerCoupon.create({
       storeId,
       offer,
+      image,
       title,
       limit,
-      expireDate,
+      fromTo,
+      validDays,
+      expireDate
     });
     return res.status(200).json({ message: "New coupon created", newOffer });
   } catch (error) {
-    cosnole.error(error);
-    return res.status(200).json({ message: "Server error" });
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
 exports.getCoupons = async (req, res) => {
   try {
-    const {storeId} = req.params
-    const coupons = await sellerCoupon.find({storeId});
+    const { storeId } = req.params;
+    const coupons = await sellerCoupon
+      .find({ storeId })
+      .sort({ createdAt: -1 });
     return res.status(200).json({ message: "New coupon created", coupons });
   } catch (error) {
     cosnole.error(error);
@@ -1144,7 +1171,7 @@ exports.getCoupons = async (req, res) => {
 exports.editSellerCoupon = async (req, res) => {
   try {
     const { couponId } = req.params;
-    const { title, offer, limit, expireDate, status } = req.body;
+    const { title, offer, limit, fromTo, validDays, status } = req.body;
 
     if (!couponId) {
       return res.status(400).json({ message: "Coupon ID is required" });
@@ -1155,6 +1182,10 @@ exports.editSellerCoupon = async (req, res) => {
 
     if (title !== undefined) {
       updateData.title = title;
+    }
+
+    if (validDays !== undefined) {
+      updateData.validDays = validDays;
     }
 
     if (offer !== undefined) {
@@ -1175,13 +1206,11 @@ exports.editSellerCoupon = async (req, res) => {
       updateData.limit = Number(limit);
     }
 
-    if (expireDate !== undefined) {
-      if (new Date(expireDate) <= new Date()) {
-        return res
-          .status(400)
-          .json({ message: "Expiry date must be in the future" });
+    if (fromTo !== undefined) {
+      if (new Date(fromTo) <= new Date()) {
+        return res.status(400).json({ message: "date must be in the future" });
       }
-      updateData.expireDate = expireDate;
+      updateData.fromTo = fromTo;
     }
 
     if (status !== undefined) {
@@ -1192,6 +1221,14 @@ exports.editSellerCoupon = async (req, res) => {
       }
       updateData.status = status;
     }
+
+    if (req.files) {
+      const images = `/${req.files.image?.[0].key}`;
+
+      updateData.images = images; // 🔥 replace old images
+    }
+
+    updateData.approvalStatus = "pending";
 
     // 🛑 Nothing to update
     if (Object.keys(updateData).length === 0) {
@@ -1223,6 +1260,5 @@ exports.editSellerCoupon = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
-
 
 // https://api.fivlia.in/getSellerProducts?categories=683eeb6ff6f5264ba0295760%683ed131f6f5264ba0295759&subCategories=683ef865f6f5264ba0295774%683ed131f6f5264ba0295755&subsubCategories=683ef865f6f5264ba0295724%683ed131f6f5264ba0295715

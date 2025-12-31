@@ -377,7 +377,7 @@ router.get("/sendEmailVerification", sendEmailVerification);
 // router.post('/addSellerProduct/:id', upload, addSellerProduct)
 router.post("/seller/verifyOtp", verifyOtpSeller);
 router.post("/seller/withdrawalRequest", sellerWithdrawalRequest);
-router.post("/seller/create-seller-coupon", createSellerCoupon);
+router.post("/seller/create-seller-coupon", upload, createSellerCoupon);
 router.post("/seller/edit-seller-coupon/:couponId", editSellerCoupon);
 router.get("/seller/get-coupons/:storeId", getCoupons);
 // router.put('/editSellerProduct/:id', upload, editSellerProduct)

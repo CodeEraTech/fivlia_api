@@ -1904,6 +1904,7 @@ exports.addCharity = async (req, res) => {
     });
   }
 };
+
 exports.getCharity = async (req, res) => {
   try {
     const { id } = req.query;

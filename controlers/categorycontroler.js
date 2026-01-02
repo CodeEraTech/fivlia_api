@@ -1,5 +1,10 @@
 const mongoose = require("mongoose");
-const {getNextCategoryId,getNextSubCategoryId,getNextSubbCategoryId,getNextBrandId} = require("../config/counter");
+const {
+  getNextCategoryId,
+  getNextSubCategoryId,
+  getNextSubbCategoryId,
+  getNextBrandId,
+} = require("../config/counter");
 const Category = require("../modals/category");
 const Banner = require("../modals/banner");
 const Store = require("../modals/store");
@@ -13,6 +18,7 @@ const Stock = require("../modals/StoreStock");
 const Filters = require("../modals/filter");
 const slugify = require("slugify");
 const { CityData, ZoneData } = require("../modals/cityZone");
+const Coupon = require("../modals/sellerCoupon");
 
 exports.update = async (req, res) => {
   try {
@@ -267,7 +273,51 @@ exports.getBanner = async (req, res) => {
     // console.log(matchedBanners)
     // console.log("🎯 All banners fetched:", allBanners.length);
 
-    if (!matchedBanners.length) {
+    let finalBanners = [...matchedBanners];
+
+    // 🔥 ADD SELLER OFFERS ONLY FOR OFFER TYPE
+    if (type === "offer") {
+      const now = new Date();
+
+      // 1️⃣ Get nearby & open stores
+      const storeResult = await getStoresWithinRadius(userLat, userLng);
+
+      if (storeResult?.matchedStores?.length) {
+        const nearbyStoreIds = storeResult.matchedStores.map((s) => s._id);
+
+        // 2️⃣ Get valid seller coupons
+        const sellerCoupons = await Coupon.find({
+          storeId: { $in: nearbyStoreIds },
+          status: true,
+          approvalStatus: "approved",
+          expireDate: { $gte: now },
+        }).lean();
+
+        // 3️⃣ Normalize seller coupons → banner shape
+        const sellerOfferBanners = sellerCoupons.map((c) => ({
+          _id: c._id,
+          image: c.image,
+          title: c.title,
+          storeId: c.storeId,
+          offer: Number(c.offer),
+          type: "offer",
+          type2: "Store",
+          source: "seller", // 🔑 important for frontend
+          createdAt: c.createdAt,
+        }));
+
+        // 4️⃣ Tag admin banners
+        finalBanners = finalBanners.map((b) => ({
+          ...b,
+          source: "admin",
+        }));
+
+        // 5️⃣ Merge seller + admin
+        finalBanners = [...sellerOfferBanners, ...finalBanners];
+      }
+    }
+
+    if (!finalBanners.length) {
       return res.status(200).json({
         message: "No banners found for your location.",
         count: 0,
@@ -277,8 +327,8 @@ exports.getBanner = async (req, res) => {
 
     return res.status(200).json({
       message: "Banners fetched successfully.",
-      count: matchedBanners.length,
-      data: matchedBanners,
+      count: finalBanners.length,
+      data: finalBanners,
     });
   } catch (error) {
     console.error("❌ Error fetching banners:", error);
@@ -320,19 +370,19 @@ exports.updateBannerStatus = async (req, res) => {
 
     // Handle city
     if (typeof city === "string") {
-     try {
-       city = JSON.parse(city);
-     } catch (err) {
-       console.log(err)
-       return res.status(400).json({ message: "Invalid city format" });
-     }
+      try {
+        city = JSON.parse(city);
+      } catch (err) {
+        console.log(err);
+        return res.status(400).json({ message: "Invalid city format" });
+      }
     }
-    
+
     let cityIds = Array.isArray(city) ? city : [city];
-    
+
     const cityDoc = await ZoneData.find({ _id: { $in: cityIds } });
     if (cityDoc) {
-      updateData.city = cityDoc.map(c => ({_id: c._id,name: c.city}));
+      updateData.city = cityDoc.map((c) => ({ _id: c._id, name: c.city }));
     }
 
     if (type2 === "NO") {
@@ -737,7 +787,7 @@ exports.brand = async (req, res) => {
 
       return res.status(400).json({ message: "Image is required" });
     }
-    const brandId = await getNextBrandId()
+    const brandId = await getNextBrandId();
     const newBrand = await brand.create({
       brandName,
       brandId,
@@ -1173,7 +1223,7 @@ exports.addSubCategory = async (req, res) => {
     if (!name || !description || !image || !mainCategoryId) {
       return res.status(400).json({ message: "All fields are required" });
     }
-    
+
     const subCategoryId = await getNextSubCategoryId();
     // Create subcategory object
     const newSubCategory = {
@@ -1196,7 +1246,7 @@ exports.addSubCategory = async (req, res) => {
     return res.status(200).json({
       message: "Sub Category added",
       subCategoryId: newSubCategory._id,
-      result
+      result,
     });
   } catch (error) {
     console.error("Error adding subcategory:", error);
@@ -1212,7 +1262,7 @@ exports.addSubSubCategory = async (req, res) => {
     const { subCategoryId, name, description, attribute } = req.body;
 
     const image = `/${req.files.image[0].key}`;
-    
+
     if (!subCategoryId || !name || !description || !image) {
       return res.status(400).json({ message: "All fields are required" });
     }
@@ -1230,7 +1280,7 @@ exports.addSubSubCategory = async (req, res) => {
     };
 
     const update = await Category.findOneAndUpdate(
-      {"subcat._id":subCategoryId},
+      { "subcat._id": subCategoryId },
       { $push: { "subcat.$.subsubcat": newSubSubCategory } },
       { new: true }
     );
@@ -1239,7 +1289,6 @@ exports.addSubSubCategory = async (req, res) => {
       message: "Sub-Sub Category added",
       subSubCategory: newSubSubCategory,
     });
-
   } catch (error) {
     console.error("Server Error:", error);
     return res.status(500).json({
@@ -1248,7 +1297,6 @@ exports.addSubSubCategory = async (req, res) => {
     });
   }
 };
-
 
 exports.getMainCategory = async (req, res) => {
   try {

@@ -27,6 +27,7 @@ const haversine = require("haversine-distance");
 const Charity = require("../modals/Charity");
 const CharityContent = require("../modals/charityContent");
 const Franchise = require("../modals/franchise");
+const Coupon = require("../modals/sellerCoupon");
 
 exports.forwebbestselling = async (req, res) => {
   try {
@@ -1235,7 +1236,50 @@ exports.forwebgetBanner = async (req, res) => {
       allBanners
     );
 
-    if (!matchedBanners.length) {
+    let finalBanners = [...matchedBanners];
+
+    // 🔥 ADD SELLER OFFERS ONLY FOR OFFER TYPE
+    if (type === "offer") {
+      const now = new Date();
+
+      // 1️⃣ Get nearby & open stores
+      const storeResult = await getStoresWithinRadius(userLat, userLng);
+      if (storeResult?.matchedStores?.length) {
+        const nearbyStoreIds = storeResult.matchedStores.map((s) => s._id);
+
+        // 2️⃣ Get valid seller coupons
+        const sellerCoupons = await Coupon.find({
+          storeId: { $in: nearbyStoreIds },
+          status: true,
+          approvalStatus: "approved",
+          expireDate: { $gte: now },
+        }).lean();
+
+        // 3️⃣ Normalize seller coupons → banner shape
+        const sellerOfferBanners = sellerCoupons.map((c) => ({
+          _id: c._id,
+          image: c.image,
+          title: c.title,
+          storeId: c.storeId,
+          offer: Number(c.offer),
+          type: "offer",
+          type2: "Store",
+          source: "seller", // 🔑 important for frontend
+          createdAt: c.createdAt,
+        }));
+
+        // 4️⃣ Tag admin banners
+        finalBanners = finalBanners.map((b) => ({
+          ...b,
+          source: "admin",
+        }));
+
+        // 5️⃣ Merge seller + admin
+        finalBanners = [...sellerOfferBanners, ...finalBanners];
+      }
+    }
+
+    if (!finalBanners.length) {
       return res.status(200).json({
         message: "No banners found for your location.",
         count: 0,
@@ -1245,8 +1289,8 @@ exports.forwebgetBanner = async (req, res) => {
 
     return res.status(200).json({
       message: "Banners fetched successfully.",
-      count: matchedBanners.length,
-      data: matchedBanners,
+      count: finalBanners.length,
+      data: finalBanners,
     });
   } catch (error) {
     console.error("❌ Error fetching banners:", error);
@@ -1463,7 +1507,7 @@ exports.contactUs = async (req, res) => {
 };
 
 exports.getAllSellerProducts = async (req, res) => {
-  const { id, page, limit } = req.query;
+  const { id, page, limit, offer } = req.query;
   const skip = (page - 1) * limit;
   try {
     // 1. Fetch Stock data for the seller using sellerId
@@ -1472,6 +1516,20 @@ exports.getAllSellerProducts = async (req, res) => {
     const seller = await Store.findOne({ _id: id }).select(
       "storeName sellerCategories advertisementImages"
     );
+
+    // 🔥 FETCH & VALIDATE ACTIVE OFFER
+    let activeOffer = null;
+
+    if (offer) {
+      activeOffer = await Coupon.findOne({
+        _id: offer,
+        storeId: id,
+        status: true,
+        approvalStatus: "approved",
+        expireDate: { $gte: new Date() },
+      }).lean();
+    }
+
     const stockEntries = stockData
       .flatMap((doc) => doc.stock || [])
       .filter((s) => s.quantity > 0);
@@ -1519,11 +1577,21 @@ exports.getAllSellerProducts = async (req, res) => {
           const stockEntry = productStockEntries.find(
             (s) => s.variantId?.toString() === variant._id.toString()
           );
+
+          let sellPrice = stockEntry?.price ?? variant.sell_price;
+          let originalPrice = sellPrice;
+
+          if (activeOffer) {
+            sellPrice =
+              sellPrice - (sellPrice * Number(activeOffer.offer)) / 100;
+          }
+
           return {
             ...variant,
             stock: stockEntry?.quantity ?? 0,
             mrp: stockEntry?.mrp ?? variant.mrp,
-            sell_price: stockEntry?.price ?? variant.sell_price,
+            sell_price: Math.round(sellPrice),
+            original_price: activeOffer ? originalPrice : null,
             status: stockEntry?.status ?? false,
           };
         });
@@ -1563,10 +1631,16 @@ exports.getAllSellerProducts = async (req, res) => {
     //   return bQty - aQty;
     // });
 
+    let sellerImages = seller.advertisementImages?.length
+      ? [...seller.advertisementImages]
+      : ["/MultipleImage/1758278596489-MultipleImage.jpg"];
+
+    if (activeOffer?.image) {
+      sellerImages.unshift(activeOffer.image);
+    }
+
     return res.status(200).json({
-      sellerImage: seller.advertisementImages?.length
-        ? seller.advertisementImages
-        : ["/MultipleImage/1758278596489-MultipleImage.jpg"],
+      sellerImage: sellerImages,
       seller: seller,
       categories: categories,
       products: productsWithStock,

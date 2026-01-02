@@ -2332,6 +2332,7 @@ exports.adminProducts = async (req, res) => {
       location: 1,
       category: 1,
       variants: 1,
+      tax: 1,
       status: 1,
       createdAt: 1,
     };

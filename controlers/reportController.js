@@ -122,74 +122,116 @@ exports.getSellerReport = async (req, res) => {
     const reports = await Order.aggregate(pipeline);
 
     const summaryPipeline = [
+      // same delivered + date filter
       { $match: matchOrder },
 
+      // same store join
+      {
+        $lookup: {
+          from: "stores",
+          localField: "storeId",
+          foreignField: "_id",
+          as: "storeData",
+        },
+      },
+      { $unwind: "$storeData" },
+
+      // same city / zone filter
+      { $match: matchStore },
+
+      // break items
       { $unwind: "$items" },
 
+      // same product join
+      {
+        $lookup: {
+          from: "products",
+          localField: "items.productId",
+          foreignField: "_id",
+          as: "productData",
+        },
+      },
+      { $unwind: "$productData" },
+    ];
+
+    // same category filter
+    if (categoryId) {
+      summaryPipeline.push({
+        $match: {
+          "productData.category._id": new mongoose.Types.ObjectId(categoryId),
+        },
+      });
+    }
+
+    // per-order calculation
+    summaryPipeline.push(
       {
         $group: {
           _id: "$_id",
 
-          // order totals
           totalPrice: { $first: "$totalPrice" },
           deliveryPayout: { $first: "$deliveryPayout" },
+          deliveryCharges: { $first: "$deliveryCharges" },
+          platformFee: { $first: "$platformFee" },
 
-          // item total
           itemTotal: {
             $sum: {
               $multiply: ["$items.price", "$items.quantity"],
             },
           },
 
-          // commission per item
           totalCommission: {
             $sum: {
               $multiply: [
-                {
-                  $divide: ["$items.commision", 100],
-                },
-                {
-                  $multiply: ["$items.price", "$items.quantity"],
-                },
+                { $divide: ["$items.commision", 100] },
+                { $multiply: ["$items.price", "$items.quantity"] },
               ],
             },
           },
         },
       },
 
+      // final summary
       {
         $group: {
           _id: null,
 
-          // 💰 revenue
           totalRevenue: { $sum: "$totalPrice" },
-
-          // 🧑‍✈️ driver income
           driverPaid: { $sum: "$deliveryPayout" },
 
-          // 🏪 seller wallet credit
           sellerPaid: {
             $sum: {
               $subtract: ["$itemTotal", "$totalCommission"],
             },
           },
 
-          // 🏦 admin profit
-          totalProfit: { $sum: "$totalCommission" },
+          totalProfit: {
+            $sum: {
+              $add: [
+                "$totalCommission",
+                { $subtract: ["$deliveryCharges", "$deliveryPayout"] },
+                {
+                  $multiply: [
+                    "$itemTotal",
+                    { $divide: ["$platformFee", 100] }, // ✅ platform % stays
+                  ],
+                },
+              ],
+            },
+          },
         },
-      },
-    ];
+      }
+    );
+
     const summaryAgg = await Order.aggregate(summaryPipeline);
 
-    return res
-      .status(200)
-      .json({
-        data: reports,
-        totalRevenue: summaryAgg[0]?.totalRevenue || 0,
-        driverPaid: summaryAgg[0]?.driverPaid || 0,
-        sellerPaid: summaryAgg[0]?.sellerPaid || 0,
-        totalProfit: summaryAgg[0]?.totalProfit || 0,
-      });
+    return res.status(200).json({
+      data: reports,
+      totalRevenue: summaryAgg[0]?.totalRevenue || 0,
+      driverPaid: summaryAgg[0]?.driverPaid || 0,
+      sellerPaid: summaryAgg[0]?.sellerPaid || 0,
+      totalProfit: summaryAgg[0]?.totalProfit || 0,
+    });
   } catch (error) {
     console.error("Error in getSellerReport:", error);
     return res.status(500).json({

@@ -1252,6 +1252,7 @@ exports.forwebgetBanner = async (req, res) => {
           storeId: { $in: nearbyStoreIds },
           status: true,
           approvalStatus: "approved",
+          fromTo: { $lte: now },
           expireDate: { $gte: now },
         }).lean();
 
@@ -1644,6 +1645,8 @@ exports.getAllSellerProducts = async (req, res) => {
       seller: seller,
       categories: categories,
       products: productsWithStock,
+      offerApplied: !!activeOffer,
+      offer: activeOffer?.offer ?? null, // 👈 ADD THIS
       total,
       page: parseInt(page),
       limit: parseInt(limit) || 100,

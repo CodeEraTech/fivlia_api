@@ -1177,33 +1177,33 @@ exports.editSellerCoupon = async (req, res) => {
       return res.status(400).json({ message: "Coupon ID is required" });
     }
 
-    // 🧱 Build dynamic update object
     const updateData = {};
+    let needsReApproval = false; // 🔥 key line
 
     if (title !== undefined) {
       updateData.title = title;
+      needsReApproval = true;
     }
 
     if (validDays !== undefined) {
       updateData.validDays = validDays;
+      needsReApproval = true;
     }
 
     if (offer !== undefined) {
       if (Number(offer) <= 0 || Number(offer) > 100) {
-        return res
-          .status(400)
-          .json({ message: "Offer must be between 1–100%" });
+        return res.status(400).json({ message: "Offer must be between 1–100%" });
       }
       updateData.offer = Number(offer);
+      needsReApproval = true;
     }
 
     if (limit !== undefined) {
       if (Number(limit) <= 0) {
-        return res
-          .status(400)
-          .json({ message: "Limit must be greater than zero" });
+        return res.status(400).json({ message: "Limit must be greater than zero" });
       }
       updateData.limit = Number(limit);
+      needsReApproval = true;
     }
 
     if (fromTo !== undefined) {
@@ -1211,54 +1211,51 @@ exports.editSellerCoupon = async (req, res) => {
         return res.status(400).json({ message: "date must be in the future" });
       }
       updateData.fromTo = fromTo;
+      needsReApproval = true;
     }
 
+    // ✅ ON / OFF should NOT trigger approval
     if (status !== undefined) {
       if (typeof status !== "boolean") {
-        return res
-          .status(400)
-          .json({ message: "Status must be true or false" });
+        return res.status(400).json({ message: "Status must be true or false" });
       }
       updateData.status = status;
     }
 
-    if (req.files) {
-      const images = `/${req.files.image?.[0].key}`;
-
-      updateData.images = images; // 🔥 replace old images
+    if (req.files?.image?.[0]) {
+      updateData.images = `/${req.files.image[0].key}`;
+      needsReApproval = true;
     }
 
-    updateData.approvalStatus = "pending";
+    // 🔥 Only reset approval when needed
+    if (needsReApproval) {
+      updateData.approvalStatus = "pending";
+    }
 
-    // 🛑 Nothing to update
     if (Object.keys(updateData).length === 0) {
-      return res
-        .status(400)
-        .json({ message: "No valid fields provided to update" });
+      return res.status(400).json({ message: "No valid fields provided to update" });
     }
 
-    // 🔄 Update coupon
     const updatedCoupon = await sellerCoupon.findByIdAndUpdate(
       couponId,
       updateData,
-      {
-        new: true,
-        runValidators: true,
-      }
+      { new: true, runValidators: true }
     );
 
     if (!updatedCoupon) {
       return res.status(404).json({ message: "Coupon not found" });
     }
 
-    return res.status(200).json({
+    res.status(200).json({
       message: "Coupon updated successfully",
       coupon: updatedCoupon,
     });
+
   } catch (error) {
     console.error("Edit Coupon Error:", error);
-    return res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error" });
   }
 };
+
 
 // https://api.fivlia.in/getSellerProducts?categories=683eeb6ff6f5264ba0295760%683ed131f6f5264ba0295759&subCategories=683ef865f6f5264ba0295774%683ed131f6f5264ba0295755&subsubCategories=683ef865f6f5264ba0295724%683ed131f6f5264ba0295715

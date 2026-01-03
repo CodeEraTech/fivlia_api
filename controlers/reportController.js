@@ -3,7 +3,7 @@ const { Order } = require("../modals/order");
 
 exports.getSellerReport = async (req, res) => {
   try {
-    const { categoryId, zone, city, fromDate, toDate } = req.query;
+    const { categoryId, zone, city, fromDate, sellerId, toDate } = req.query;
 
     const matchOrder = {
       orderStatus: "Delivered",
@@ -23,6 +23,10 @@ exports.getSellerReport = async (req, res) => {
     }
     if (zone) {
       matchStore["storeData.zone._id"] = new mongoose.Types.ObjectId(zone);
+    }
+
+    if (sellerId) {
+      matchStore["storeData._id"] = new mongoose.Types.ObjectId(sellerId);
     }
 
     const pipeline = [
@@ -87,15 +91,147 @@ exports.getSellerReport = async (req, res) => {
           paymentStatus: { $first: "$paymentStatus" },
           createdAt: { $first: "$createdAt" },
           totalPrice: { $first: "$totalPrice" },
-
+          sellerId: { $first: "$storeData._id" },
           sellerName: { $first: "$storeData.storeName" },
           city: { $first: "$storeData.city.name" },
           zone: { $first: "$storeData.zone.title" },
+          deliveryCharge: { $first: "$deliveryCharges" },
+          tax: {
+            $sum: {
+              $multiply: [
+                {
+                  $divide: [
+                    {
+                      $cond: [
+                        { $eq: [{ $type: "$items.gst" }, "string"] },
+                        {
+                          $toDouble: {
+                            $replaceAll: {
+                              input: "$items.gst",
+                              find: "%",
+                              replacement: "",
+                            },
+                          },
+                        },
+                        { $toDouble: "$items.gst" },
+                      ],
+                    },
+                    100,
+                  ],
+                },
+                {
+                  $multiply: [
+                    { $toDouble: "$items.price" },
+                    { $toDouble: "$items.quantity" },
+                  ],
+                },
+              ],
+            },
+          },
+          profit: {
+            $sum: {
+              $add: [
+                // commission
+                {
+                  $multiply: [
+                    {
+                      $divide: [
+                        {
+                          $cond: [
+                            { $eq: [{ $type: "$items.commision" }, "string"] },
+                            {
+                              $toDouble: {
+                                $replaceAll: {
+                                  input: "$items.commision",
+                                  find: "%",
+                                  replacement: "",
+                                },
+                              },
+                            },
+                            { $toDouble: "$items.commision" },
+                          ],
+                        },
+                        100,
+                      ],
+                    },
+                    {
+                      $multiply: [
+                        { $toDouble: "$items.price" },
+                        { $toDouble: "$items.quantity" },
+                      ],
+                    },
+                  ],
+                },
 
+                // platform fee
+                {
+                  $multiply: [
+                    {
+                      $divide: [
+                        {
+                          $cond: [
+                            { $eq: [{ $type: "$platformFee" }, "string"] },
+                            {
+                              $toDouble: {
+                                $replaceAll: {
+                                  input: "$platformFee",
+                                  find: "%",
+                                  replacement: "",
+                                },
+                              },
+                            },
+                            { $toDouble: "$platformFee" },
+                          ],
+                        },
+                        100,
+                      ],
+                    },
+                    {
+                      $multiply: [
+                        { $toDouble: "$items.price" },
+                        { $toDouble: "$items.quantity" },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+          platformFeeAmount: {
+            $sum: {
+              $multiply: [
+                {
+                  $divide: [
+                    {
+                      $cond: [
+                        { $eq: [{ $type: "$platformFee" }, "string"] },
+                        {
+                          $toDouble: {
+                            $replaceAll: {
+                              input: "$platformFee",
+                              find: "%",
+                              replacement: "",
+                            },
+                          },
+                        },
+                        { $toDouble: "$platformFee" },
+                      ],
+                    },
+                    100,
+                  ],
+                },
+                {
+                  $multiply: [
+                    { $toDouble: "$items.price" },
+                    { $toDouble: "$items.quantity" },
+                  ],
+                },
+              ],
+            },
+          },
           commission: {
             $first: { $arrayElemAt: ["$txnData.amount", 0] },
           },
-
           items: {
             $push: {
               productId: "$items.productId",

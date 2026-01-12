@@ -175,34 +175,34 @@ exports.banner = async (req, res) => {
 
       mainCategory: foundCategory
         ? {
-            _id: foundCategory._id,
-            name: foundCategory.name,
-            slug: slugify(foundCategory.name, { lower: true }),
-          }
+          _id: foundCategory._id,
+          name: foundCategory.name,
+          slug: slugify(foundCategory.name, { lower: true }),
+        }
         : null,
 
       subCategory: foundSubCategory
         ? {
-            _id: foundSubCategory._id,
-            name: foundSubCategory.name,
-            slug: slugify(foundSubCategory.name, { lower: true }),
-          }
+          _id: foundSubCategory._id,
+          name: foundSubCategory.name,
+          slug: slugify(foundSubCategory.name, { lower: true }),
+        }
         : null,
 
       subSubCategory: foundSubSubCategory
         ? {
-            _id: foundSubSubCategory._id,
-            name: foundSubSubCategory.name,
-            slug: slugify(foundSubSubCategory.name, { lower: true }),
-          }
+          _id: foundSubSubCategory._id,
+          name: foundSubSubCategory.name,
+          slug: slugify(foundSubSubCategory.name, { lower: true }),
+        }
         : null,
 
       brand: foundBrand
         ? {
-            _id: foundBrand._id,
-            name: foundBrand.brandName,
-            slug: slugify(foundBrand.brandName, { lower: true }),
-          }
+          _id: foundBrand._id,
+          name: foundBrand.brandName,
+          slug: slugify(foundBrand.brandName, { lower: true }),
+        }
         : null,
 
       status,
@@ -276,44 +276,57 @@ exports.getBanner = async (req, res) => {
     let finalBanners = [...matchedBanners];
 
     // 🔥 ADD SELLER OFFERS ONLY FOR OFFER TYPE
-    
-      const now = new Date();
 
-      // 1️⃣ Get nearby & open stores
-      const storeResult = await getStoresWithinRadius(userLat, userLng);
-      if (storeResult?.matchedStores?.length) {
-        const nearbyStoreIds = storeResult.matchedStores.map((s) => s._id);
+    const now = new Date();
 
-        // 2️⃣ Get valid seller coupons
-        const sellerCoupons = await Coupon.find({
-          storeId: { $in: nearbyStoreIds },
-          status: true,
-          approvalStatus: "approved",
-          expireDate: { $gte: now },
-        }).lean();
+    // 1️⃣ Get nearby & open stores
+    const storeResult = await getStoresWithinRadius(userLat, userLng);
+    if (storeResult?.matchedStores?.length) {
+      const nearbyStoreIds = storeResult.matchedStores.map((s) => s._id);
 
-        // 3️⃣ Normalize seller coupons → banner shape
-        const sellerOfferBanners = sellerCoupons.map((c) => ({
-          _id: c._id,
-          image: c.image,
-          title: c.title,
-          storeId: c.storeId,
-          offer: Number(c.offer),
-          type: "offer",
-          type2: "Store",
-          source: "seller", // 🔑 important for frontend
-          createdAt: c.createdAt,
-        }));
+      // 2️⃣ Get valid seller coupons
+      const sellerCoupons = await Coupon.aggregate([
+        {
+          $match: {
+            storeId: { $in: nearbyStoreIds },
+            status: true,
+            approvalStatus: "approved",
+            fromTo: { $lte: now },
+            expireDate: { $gte: now },
+          },
+        },
+        { $sort: { createdAt: -1 } }, // 🔑 latest first
+        {
+          $group: {
+            _id: "$storeId",          // one per seller
+            coupon: { $first: "$$ROOT" },
+          },
+        },
+        { $replaceRoot: { newRoot: "$coupon" } },
+      ]);
 
-        // 4️⃣ Tag admin banners
-        finalBanners = finalBanners.map((b) => ({
-          ...b,
-          source: "admin",
-        }));
+      // 3️⃣ Normalize seller coupons → banner shape
+      const sellerOfferBanners = sellerCoupons.map((c) => ({
+        _id: c._id,
+        image: c.image,
+        title: c.title,
+        storeId: c.storeId,
+        offer: Number(c.offer),
+        type: "offer",
+        type2: "Store",
+        source: "seller", // 🔑 important for frontend
+        createdAt: c.createdAt,
+      }));
 
-        // 5️⃣ Merge seller + admin
-        finalBanners = [...sellerOfferBanners, ...finalBanners];
-      }
+      // 4️⃣ Tag admin banners
+      finalBanners = finalBanners.map((b) => ({
+        ...b,
+        source: "admin",
+      }));
+
+      // 5️⃣ Merge seller + admin
+      finalBanners = [...sellerOfferBanners, ...finalBanners];
+    }
 
     if (!finalBanners.length) {
       return res.status(200).json({

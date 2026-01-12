@@ -3,6 +3,7 @@ const couponSchema = new mongoose.Schema(
   {
     storeId: { type: mongoose.Schema.ObjectId, ref: "stores" },
     image: String,
+    sliderImage: String,
     offer: String,
     title: String,
     limit: Number,

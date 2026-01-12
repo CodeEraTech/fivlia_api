@@ -1249,13 +1249,25 @@ exports.forwebgetBanner = async (req, res) => {
         const nearbyStoreIds = storeResult.matchedStores.map((s) => s._id);
 
         // 2️⃣ Get valid seller coupons
-        const sellerCoupons = await Coupon.find({
-          storeId: { $in: nearbyStoreIds },
-          status: true,
-          approvalStatus: "approved",
-          fromTo: { $lte: now },
-          expireDate: { $gte: now },
-        }).lean();
+        const sellerCoupons = await Coupon.aggregate([
+          {
+            $match: {
+              storeId: { $in: nearbyStoreIds },
+              status: true,
+              approvalStatus: "approved",
+              fromTo: { $lte: now },
+              expireDate: { $gte: now },
+            },
+          },
+          { $sort: { createdAt: -1 } }, // 🔑 latest first
+          {
+            $group: {
+              _id: "$storeId",          // one per seller
+              coupon: { $first: "$$ROOT" },
+            },
+          },
+          { $replaceRoot: { newRoot: "$coupon" } },
+        ]);
 
         // 3️⃣ Normalize seller coupons → banner shape
         const sellerOfferBanners = sellerCoupons.map((c) => ({
@@ -1635,7 +1647,7 @@ exports.getAllSellerProducts = async (req, res) => {
       : ["/MultipleImage/1758278596489-MultipleImage.jpg"];
 
     if (activeOffer?.image) {
-      sellerImages.unshift(activeOffer.image);
+      sellerImages.unshift(activeOffer.sliderImage);
     }
 
     return res.status(200).json({

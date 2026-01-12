@@ -1133,6 +1133,8 @@ exports.createSellerCoupon = async (req, res) => {
 
     const image = `/${req.files.image?.[0].key}`;
 
+    const sliderImage = `/${req.files.file?.[0].key}`;
+
     const startDate = new Date(fromTo);
 
     const expireDate = new Date(startDate);
@@ -1142,6 +1144,7 @@ exports.createSellerCoupon = async (req, res) => {
       storeId,
       offer,
       image,
+      sliderImage,
       title,
       limit,
       fromTo,

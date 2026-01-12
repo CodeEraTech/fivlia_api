@@ -297,8 +297,8 @@ exports.forwebgetProduct = async (req, res) => {
       Array.isArray(store.Category)
         ? store.Category.map((id) => id?.toString())
         : store.Category
-        ? [store.Category.toString()]
-        : []
+          ? [store.Category.toString()]
+          : []
     );
 
     if (storeCategoryIds.length < 1) {
@@ -672,8 +672,8 @@ exports.forwebgetFeatureProduct = async (req, res) => {
       Array.isArray(store.Category)
         ? store.Category.map((id) => id?.toString())
         : store.Category
-        ? [store.Category.toString()]
-        : []
+          ? [store.Category.toString()]
+          : []
     );
 
     // Fallback to sellerCategories if no Category found
@@ -867,8 +867,8 @@ exports.forwebsearchProduct = async (req, res) => {
       Array.isArray(store.Category)
         ? store.Category.map((id) => id?.toString())
         : store.Category
-        ? [store.Category.toString()]
-        : []
+          ? [store.Category.toString()]
+          : []
     );
 
     if (storeCategoryIds.length < 1) {
@@ -1017,9 +1017,9 @@ exports.forwebsearchProduct = async (req, res) => {
 
     const sellers = name
       ? await Store.find({
-          _id: { $in: allowedStoreIds },
-          storeName: { $regex: name, $options: "i" },
-        }).lean()
+        _id: { $in: allowedStoreIds },
+        storeName: { $regex: name, $options: "i" },
+      }).lean()
       : [];
 
     // Enrich product objects with inventory, price, best store etc.
@@ -1244,6 +1244,7 @@ exports.forwebgetBanner = async (req, res) => {
 
       // 1️⃣ Get nearby & open stores
       const storeResult = await getStoresWithinRadius(userLat, userLng);
+
       if (storeResult?.matchedStores?.length) {
         const nearbyStoreIds = storeResult.matchedStores.map((s) => s._id);
 
@@ -1508,7 +1509,7 @@ exports.contactUs = async (req, res) => {
 };
 
 exports.getAllSellerProducts = async (req, res) => {
-  const { id, page, limit, offer } = req.query;
+  const { id, page, limit } = req.query;
   const skip = (page - 1) * limit;
   try {
     // 1. Fetch Stock data for the seller using sellerId
@@ -1519,17 +1520,14 @@ exports.getAllSellerProducts = async (req, res) => {
     );
 
     // 🔥 FETCH & VALIDATE ACTIVE OFFER
-    let activeOffer = null;
-
-    if (offer) {
-      activeOffer = await Coupon.findOne({
-        _id: offer,
-        storeId: id,
-        status: true,
-        approvalStatus: "approved",
-        expireDate: { $gte: new Date() },
-      }).lean();
-    }
+    let activeOffer = await Coupon.findOne({
+      storeId: id,
+      status: true,
+      approvalStatus: "approved",
+      expireDate: { $gte: new Date() },
+    })
+      .sort({ createdAt: -1 }) // latest offer first
+      .lean();
 
     const stockEntries = stockData
       .flatMap((doc) => doc.stock || [])
@@ -1689,7 +1687,7 @@ exports.getTopSeller = async (req, res) => {
       // Calculate average rating
       const averageRating =
         ratings.reduce((sum, rating) => sum + rating.rating, 0) /
-          ratings.length || 0;
+        ratings.length || 0;
 
       // Construct store details with average rating
       storeDetailsWithRatings.push({
@@ -1930,12 +1928,12 @@ exports.forwebGetSingleProduct = async (req, res) => {
       ...product,
       bestStore: bestOption
         ? {
-            id: bestOption.storeId,
-            name: bestOption.storeName,
-            price: bestOption.price,
-            mrp: bestOption.mrp,
-            distance: bestOption.distance,
-          }
+          id: bestOption.storeId,
+          name: bestOption.storeName,
+          price: bestOption.price,
+          mrp: bestOption.mrp,
+          distance: bestOption.distance,
+        }
         : null,
       inventory: (product.variants || []).map((variant) => {
         const match = variantOptions.find(

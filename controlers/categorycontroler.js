@@ -281,7 +281,6 @@ exports.getBanner = async (req, res) => {
 
       // 1️⃣ Get nearby & open stores
       const storeResult = await getStoresWithinRadius(userLat, userLng);
-
       if (storeResult?.matchedStores?.length) {
         const nearbyStoreIds = storeResult.matchedStores.map((s) => s._id);
 

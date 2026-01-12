@@ -10,7 +10,7 @@ const Banner = require("../modals/banner");
 const Store = require("../modals/store");
 const Filter = require("../modals/filter");
 const brand = require("../modals/brand");
-const { getBannersWithinRadius } = require("../config/google");
+const { getBannersWithinRadius, getStoresWithinRadius } = require("../config/google");
 const Attribute = require("../modals/attribute");
 const Products = require("../modals/Product");
 const User = require("../modals/User");
@@ -276,7 +276,7 @@ exports.getBanner = async (req, res) => {
     let finalBanners = [...matchedBanners];
 
     // 🔥 ADD SELLER OFFERS ONLY FOR OFFER TYPE
-    if (type === "offer") {
+    
       const now = new Date();
 
       // 1️⃣ Get nearby & open stores
@@ -314,7 +314,6 @@ exports.getBanner = async (req, res) => {
         // 5️⃣ Merge seller + admin
         finalBanners = [...sellerOfferBanners, ...finalBanners];
       }
-    }
 
     if (!finalBanners.length) {
       return res.status(200).json({

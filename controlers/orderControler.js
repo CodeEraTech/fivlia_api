@@ -368,7 +368,7 @@ exports.verifyPayment = async (req, res) => {
     }
 
     const orderData = {
-      orderId: tempOrder.nextOrderId,
+      orderId: tempOrder.orderId,
       items: tempOrder.items,
       addressId: tempOrder.addressId,
       userId: tempOrder.userId,

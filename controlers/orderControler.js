@@ -56,18 +56,18 @@ const repeatNotifyStore = async (orderId, storeDoc, attempt = 1) => {
     await notifySeller(
       storeDoc,
       `⏰ Reminder: New Order #${order.orderId} still pending`,
-      `You have a pending order worth ₹${order.totalPrice}. Please accept or reject it.`
+      `You have a pending order worth ₹${order.totalPrice}. Please accept or reject it.`,
     );
 
     console.log(
-      `🔁 Reminder sent to store ${storeDoc._id} for order ${orderId} (attempt ${attempt})`
+      `🔁 Reminder sent to store ${storeDoc._id} for order ${orderId} (attempt ${attempt})`,
     );
 
     // Schedule next retry if not accepted yet
     // if (attempt < MAX_ATTEMPTS) {
     setTimeout(
       () => repeatNotifyStore(orderId, storeDoc, attempt + 1),
-      RETRY_INTERVAL
+      RETRY_INTERVAL,
     );
     // } else {
     //   console.log(`🚫 Max retries reached for order ${orderId}`);
@@ -82,7 +82,7 @@ const notifySeller = async (
   title,
   body,
   clickAction = "/dashboard1",
-  data = {}
+  data = {},
 ) => {
   try {
     // ✅ Support both new (devices[]) and old (fcmToken) formats
@@ -113,7 +113,7 @@ const notifySeller = async (
         console.error(
           "notifySeller: sendNotification failed for token",
           token,
-          err?.message || err
+          err?.message || err,
         );
 
         // Optional cleanup of invalid tokens
@@ -121,12 +121,12 @@ const notifySeller = async (
           err?.errorInfo?.code === "messaging/registration-token-not-registered"
         ) {
           sellerDoc.devices = sellerDoc.devices?.filter(
-            (d) => d.fcmToken !== token
+            (d) => d.fcmToken !== token,
           );
           await sellerDoc
             .save()
             .catch(() =>
-              console.warn("Failed to remove invalid token from sellerDoc")
+              console.warn("Failed to remove invalid token from sellerDoc"),
             );
         }
       }
@@ -140,7 +140,7 @@ exports.placeOrder = async (req, res) => {
   try {
     const { cartIds, addressId, storeId, paymentMode } = req.body;
 
-    let nextOrderId = await getNextOrderId(false);
+    let nextOrderId = await getNextOrderId(true);
     console.log(`${nextOrderId} recived`);
     const chargesData = await SettingAdmin.findOne();
 
@@ -187,7 +187,7 @@ exports.placeOrder = async (req, res) => {
     const { matchedStores } = await getStoresWithinRadius(userLat, userLng);
 
     const storeExistsInZone = matchedStores.some(
-      (store) => store._id.toString() === storeId.toString()
+      (store) => store._id.toString() === storeId.toString(),
     );
     console.log(`${storeExistsInZone} storeExistsInZone`);
     if (!storeExistsInZone) {
@@ -226,7 +226,6 @@ exports.placeOrder = async (req, res) => {
     }
 
     if (paymentMode === true) {
-      let nextOrderId = await getNextOrderId(true);
       console.log(`${nextOrderId} goes for cash on delivery`);
       const newOrder = await Order.create({
         orderId: nextOrderId,
@@ -252,12 +251,12 @@ exports.placeOrder = async (req, res) => {
           },
           {
             $inc: { "stock.$.quantity": -item.quantity },
-          }
+          },
         );
         // console.log("dataStock", dataStock);
         await Products.updateOne(
           { _id: item.productId },
-          { $inc: { purchases: item.quantity } }
+          { $inc: { purchases: item.quantity } },
         );
         await Cart.deleteMany({ _id: { $in: cartIds } });
 
@@ -269,10 +268,10 @@ exports.placeOrder = async (req, res) => {
         await notifySeller(
           sellerDoc,
           `New Order #${newOrder.orderId} Received`,
-          `You’ve received a new order worth ₹${newOrder.totalPrice}. Please confirm and prepare for dispatch.`
+          `You’ve received a new order worth ₹${newOrder.totalPrice}. Please confirm and prepare for dispatch.`,
         );
         console.log(
-          `${nextOrderId} notification started for seller-> ${sellerDoc.storeName}`
+          `${nextOrderId} notification started for seller-> ${sellerDoc.storeName}`,
         );
         repeatNotifyStore(newOrder.orderId, sellerDoc);
 
@@ -329,7 +328,7 @@ exports.placeOrder = async (req, res) => {
         totalPrice,
         "INR",
         `receipt_${tempOrder._id}`,
-        { orderId: nextOrderId }
+        { orderId: nextOrderId },
       );
       return res.status(200).json({
         message: "Proceed to payment",
@@ -368,7 +367,6 @@ exports.verifyPayment = async (req, res) => {
       });
     }
 
-    const nextOrderId = await getNextOrderId(true);
     const orderData = {
       orderId: nextOrderId,
       items: tempOrder.items,
@@ -397,11 +395,11 @@ exports.verifyPayment = async (req, res) => {
         },
         {
           $inc: { "stock.$.quantity": -item.quantity },
-        }
+        },
       );
       await Products.updateOne(
         { _id: item.productId },
-        { $inc: { purchases: item.quantity } }
+        { $inc: { purchases: item.quantity } },
       );
     }
 
@@ -417,7 +415,7 @@ exports.verifyPayment = async (req, res) => {
       await notifySeller(
         sellerDoc,
         `New Order #${finalOrder.orderId} Received`,
-        `You’ve received a new order worth ₹${finalOrder.totalPrice}. Please confirm and prepare for dispatch.`
+        `You’ve received a new order worth ₹${finalOrder.totalPrice}. Please confirm and prepare for dispatch.`,
       );
       const sellerSocket = sellerSocketMap.get(sellerDoc._id.toString());
       if (sellerSocket)
@@ -512,7 +510,7 @@ exports.getOrders = async (req, res) => {
             }
 
             const variant = product?.variants?.find(
-              (v) => v._id.toString() === item.varientId?.toString()
+              (v) => v._id.toString() === item.varientId?.toString(),
             );
             return {
               ...item,
@@ -520,7 +518,7 @@ exports.getOrders = async (req, res) => {
               variantName: variant?.variantValue || null,
               variantPrice: variant?.sell_price || null,
             };
-          })
+          }),
         );
 
         return {
@@ -535,7 +533,7 @@ exports.getOrders = async (req, res) => {
             : null,
           city,
         };
-      })
+      }),
     );
     const count = totalOrders;
     return res.status(200).json({
@@ -621,7 +619,7 @@ exports.getOrderDetails = async (req, res) => {
               images: product?.images,
             },
           };
-        })
+        }),
       );
       // 4. Push combined data
       results.push({
@@ -694,7 +692,7 @@ exports.orderStatus = async (req, res) => {
               driverMobile: driverDoc.address?.mobileNo || "",
               storeName: storeData?.storeName || "Fivlia",
             },
-            "default"
+            "default",
           );
         }
 
@@ -709,7 +707,7 @@ exports.orderStatus = async (req, res) => {
               orderId: orderDoc.orderId,
               driverName: driverDoc.driverName,
             },
-            "default"
+            "default",
           );
         }
       }
@@ -738,11 +736,11 @@ exports.orderStatus = async (req, res) => {
     if (status === "Delivered" && updatedOrder.driver?.driverId) {
       if (updatedOrder.deliverStatus) {
         console.log(
-          `Order ${updatedOrder.orderId} already processed for delivery.`
+          `Order ${updatedOrder.orderId} already processed for delivery.`,
         );
       } else {
         console.log(
-          `Processing delivery logic for order ${updatedOrder.orderId}...`
+          `Processing delivery logic for order ${updatedOrder.orderId}...`,
         );
         await Assign.findOneAndDelete({
           driverId: updatedOrder.driver.driverId,
@@ -774,7 +772,7 @@ exports.orderStatus = async (req, res) => {
         const storeData = await Store.findByIdAndUpdate(
           updatedOrder.storeId,
           { $inc: { wallet: creditToStore } },
-          { new: true }
+          { new: true },
         );
 
         // ➕ Create Store Transaction
@@ -788,7 +786,7 @@ exports.orderStatus = async (req, res) => {
           description: store.Authorized_Store
             ? "Full amount credited (Authorized Store)"
             : `Credited after commission cut (${totalCommission.toFixed(
-                2
+                2,
               )} deducted)`,
         });
 
@@ -800,7 +798,7 @@ exports.orderStatus = async (req, res) => {
           const updatedWallet = await admin_transaction.findByIdAndUpdate(
             "68ea20d2c05a14a96c12788d",
             { $inc: { wallet: totalCommission } },
-            { new: true }
+            { new: true },
           );
 
           await admin_transaction.create({
@@ -840,7 +838,7 @@ exports.orderStatus = async (req, res) => {
             `Driver delivered order #${updatedOrder.orderId}.`,
             "/dashboard1",
             { orderId: updatedOrder.orderId },
-            "default"
+            "default",
           );
         }
 
@@ -869,7 +867,7 @@ exports.orderStatus = async (req, res) => {
           orderId: updatedOrder.orderId,
           statusCode: statusInfo.statusCode,
         },
-        "default"
+        "default",
       );
     }
 
@@ -952,7 +950,7 @@ exports.test = async (req, res) => {
       token,
       "🚀 Backend Test",
       "If you received this, backend FCM works!",
-      { testMode: "true" }
+      { testMode: "true" },
     );
 
     res.json({ message: "Notification sent", response });
@@ -1208,7 +1206,7 @@ exports.editNotification = async (req, res) => {
     const newNotification = await Notification.findByIdAndUpdate(
       id,
       updateData,
-      { new: true }
+      { new: true },
     );
 
     return res.status(200).json({
@@ -1283,7 +1281,7 @@ exports.sendNotifications = async (req, res) => {
             : cityDoc.zones.filter((z) => zone.includes(z._id.toString()));
           // console.log('zonesToCheck',zonesToCheck)
           const matched = zonesToCheck.some((z) =>
-            isWithinZone(userLat, userLng, z)
+            isWithinZone(userLat, userLng, z),
           );
           // console.log('user matched',matched)
           if (matched) {
@@ -1299,7 +1297,7 @@ exports.sendNotifications = async (req, res) => {
     --------------------------------------------------------- */
     if (sendType === "seller" || sendType === "all") {
       const stores = await Store.find({}).select(
-        "fcmToken fcmTokenMobile devices city zone"
+        "fcmToken fcmTokenMobile devices city zone",
       );
 
       for (const s of stores) {
@@ -1501,7 +1499,7 @@ exports.updateBulkOrders = async (req, res) => {
     const updatedOrder = await BulkOrderRequest.findByIdAndUpdate(
       id,
       { status },
-      { new: true }
+      { new: true },
     );
 
     return res.status(200).json({ message: "completed", data: updatedOrder });
@@ -1515,7 +1513,7 @@ exports.markAllRead = async (req, res) => {
   try {
     await Notification.updateMany(
       { type: { $ne: "general" }, isRead: false },
-      { $set: { isRead: true } }
+      { $set: { isRead: true } },
     );
 
     return res.status(200).json({ message: "Marked all read" });

@@ -367,7 +367,7 @@ exports.verifyPayment = async (req, res) => {
     await TempOrder.findByIdAndUpdate(
       tempOrderId,
       {
-        transactionId: transactionId || "",
+        transactionId: transactionId || paymentResult?.raw?.id || "",
         paymentStatus: paymentResult.success ? "Successful" : "Payment Failed",
 
         razorpayStatus: paymentResult.status,

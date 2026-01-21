@@ -358,7 +358,14 @@ exports.verifyPayment = async (req, res) => {
     if (paymentStatus === false) {
       console.log(`paymentStatus false ${tempOrder}`);
       // ❌ Payment failed -> just delete temp order and return
-      await TempOrder.findByIdAndDelete(tempOrderId);
+      await TempOrder.findByIdAndUpdate(
+        tempOrderId,
+        {
+          status: "Cancelled",
+          paymentStatus: "Cancelled",
+        },
+        { new: true },
+      );
 
       return res.status(200).json({
         status: false,

@@ -33,6 +33,7 @@ const {
 } = require("../config/counter");
 const {
   createRazorpayOrder,
+  verifyRazorpayPayment,
   getCommison,
 } = require("../utils/razorpayService");
 
@@ -355,18 +356,23 @@ exports.verifyPayment = async (req, res) => {
     if (!tempOrder)
       return res.status(404).json({ message: "Temp order not found" });
 
-    if (paymentStatus === false) {
-      console.log(`paymentStatus false ${tempOrder}`);
-      // ❌ Payment failed -> just delete temp order and return
-      await TempOrder.findByIdAndUpdate(
-        tempOrderId,
-        {
-          status: "Cancelled",
-          paymentStatus: "Cancelled",
-        },
-        { new: true },
-      );
+    const paymentResult = await verifyRazorpayPayment(transactionId);
 
+    await TempOrder.findByIdAndUpdate(
+      tempOrderId,
+      {
+        transactionId: transactionId || "",
+        paymentStatus: paymentResult.success
+          ? "Successful"
+          : "Payment Failed",
+
+        razorpayStatus: paymentResult.status,
+        razorpayResponse: paymentResult.raw || {},
+      },
+      { new: true }
+    );
+    // ❌ cancel ONLY on real failure
+    if (!paymentResult.success) {
       return res.status(200).json({
         status: false,
         message:
@@ -411,9 +417,6 @@ exports.verifyPayment = async (req, res) => {
     }
 
     await Cart.deleteMany({ _id: { $in: tempOrder.cartIds } });
-    // 5. Delete the temp order
-    console.log(`order updated temp order deleted ${tempOrder.orderId}`);
-    await TempOrder.findByIdAndDelete(tempOrderId);
 
     const sellerDoc = await Store.findById(tempOrder.storeId);
 

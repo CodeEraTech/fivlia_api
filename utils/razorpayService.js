@@ -1,30 +1,77 @@
 const Razorpay = require("razorpay");
 const { SettingAdmin } = require("../modals/setting");
-const Product = require('../modals/Product'); // Adjust path
-const Category = require('../modals/category'); // Adjust path if needed
+const Product = require("../modals/Product"); // Adjust path
+const Category = require("../modals/category"); // Adjust path if needed
 
-async function createRazorpayOrder(amount, currency = "INR", receipt = null, notes = {}) {
-    try {
-        const settings = await SettingAdmin.findOne({}, "PaymentGateways").lean();
-        if (!settings || !settings.PaymentGateways || !settings.PaymentGateways.RazorPayKey.live || !settings.PaymentGateways.RazorPayKey.secretKey) {
-            throw new Error("Razorpay keys not found in settings");
-        }
-        const razorpay = new Razorpay({
-            key_id: settings.PaymentGateways.RazorPayKey.live,
-            key_secret: settings.PaymentGateways.RazorPayKey.secretKey,
-        });
-        const options = {
-            amount: Math.round(amount * 100),
-            currency,
-            receipt: receipt || `receipt_${Date.now()}`,
-            notes,
-        };
-        const order = await razorpay.orders.create(options);
-        return order;
-    } catch (error) {
-        console.error("❌ Razorpay Order Error:", error);
-        throw new Error(error.message || "Failed to create Razorpay order");
+async function createRazorpayOrder(
+  amount,
+  currency = "INR",
+  receipt = null,
+  notes = {},
+) {
+  try {
+    const settings = await SettingAdmin.findOne({}, "PaymentGateways").lean();
+    if (
+      !settings ||
+      !settings.PaymentGateways ||
+      !settings.PaymentGateways.RazorPayKey.live ||
+      !settings.PaymentGateways.RazorPayKey.secretKey
+    ) {
+      throw new Error("Razorpay keys not found in settings");
     }
+    const razorpay = new Razorpay({
+      key_id: settings.PaymentGateways.RazorPayKey.live,
+      key_secret: settings.PaymentGateways.RazorPayKey.secretKey,
+    });
+    const options = {
+      amount: Math.round(amount * 100),
+      currency,
+      receipt: receipt || `receipt_${Date.now()}`,
+      notes,
+    };
+    const order = await razorpay.orders.create(options);
+    return order;
+  } catch (error) {
+    console.error("❌ Razorpay Order Error:", error);
+    throw new Error(error.message || "Failed to create Razorpay order");
+  }
+}
+
+async function verifyRazorpayPayment(transactionId) {
+  if (!transactionId) {
+    return { success: false, status: "missing" };
+  }
+
+  const settings = await SettingAdmin.findOne({}, "PaymentGateways").lean();
+
+  const razorpay = new Razorpay({
+    key_id: settings.PaymentGateways.RazorPayKey.live,
+    key_secret: settings.PaymentGateways.RazorPayKey.secretKey,
+  });
+
+  try {
+    const payment = await razorpay.payments.fetch(transactionId);
+
+    if (payment.status === "captured") {
+      return {
+        success: true,
+        status: "captured",
+        raw: payment,
+      };
+    }
+
+    return {
+      success: false,
+      status: payment.status,
+      raw: payment,
+    };
+  } catch (err) {
+    console.error("verify error:", err.message);
+    return {
+      success: false,
+      status: "error",
+    };
+  }
 }
 
 const getCommison = async (productId) => {
@@ -46,12 +93,12 @@ const getCommison = async (productId) => {
 
   if (subCatId) {
     const subcat = category.subcat?.find(
-      (s) => String(s._id) === String(subCatId)
+      (s) => String(s._id) === String(subCatId),
     );
     if (subcat) {
       if (subSubCatId && subcat.subsubcat?.length) {
         const subsub = subcat.subsubcat.find(
-          (s) => String(s._id) === String(subSubCatId)
+          (s) => String(s._id) === String(subSubCatId),
         );
         if (subsub?.commison) commission = subsub.commison; // sub-sub priority
       }
@@ -64,8 +111,8 @@ const getCommison = async (productId) => {
   return commission || 0; // default 0 if nothing found
 };
 
-
 module.exports = {
-    createRazorpayOrder,
-    getCommison
+  createRazorpayOrder,
+  verifyRazorpayPayment,
+  getCommison,
 };

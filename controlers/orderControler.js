@@ -396,7 +396,7 @@ exports.verifyPayment = async (req, res) => {
       gst: tempOrder.gst || "",
       deliveryPayout: tempOrder.deliveryPayout,
       storeId: tempOrder.storeId,
-      transactionId: transactionId || "",
+      transactionId: transactionId || paymentResult?.raw?.id || "",
       paymentStatus: "Successful",
       orderStatus: "Pending",
     };

@@ -45,6 +45,7 @@ const TempOrderSchema = new mongoose.Schema({
   transactionId: { type: String },
   razorpayStatus: { type: String },
   razorpayResponse: { type: Object },
+  razorpayOrderId:String,
   deliveryCharges:Number,
   platformFee:Number,
   cartIds:[{type:mongoose.Schema.Types.ObjectId,ref:'carts'}]

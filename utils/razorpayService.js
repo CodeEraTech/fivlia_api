@@ -37,11 +37,7 @@ async function createRazorpayOrder(
   }
 }
 
-async function verifyRazorpayPayment(transactionId) {
-  if (!transactionId) {
-    return { success: false, status: "missing" };
-  }
-
+async function verifyRazorpayPayment(transactionId, razorpayOrderId) {
   const settings = await SettingAdmin.findOne({}, "PaymentGateways").lean();
 
   const razorpay = new Razorpay({
@@ -50,20 +46,47 @@ async function verifyRazorpayPayment(transactionId) {
   });
 
   try {
-    const payment = await razorpay.payments.fetch(transactionId);
+    // ✅ CASE 1 — normal flow
+    if (transactionId) {
+      const payment = await razorpay.payments.fetch(transactionId);
 
-    if (payment.status === "captured") {
       return {
-        success: true,
-        status: "captured",
+        success: payment.status === "captured",
+        status: payment.status,
         raw: payment,
       };
     }
 
+    // ✅ CASE 2 — APP CLOSED / BACK PRESSED
+    if (!razorpayOrderId) {
+      return { success: false, status: "missing" };
+    }
+
+    // 🔥 FETCH PAYMENT USING ORDER ID
+    const payments = await razorpay.orders.fetchPayments(
+      razorpayOrderId
+    );
+
+    if (!payments.items || payments.items.length === 0) {
+      return { success: false, status: "not_found" };
+    }
+
+    const capturedPayment = payments.items.find(
+      (p) => p.status === "captured"
+    );
+
+    if (!capturedPayment) {
+      return {
+        success: false,
+        status: payments.items[0].status,
+        raw: payments.items[0],
+      };
+    }
+
     return {
-      success: false,
-      status: payment.status,
-      raw: payment,
+      success: true,
+      status: "captured",
+      raw: capturedPayment,
     };
   } catch (err) {
     console.error("verify error:", err.message);

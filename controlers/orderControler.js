@@ -269,7 +269,8 @@ exports.placeOrder = async (req, res) => {
         await notifySeller(
           sellerDoc,
           `New Order #${newOrder.orderId} Received`,
-          `You’ve received a new order worth ₹${newOrder.totalPrice}. Please confirm and prepare for dispatch.`,
+          `You’ve received a new order worth ₹${newOrder.totalPrice}.
+           Please confirm and prepare for dispatch.`,
         );
         console.log(
           `${nextOrderId} notification started for seller-> ${sellerDoc.storeName}`,
@@ -331,6 +332,11 @@ exports.placeOrder = async (req, res) => {
         `receipt_${tempOrder._id}`,
         { orderId: nextOrderId },
       );
+
+      await TempOrder.findByIdAndUpdate(tempOrder._id, {
+        razorpayOrderId: payResponse.id,
+      });
+
       return res.status(200).json({
         message: "Proceed to payment",
         tempOrderId: tempOrder._id,
@@ -356,20 +362,18 @@ exports.verifyPayment = async (req, res) => {
     if (!tempOrder)
       return res.status(404).json({ message: "Temp order not found" });
 
-    const paymentResult = await verifyRazorpayPayment(transactionId);
+    const paymentResult = await verifyRazorpayPayment(transactionId, tempOrder.razorpayOrderId);
 
     await TempOrder.findByIdAndUpdate(
       tempOrderId,
       {
         transactionId: transactionId || "",
-        paymentStatus: paymentResult.success
-          ? "Successful"
-          : "Payment Failed",
+        paymentStatus: paymentResult.success ? "Successful" : "Payment Failed",
 
         razorpayStatus: paymentResult.status,
         razorpayResponse: paymentResult.raw || {},
       },
-      { new: true }
+      { new: true },
     );
     // ❌ cancel ONLY on real failure
     if (!paymentResult.success) {
@@ -425,7 +429,8 @@ exports.verifyPayment = async (req, res) => {
       await notifySeller(
         sellerDoc,
         `New Order #${finalOrder.orderId} Received`,
-        `You’ve received a new order worth ₹${finalOrder.totalPrice}. Please confirm and prepare for dispatch.`,
+        `You’ve received a new order worth ₹${finalOrder.totalPrice}.
+         Please confirm and prepare for dispatch.`,
       );
       const sellerSocket = sellerSocketMap.get(sellerDoc._id.toString());
       if (sellerSocket)

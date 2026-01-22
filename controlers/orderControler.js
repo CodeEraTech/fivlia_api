@@ -42,41 +42,41 @@ const MAX_ATTEMPTS = 10; // retry 10 times (for example, every 30s = 5 minutes t
 const RETRY_INTERVAL = 10000;
 
 // Helper: send repeated notifications until accepted
-const repeatNotifyStore = async (orderId, storeDoc, attempt = 1) => {
-  try {
-    const order = await Order.findOne({ orderId });
-    if (!order) return console.log(`⚠️ Order ${orderId} not found`);
+// const repeatNotifyStore = async (orderId, storeDoc, attempt = 1) => {
+//   try {
+//     const order = await Order.findOne({ orderId });
+//     if (!order) return console.log(`⚠️ Order ${orderId} not found`);
 
-    // If store already accepted, stop retrying
-    if (order.orderStatus === "Accepted") {
-      console.log(`✅ Store accepted order ${orderId}, stopping retries`);
-      return;
-    }
+//     // If store already accepted, stop retrying
+//     if (order.orderStatus === "Accepted") {
+//       console.log(`✅ Store accepted order ${orderId}, stopping retries`);
+//       return;
+//     }
 
-    // Otherwise, send notification again
-    await notifySeller(
-      storeDoc,
-      `⏰ Reminder: New Order #${order.orderId} still pending`,
-      `You have a pending order worth ₹${order.totalPrice}. Please accept or reject it.`,
-    );
+//     // Otherwise, send notification again
+//     await notifySeller(
+//       storeDoc,
+//       `⏰ Reminder: New Order #${order.orderId} still pending`,
+//       `You have a pending order worth ₹${order.totalPrice}. Please accept or reject it.`,
+//     );
 
-    console.log(
-      `🔁 Reminder sent to store ${storeDoc._id} for order ${orderId} (attempt ${attempt})`,
-    );
+//     console.log(
+//       `🔁 Reminder sent to store ${storeDoc._id} for order ${orderId} (attempt ${attempt})`,
+//     );
 
-    // Schedule next retry if not accepted yet
-    // if (attempt < MAX_ATTEMPTS) {
-    setTimeout(
-      () => repeatNotifyStore(orderId, storeDoc, attempt + 1),
-      RETRY_INTERVAL,
-    );
-    // } else {
-    //   console.log(`🚫 Max retries reached for order ${orderId}`);
-    // }
-  } catch (err) {
-    console.error(`Error in repeatNotifyStore:`, err);
-  }
-};
+//     // Schedule next retry if not accepted yet
+//     // if (attempt < MAX_ATTEMPTS) {
+//     setTimeout(
+//       () => repeatNotifyStore(orderId, storeDoc, attempt + 1),
+//       RETRY_INTERVAL,
+//     );
+//     // } else {
+//     //   console.log(`🚫 Max retries reached for order ${orderId}`);
+//     // }
+//   } catch (err) {
+//     console.error(`Error in repeatNotifyStore:`, err);
+//   }
+// };
 
 const notifySeller = async (
   sellerDoc,
@@ -275,7 +275,7 @@ exports.placeOrder = async (req, res) => {
         console.log(
           `${nextOrderId} notification started for seller-> ${sellerDoc.storeName}`,
         );
-        repeatNotifyStore(newOrder.orderId, sellerDoc);
+        // repeatNotifyStore(newOrder.orderId, sellerDoc);
 
         const sellerSocket = sellerSocketMap.get(sellerDoc._id.toString());
         if (sellerSocket)
@@ -355,13 +355,17 @@ exports.placeOrder = async (req, res) => {
 exports.verifyPayment = async (req, res) => {
   try {
     const { tempOrderId, paymentStatus, transactionId } = req.body;
+
     console.log("tempOrderId", tempOrderId);
     // 1. Check if temp order exists
     const tempOrder = await TempOrder.findById(tempOrderId);
     if (!tempOrder)
       return res.status(404).json({ message: "Temp order not found" });
 
-    const paymentResult = await verifyRazorpayPayment(transactionId, tempOrder.razorpayOrderId);
+    const paymentResult = await verifyRazorpayPayment(
+      transactionId,
+      tempOrder.razorpayOrderId,
+    );
 
     await TempOrder.findByIdAndUpdate(
       tempOrderId,
@@ -398,6 +402,9 @@ exports.verifyPayment = async (req, res) => {
       transactionId: transactionId || paymentResult?.raw?.id || "",
       paymentStatus: "Successful",
       orderStatus: "Pending",
+
+      notifyAttempts: 0,
+      lastNotifyAt: null,
     };
 
     const finalOrder = await Order.create(orderData);

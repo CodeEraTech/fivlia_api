@@ -30,7 +30,7 @@ const driverSchema = new mongoose.Schema({
 activeStatus: {
   type: String,
   enum: ['online', 'offline'],
-  default: 'offline'
+  default: 'online'
 },
     Police_Verification_Copy:String,
     fcmToken:String

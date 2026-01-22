@@ -47,7 +47,7 @@ async function verifyRazorpayPayment(transactionId, razorpayOrderId) {
 
   try {
     // ✅ CASE 1 — normal flow
-    if (transactionId) {
+    if (transactionId && transactionId.startsWith("pay_")) {
       const payment = await razorpay.payments.fetch(transactionId);
 
       return {

@@ -355,7 +355,6 @@ exports.placeOrder = async (req, res) => {
 exports.verifyPayment = async (req, res) => {
   try {
     const { tempOrderId, paymentStatus, transactionId } = req.body;
-
     console.log("tempOrderId", tempOrderId);
     // 1. Check if temp order exists
     const tempOrder = await TempOrder.findById(tempOrderId);

@@ -416,6 +416,7 @@ exports.acceptedOrder = async (req, res) => {
           address: address1?.address,
           contact: address1?.mobileNumber,
           storeAddress: storeAddress?.fullAddress,
+          storeName: storeAddress.storeName,
           storeLat: storeAddress?.Latitude,
           storeLng: storeAddress?.Longitude,
           storeContact: storeAddress?.PhoneNumber,

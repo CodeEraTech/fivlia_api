@@ -51,17 +51,17 @@ exports.getDashboardStats = async (req, res) => {
 
     const completedOrdersMonthly = monthlyOrders.filter(
       (order) =>
-        order.orderStatus === "Delivered" || order.orderStatus === "Completed"
+        order.orderStatus === "Delivered" || order.orderStatus === "Completed",
     ).length;
 
     const pendingOrdersMonthly = monthlyOrders.filter(
       (order) =>
-        order.orderStatus === "Pending" || order.orderStatus === "Processing"
+        order.orderStatus === "Pending" || order.orderStatus === "Processing",
     ).length;
 
     // Total Earning
     const adminWallet = await admin_transaction.findById(
-      "68ea20d2c05a14a96c12788d"
+      "68ea20d2c05a14a96c12788d",
     );
     const totalRevenue = adminWallet?.wallet || 0;
 
@@ -186,7 +186,7 @@ exports.walletAdmin = async (req, res) => {
     const orders = await Order.find({}, { storeId: 1, totalPrice: 1 });
 
     const adminWallet = await admin_transaction.findById(
-      "68ea20d2c05a14a96c12788d"
+      "68ea20d2c05a14a96c12788d",
     );
     const totalCash = adminWallet?.wallet || 0;
 
@@ -282,7 +282,7 @@ exports.adminTranaction = async (req, res) => {
             city: "$storeData.city.name",
           },
         },
-      ].filter(Boolean)
+      ].filter(Boolean),
     );
 
     return res.status(200).json({
@@ -312,7 +312,7 @@ exports.getWithdrawalRequest = async (req, res) => {
       const enrichedRequests = await Promise.all(
         requests.map(async (reqItem) => {
           const storeData = await Store.findById(reqItem.storeId).select(
-            "storeName ownerName PhoneNumber email city fullAddress gstNumber wallet bankDetails sellerSignature invoicePrefix openTime closeTime"
+            "storeName ownerName PhoneNumber email city fullAddress gstNumber wallet bankDetails sellerSignature invoicePrefix openTime closeTime",
           );
 
           return {
@@ -342,7 +342,7 @@ exports.getWithdrawalRequest = async (req, res) => {
                 }
               : null,
           };
-        })
+        }),
       );
 
       return res.status(200).json({
@@ -392,7 +392,7 @@ exports.withdrawal = async (req, res) => {
         // deduct withdrawal amount from currentAmount
         request.currentAmount = Math.max(
           0,
-          request.currentAmount - request.amount
+          request.currentAmount - request.amount,
         );
 
         const store = await Store.findById(request.storeId);
@@ -481,10 +481,10 @@ exports.withdrawal = async (req, res) => {
 
 exports.adminLogin = async (req, res) => {
   try {
-    const { username, password, otp, step } = req.body;
+    const { username, password, otp, step, fcmToken } = req.body;
 
     const user = await AdminStaff.findOne({ email: username }).populate(
-      "roleId"
+      "roleId",
     );
 
     if (!user) {
@@ -537,6 +537,17 @@ exports.adminLogin = async (req, res) => {
 
       if (!verified) {
         return res.status(400).json({ message: "Invalid or expired OTP" });
+      }
+
+      const isValidFcmToken =
+        typeof fcmToken === "string" &&
+        fcmToken.trim().length > 0 &&
+        fcmToken !== "null" &&
+        fcmToken !== "undefined";
+
+      if (isValidFcmToken) {
+        user.fcmToken = fcmToken.trim();
+        await user.save();
       }
 
       return res.status(200).json({
@@ -599,7 +610,7 @@ exports.addExpenseType = async (req, res) => {
       newExpense = await ExpenseType.findByIdAndUpdate(
         id,
         { title },
-        { new: true }
+        { new: true },
       );
 
       // if nothing found → create new
@@ -688,7 +699,7 @@ exports.addRoles = async (req, res) => {
       newRole = await Roles.findByIdAndUpdate(
         id,
         { roles, permissions },
-        { new: true }
+        { new: true },
       );
 
       // if nothing found → create new
@@ -751,7 +762,7 @@ exports.editStaff = async (req, res) => {
       return res.status(404).json({ message: "Staff not found" });
     }
 
-    const staffRole = await Roles.findById(staff.roleId);  //eg->admin
+    const staffRole = await Roles.findById(staff.roleId); //eg->admin
     const editRole = await Roles.findById(roleId);
 
     // Block editing of admin user
@@ -762,7 +773,7 @@ exports.editStaff = async (req, res) => {
     const newAdminStaff = await AdminStaff.findByIdAndUpdate(
       id,
       { name, email, password, roleId },
-      { new: true }
+      { new: true },
     );
     return res
       .status(200)

@@ -18,6 +18,7 @@ const Assign = require("../modals/driverModals/assignments");
 const sendNotification = require("../firebase/pushnotification");
 const Store = require("../modals/store");
 const DriverRating = require("../modals/DriverRating");
+const AdminStaff = require("../modals/roleBase/adminStaff");
 const { getStoresWithinRadius, isWithinZone } = require("../config/google");
 const { sellerSocketMap, adminSocketMap } = require("../utils/driverSocketMap");
 const { sendAdminNotification } = require("../utils/sendAdminNotification");
@@ -292,6 +293,27 @@ exports.placeOrder = async (req, res) => {
           console.log(`👑 Sent new order(${newOrder.orderId}) to admin`);
         }
       }
+
+      // 🔔 ADMIN FCM NOTIFICATION
+      const admin = await AdminStaff.findOne({
+        roleId: "6924308f010bf6509aecedf0",
+      });
+
+      if (admin?.fcmToken) {
+        await sendNotification(
+          admin.fcmToken,
+          "New Order Received 🛒",
+          `Order #${finalOrder.orderId} worth ₹${finalOrder.totalPrice} placed.`,
+          "/orders",
+          {
+            orderId: finalOrder.orderId,
+            storeId: sellerDoc._id,
+            totalPrice: finalOrder.totalPrice,
+          },
+          "default",
+        );
+      }
+
       sendAdminNotification({
         title: `New Order #${newOrder.orderId}`,
         description: `Order worth ₹${newOrder.totalPrice} placed from store ${

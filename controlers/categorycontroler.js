@@ -897,7 +897,7 @@ exports.getBrand = async (req, res) => {
               product.inventory.push({
                 variantId: variant._id,
                 quantity: stock ? stock.quantity : 0,
-                storeId: stock ? stock.storeId : null,
+                storeId: stock ? stock.storeId : "",
                 storeName: stock ? stock.storeName : "",
               });
             }
@@ -907,6 +907,20 @@ exports.getBrand = async (req, res) => {
       };
 
       const productsWithStock = attachInventory(products);
+
+      productsWithStock.forEach((product) => {
+        if (Array.isArray(product.inventory) && product.inventory.length > 0) {
+          const firstInv = product.inventory.find(
+            (i) => i.storeId && i.storeName,
+          );
+
+          product.storeId = firstInv ? firstInv.storeId : "";
+          product.storeName = firstInv ? firstInv.storeName : "";
+        } else {
+          product.storeId = "";
+          product.storeName = "";
+        }
+      });
 
       return res.json({
         ...b,

@@ -153,6 +153,7 @@ exports.addCart = async (req, res) => {
       item: cartItem,
     });
   } catch (error) {
+    console.error("Error in add to cart", error)
     return res.status(500).json({
       message: "An error occurred!",
       error: error.message,

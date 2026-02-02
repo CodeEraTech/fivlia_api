@@ -10,7 +10,10 @@ const Banner = require("../modals/banner");
 const Store = require("../modals/store");
 const Filter = require("../modals/filter");
 const brand = require("../modals/brand");
-const { getBannersWithinRadius, getStoresWithinRadius } = require("../config/google");
+const {
+  getBannersWithinRadius,
+  getStoresWithinRadius,
+} = require("../config/google");
 const Attribute = require("../modals/attribute");
 const Products = require("../modals/Product");
 const User = require("../modals/User");
@@ -37,7 +40,7 @@ exports.update = async (req, res) => {
     const updatedCategory = await Category.findByIdAndUpdate(
       req.params.id,
       updateData,
-      { new: true }
+      { new: true },
     );
 
     if (!updatedCategory) {
@@ -135,7 +138,7 @@ exports.banner = async (req, res) => {
 
       if (subCategory) {
         foundSubCategory = foundCategory.subcat.find(
-          (sub) => sub._id.toString() === subCategory
+          (sub) => sub._id.toString() === subCategory,
         );
         if (!foundSubCategory)
           return res
@@ -144,7 +147,7 @@ exports.banner = async (req, res) => {
 
         if (subSubCategory) {
           foundSubSubCategory = foundSubCategory.subsubcat.find(
-            (subsub) => subsub._id.toString() === subSubCategory
+            (subsub) => subsub._id.toString() === subSubCategory,
           );
           if (!foundSubSubCategory)
             return res
@@ -175,34 +178,34 @@ exports.banner = async (req, res) => {
 
       mainCategory: foundCategory
         ? {
-          _id: foundCategory._id,
-          name: foundCategory.name,
-          slug: slugify(foundCategory.name, { lower: true }),
-        }
+            _id: foundCategory._id,
+            name: foundCategory.name,
+            slug: slugify(foundCategory.name, { lower: true }),
+          }
         : null,
 
       subCategory: foundSubCategory
         ? {
-          _id: foundSubCategory._id,
-          name: foundSubCategory.name,
-          slug: slugify(foundSubCategory.name, { lower: true }),
-        }
+            _id: foundSubCategory._id,
+            name: foundSubCategory.name,
+            slug: slugify(foundSubCategory.name, { lower: true }),
+          }
         : null,
 
       subSubCategory: foundSubSubCategory
         ? {
-          _id: foundSubSubCategory._id,
-          name: foundSubSubCategory.name,
-          slug: slugify(foundSubSubCategory.name, { lower: true }),
-        }
+            _id: foundSubSubCategory._id,
+            name: foundSubSubCategory.name,
+            slug: slugify(foundSubSubCategory.name, { lower: true }),
+          }
         : null,
 
       brand: foundBrand
         ? {
-          _id: foundBrand._id,
-          name: foundBrand.brandName,
-          slug: slugify(foundBrand.brandName, { lower: true }),
-        }
+            _id: foundBrand._id,
+            name: foundBrand.brandName,
+            slug: slugify(foundBrand.brandName, { lower: true }),
+          }
         : null,
 
       status,
@@ -268,7 +271,7 @@ exports.getBanner = async (req, res) => {
     const matchedBanners = await getBannersWithinRadius(
       userLat,
       userLng,
-      allBanners
+      allBanners,
     );
     // console.log(matchedBanners)
     // console.log("🎯 All banners fetched:", allBanners.length);
@@ -298,7 +301,7 @@ exports.getBanner = async (req, res) => {
         { $sort: { createdAt: -1 } }, // 🔑 latest first
         {
           $group: {
-            _id: "$storeId",          // one per seller
+            _id: "$storeId", // one per seller
             coupon: { $first: "$$ROOT" },
           },
         },
@@ -437,7 +440,7 @@ exports.updateBannerStatus = async (req, res) => {
 
       if (subCategory) {
         const foundSubCategory = foundCategory.subcat.find(
-          (sub) => sub._id.toString() === subCategory
+          (sub) => sub._id.toString() === subCategory,
         );
         if (!foundSubCategory) {
           return res
@@ -452,7 +455,7 @@ exports.updateBannerStatus = async (req, res) => {
 
         if (subSubCategory) {
           const foundSubSubCategory = foundSubCategory.subsubcat.find(
-            (subsub) => subsub._id.toString() === subSubCategory
+            (subsub) => subsub._id.toString() === subSubCategory,
           );
           if (!foundSubSubCategory) {
             return res
@@ -474,7 +477,7 @@ exports.updateBannerStatus = async (req, res) => {
     // Update document
     const updatedBanner = await Banner.updateOne(
       { _id: id },
-      { $set: updateData }
+      { $set: updateData },
     );
 
     if (updatedBanner.modifiedCount === 0) {
@@ -642,7 +645,7 @@ exports.editMainCategory = async (req, res) => {
           } else {
             // 🧠 Regular filter
             const selectedItems = filterDoc.Filter.filter((item) =>
-              f.selected.includes(item._id.toString())
+              f.selected.includes(item._id.toString()),
             );
 
             parsedFilters.push({
@@ -708,7 +711,7 @@ exports.getCategories = async (req, res) => {
     // format a subcategory with product count + nested sub-subs
     const formatSub = async (sub) => {
       const subSubFormatted = await Promise.all(
-        (sub.subsubcat || []).map(formatSubSub)
+        (sub.subsubcat || []).map(formatSubSub),
       );
 
       // count products in this subcat (including sub-subs if they reference subCategoryId)
@@ -750,11 +753,11 @@ exports.getCategories = async (req, res) => {
         return res.status(200).json({ category: formatted });
       }
       const subCategoryMatch = allCategories.find((cat) =>
-        cat.subcat?.some((sub) => String(sub._id) === String(id))
+        cat.subcat?.some((sub) => String(sub._id) === String(id)),
       );
       if (subCategoryMatch) {
         const sub = subCategoryMatch.subcat.find(
-          (s) => String(s._id) === String(id)
+          (s) => String(s._id) === String(id),
         );
         const formatted = await formatSub(sub);
         return res.status(200).json({ subCategory: formatted });
@@ -764,7 +767,7 @@ exports.getCategories = async (req, res) => {
       for (const cat of allCategories) {
         for (const sub of cat.subcat || []) {
           const subsub = sub.subsubcat?.find(
-            (ss) => String(ss._id) === String(id)
+            (ss) => String(ss._id) === String(id),
           );
           if (subsub) {
             const formatted = await formatSubSub(subsub);
@@ -852,12 +855,30 @@ exports.getBrand = async (req, res) => {
         "stock.productId": { $in: productVariantPairs.map((p) => p.productId) },
       }).lean();
 
+      const storeIds = [
+        ...new Set(stockDocs.map((d) => d.storeId?.toString()).filter(Boolean)),
+      ];
+
+      const stores = await Store.find(
+        { _id: { $in: storeIds } },
+        { storeName: 1 },
+      ).lean();
+
+      const storeMap = {};
+      stores.forEach((s) => {
+        storeMap[s._id.toString()] = s.storeName;
+      });
+
       // Build stockMap
       const stockMap = {};
       for (const doc of stockDocs) {
         for (const item of doc.stock || []) {
           const key = `${item.productId}_${item.variantId}`;
-          stockMap[key] = item.quantity;
+          stockMap[key] = {
+            quantity: item.quantity,
+            storeId: doc.storeId,
+            storeName: storeMap[doc.storeId?.toString()] || "",
+          };
         }
       }
 
@@ -871,9 +892,13 @@ exports.getBrand = async (req, res) => {
               const key = `${product._id}_${variant._id}`;
               const quantity = stockMap[key] || 0;
 
+              const stock = stockMap[key];
+
               product.inventory.push({
                 variantId: variant._id,
-                quantity,
+                quantity: stock ? stock.quantity : 0,
+                storeId: stock ? stock.storeId : null,
+                storeName: stock ? stock.storeName : "",
               });
             }
           }
@@ -929,7 +954,7 @@ exports.editBrand = async (req, res) => {
     const edit = await brand.updateOne(
       { _id: id },
       { brandName, featured, description, brandLogo: image },
-      { new: true }
+      { new: true },
     );
 
     return res.status(200).json({ message: "Done", edit });
@@ -1004,7 +1029,7 @@ exports.updateAt = async (req, res) => {
     const newUpdate = await Category.findByIdAndUpdate(
       id,
       { $addToSet: { attribute: { $each: attrArray } } },
-      { new: true }
+      { new: true },
     );
     return res
       .status(200)
@@ -1041,7 +1066,7 @@ exports.editFilter = async (req, res) => {
           Filter,
         },
       },
-      { new: true }
+      { new: true },
     );
 
     return res.status(200).json({ message: "Attributes Updated", filter });
@@ -1077,7 +1102,7 @@ exports.deleteFilterVal = async (req, res) => {
     const { id } = req.params;
     const deleted = await Filters.findOneAndUpdate(
       { "Filter._id": id },
-      { $pull: { Filter: { _id: id } } }
+      { $pull: { Filter: { _id: id } } },
     );
     res.status(200).json({ message: "Filter deleted successfully", deleted });
   } catch (error) {
@@ -1116,7 +1141,7 @@ exports.addFiltersToCategory = async (req, res) => {
     const updatedCategory = await Category.findByIdAndUpdate(
       id,
       { $push: { filter: { $each: filtersToAdd } } },
-      { new: true }
+      { new: true },
     );
 
     if (!updatedCategory) {
@@ -1174,7 +1199,7 @@ exports.addMainCategory = async (req, res) => {
         } else {
           // Normal filter (e.g. Types, Size, etc.)
           const selectedItems = filterDoc.Filter.filter((item) =>
-            selectedIds.includes(item._id.toString())
+            selectedIds.includes(item._id.toString()),
           );
 
           parsedFilters.push({
@@ -1250,7 +1275,7 @@ exports.addSubCategory = async (req, res) => {
     const result = await Category.findByIdAndUpdate(
       mainCategoryId,
       { $push: { subcat: newSubCategory } },
-      { new: true }
+      { new: true },
     );
 
     // Success response
@@ -1293,7 +1318,7 @@ exports.addSubSubCategory = async (req, res) => {
     const update = await Category.findOneAndUpdate(
       { "subcat._id": subCategoryId },
       { $push: { "subcat.$.subsubcat": newSubSubCategory } },
-      { new: true }
+      { new: true },
     );
 
     return res.status(201).json({
@@ -1344,7 +1369,7 @@ exports.getMainCategory = async (req, res) => {
           ...category._doc,
           totalProducts: productCount,
         };
-      })
+      }),
     );
 
     res.status(200).send({
@@ -1398,7 +1423,7 @@ exports.GetSubSubCategories = async (req, res) => {
 
     // Step 2: Find that specific subcategory inside the array
     const subcategory = category.subcat.find(
-      (item) => item._id.toString() === subcatId
+      (item) => item._id.toString() === subcatId,
     );
 
     if (!subcategory) {
@@ -1442,7 +1467,7 @@ exports.setCommison = async (req, res) => {
       updatedCategory = await Category.findOneAndUpdate(
         { "subcat._id": id },
         { $set: { "subcat.$.commison": commissionValue } },
-        { new: true }
+        { new: true },
       );
     } else if (level === "subsub") {
       // For sub-subcategory, we need to find the parent category first

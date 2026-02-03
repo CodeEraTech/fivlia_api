@@ -304,12 +304,12 @@ console.log("noti block next")
         await sendNotification(
           admin.fcmToken,
           "New Order Received 🛒",
-          `Order #${finalOrder.orderId} worth ₹${finalOrder.totalPrice} placed.`,
+          `Order #${newOrder.orderId} worth ₹${newOrder.totalPrice} placed.`,
           "/orders",
           {
-            orderId: finalOrder.orderId,
+            orderId: newOrder.orderId,
             storeId: sellerDoc._id,
-            totalPrice: finalOrder.totalPrice,
+            totalPrice: newOrder.totalPrice,
           },
           "default",
         );

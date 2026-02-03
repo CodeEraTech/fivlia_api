@@ -306,11 +306,6 @@ console.log("noti block next")
           "New Order Received 🛒",
           `Order #${newOrder.orderId} worth ₹${newOrder.totalPrice} placed.`,
           "/orders",
-          {
-            orderId: newOrder.orderId,
-            storeId: sellerDoc._id,
-            totalPrice: newOrder.totalPrice,
-          },
           "default",
         );
       }

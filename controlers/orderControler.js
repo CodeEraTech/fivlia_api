@@ -298,8 +298,9 @@ exports.placeOrder = async (req, res) => {
       const admin = await AdminStaff.findOne({
         roleId: "6924308f010bf6509aecedf0",
       });
-
+console.log("noti block next")
       if (admin?.fcmToken) {
+        console.log("noti block runned")
         await sendNotification(
           admin.fcmToken,
           "New Order Received 🛒",

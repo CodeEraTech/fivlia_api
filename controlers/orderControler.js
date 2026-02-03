@@ -298,9 +298,9 @@ exports.placeOrder = async (req, res) => {
       const admin = await AdminStaff.findOne({
         roleId: "6924308f010bf6509aecedf0",
       });
-console.log("noti block next")
+      console.log("noti block next");
       if (admin?.fcmToken) {
-        console.log("noti block runned")
+        console.log("noti block runned");
         await sendNotification(
           admin.fcmToken,
           "New Order Received 🛒",
@@ -456,6 +456,20 @@ exports.verifyPayment = async (req, res) => {
         `You’ve received a new order worth ₹${finalOrder.totalPrice}.
          Please confirm and prepare for dispatch.`,
       );
+      const admin = await AdminStaff.findOne({
+        roleId: "6924308f010bf6509aecedf0",
+      });
+
+      if (admin?.fcmToken) {
+        await sendNotification(
+          admin.fcmToken,
+          "New Order Received 🛒",
+          `Order #${finalOrder.orderId} worth ₹${finalOrder.totalPrice} placed.`,
+          "/orders",
+          "default",
+        );
+      }
+
       const sellerSocket = sellerSocketMap.get(sellerDoc._id.toString());
       if (sellerSocket)
         sellerSocket.emit("storeOrder", { orderId: finalOrder.orderId });

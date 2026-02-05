@@ -191,7 +191,7 @@ exports.getSellerRequest = async (req, res) => {
       imageRequest,
       productRequest,
       brandRequest,
-      sellerOfferRequest
+      sellerOfferRequest,
     ] = await Promise.all([
       seller
         .find({ approveStatus: "pending_admin_approval" })
@@ -205,7 +205,7 @@ exports.getSellerRequest = async (req, res) => {
           "pendingAdvertisementImages.image.0": { $exists: true },
         })
         .select(
-          "storeName email PhoneNumber ownerName zone pendingAdvertisementImages"
+          "storeName email PhoneNumber ownerName zone pendingAdvertisementImages",
         )
         .sort({ createdAt: -1 }),
       Products.find({ sellerProductStatus: "pending_admin_approval" }).sort({
@@ -214,9 +214,9 @@ exports.getSellerRequest = async (req, res) => {
       Products.find({ sellerProductStatus: "submit_brand_approval" }).sort({
         createdAt: -1,
       }),
-      sellerCoupon.find({approvalStatus:"pending"}).sort({
+      sellerCoupon.find({ approvalStatus: "pending" }).sort({
         createdAt: -1,
-      })
+      }),
     ]);
 
     return res.status(200).json({
@@ -226,7 +226,7 @@ exports.getSellerRequest = async (req, res) => {
       imageRequest,
       productRequest,
       brandRequest,
-      sellerOfferRequest
+      sellerOfferRequest,
     });
   } catch (error) {
     console.error(error);
@@ -390,8 +390,16 @@ exports.getSeller = async (req, res) => {
 
 exports.acceptDeclineRequest = async (req, res) => {
   try {
-    const { type, approval, id, couponId, productId, isImage, isLocation, description } =
-      req.body;
+    const {
+      type,
+      approval,
+      id,
+      couponId,
+      productId,
+      isImage,
+      isLocation,
+      description,
+    } = req.body;
 
     // ---------- PRODUCT APPROVAL ----------
     if (productId) {
@@ -404,7 +412,7 @@ exports.acceptDeclineRequest = async (req, res) => {
       const productApplication = await Products.findByIdAndUpdate(
         productId,
         updateFields,
-        { new: true }
+        { new: true },
       );
       if (approval === "approved") {
         let storeStock = await Stock.findOne({
@@ -417,7 +425,7 @@ exports.acceptDeclineRequest = async (req, res) => {
           const exists = storeStock.stock.find(
             (s) =>
               s.productId.toString() === productApplication._id.toString() &&
-              s.variantId.toString() === variant._id.toString()
+              s.variantId.toString() === variant._id.toString(),
           );
 
           if (!exists) {
@@ -438,7 +446,7 @@ exports.acceptDeclineRequest = async (req, res) => {
         await notifyEntity(
           sellerDoc,
           `Product ${approval}`,
-          `Your product application has been ${approval}.`
+          `Your product application has been ${approval}.`,
         );
       }
 
@@ -448,15 +456,17 @@ exports.acceptDeclineRequest = async (req, res) => {
       });
     }
 
-    if(couponId) {
+    if (couponId) {
       const updatedCoupon = await sellerCoupon.findByIdAndUpdate(
-      couponId,
-      { approvalStatus: approval },
-      {
-        new: true,
-      }
-    );
-    return res.status(200).json({ message: `Offer request ${approval}`, updatedCoupon });
+        couponId,
+        { approvalStatus: approval },
+        {
+          new: true,
+        },
+      );
+      return res
+        .status(200)
+        .json({ message: `Offer request ${approval}`, updatedCoupon });
     }
     // ---------- LOCATION UPDATE ----------
     if (isLocation) {
@@ -478,25 +488,25 @@ exports.acceptDeclineRequest = async (req, res) => {
         updatedData = await seller.findByIdAndUpdate(
           id,
           { $unset: { pendingAddressUpdate: "" } },
-          { new: true }
+          { new: true },
         );
 
         await notifyEntity(
           sellerDoc,
           `Location Update Approved`,
-          `Your location update request has been approved.`
+          `Your location update request has been approved.`,
         );
       } else {
         updatedData = await seller.findByIdAndUpdate(
           id,
           { "pendingAddressUpdate.status": "rejected" },
-          { new: true }
+          { new: true },
         );
 
         await notifyEntity(
           sellerDoc,
           `Location Update Rejected`,
-          `Your location update request has been rejected.`
+          `Your location update request has been rejected.`,
         );
       }
 
@@ -522,7 +532,7 @@ exports.acceptDeclineRequest = async (req, res) => {
         await seller.findByIdAndUpdate(id, {
           $set: {
             advertisementImages: pendingImages.filter(
-              (img) => img && img !== ""
+              (img) => img && img !== "",
             ),
           },
           $unset: { pendingAdvertisementImages: "" },
@@ -533,20 +543,20 @@ exports.acceptDeclineRequest = async (req, res) => {
         await notifyEntity(
           sellerDoc,
           `Advertisement Images Approved`,
-          `Your advertisement images update has been approved.`
+          `Your advertisement images update has been approved.`,
         );
       } else {
         updatedData = await seller.findByIdAndUpdate(
           id,
           { "pendingAdvertisementImages.status": "rejected" },
-          { new: true }
+          { new: true },
         );
 
         await notifyEntity(
           sellerDoc,
           `Advertisement Images Rejected`,
           `Your advertisement images update has been rejected.`,
-          "/Profile"
+          "/Profile",
         );
       }
 
@@ -562,7 +572,7 @@ exports.acceptDeclineRequest = async (req, res) => {
       const application = await driver.findByIdAndUpdate(
         id,
         { approveStatus: approval },
-        { new: true }
+        { new: true },
       );
 
       const sellerDoc = await driver.findById(id);
@@ -570,7 +580,7 @@ exports.acceptDeclineRequest = async (req, res) => {
         await notifyEntity(
           sellerDoc,
           `Driver Application ${approval}`,
-          `Your Driver application has been ${approval}.`
+          `Your Driver application has been ${approval}.`,
         );
       }
 
@@ -582,7 +592,7 @@ exports.acceptDeclineRequest = async (req, res) => {
     const application = await seller.findByIdAndUpdate(
       id,
       { approveStatus: approval },
-      { new: true }
+      { new: true },
     );
 
     const sellerDoc = await seller.findById(id);
@@ -590,7 +600,7 @@ exports.acceptDeclineRequest = async (req, res) => {
       await notifyEntity(
         sellerDoc,
         `Seller Application ${approval}`,
-        `Your seller application has been ${approval}.`
+        `Your seller application has been ${approval}.`,
       );
     }
 
@@ -634,7 +644,7 @@ exports.verifyOtpSeller = async (req, res) => {
       const jwttoken = jwt.sign(
         { _id: store._id, role: "admin" },
         process.env.jwtSecretKey,
-        { expiresIn: "1d" }
+        { expiresIn: "1d" },
       );
 
       // Clear key after use
@@ -686,7 +696,7 @@ exports.verifyOtpSeller = async (req, res) => {
       const jwttoken = jwt.sign(
         { _id: sellerDoc._id },
         process.env.jwtSecretKey,
-        { expiresIn: "1d" }
+        { expiresIn: "1d" },
       );
 
       // Initialize devices array if not exist
@@ -694,7 +704,7 @@ exports.verifyOtpSeller = async (req, res) => {
 
       // --- STEP 1: Check if this device already exists ---
       const existingDeviceIndex = sellerDoc.devices.findIndex(
-        (d) => d.deviceId === deviceId
+        (d) => d.deviceId === deviceId,
       );
 
       if (existingDeviceIndex !== -1) {
@@ -707,10 +717,10 @@ exports.verifyOtpSeller = async (req, res) => {
       } else {
         // --- STEP 2: Enforce device limits ---
         const mobileDevices = sellerDoc.devices.filter(
-          (d) => d.deviceType === "mobile"
+          (d) => d.deviceType === "mobile",
         );
         const browserDevices = sellerDoc.devices.filter(
-          (d) => d.deviceType === "laptop"
+          (d) => d.deviceType === "laptop",
         );
 
         // Limit: 2 mobiles
@@ -935,7 +945,7 @@ exports.editSellerProfile = async (req, res) => {
         const cityDoc = await ZoneData.findOne({ "zones._id": zone });
         if (cityDoc) {
           const zoneDoc = cityDoc.zones.find(
-            (z) => String(z._id) === String(zone)
+            (z) => String(z._id) === String(zone),
           );
           if (zoneDoc) {
             zoneArray.push({
@@ -963,7 +973,7 @@ exports.editSellerProfile = async (req, res) => {
     const updatedSeller = await seller.findByIdAndUpdate(
       sellerId,
       { $set: updateFields },
-      { new: true }
+      { new: true },
     );
 
     if (!updatedSeller) {
@@ -1099,7 +1109,7 @@ exports.logoutSeller = async (req, res) => {
 
     const beforeCount = sellerDoc.devices.length;
     sellerDoc.devices = sellerDoc.devices.filter(
-      (d) => d.deviceId !== deviceId
+      (d) => d.deviceId !== deviceId,
     );
     const afterCount = sellerDoc.devices.length;
     if (beforeCount === afterCount) {
@@ -1149,7 +1159,7 @@ exports.createSellerCoupon = async (req, res) => {
       limit,
       fromTo,
       validDays,
-      expireDate
+      expireDate,
     });
     return res.status(200).json({ message: "New coupon created", newOffer });
   } catch (error) {
@@ -1180,22 +1190,22 @@ exports.editSellerCoupon = async (req, res) => {
       return res.status(400).json({ message: "Coupon ID is required" });
     }
 
+    const existingCoupon = await sellerCoupon.findById(couponId);
+    if (!existingCoupon) {
+      return res.status(404).json({ message: "Coupon not found" });
+    }
+
     const updateData = {};
-    let needsReApproval = false; // 🔥 key line
+    let needsReApproval = false;
 
     if (title !== undefined) {
       updateData.title = title;
       needsReApproval = true;
     }
 
-    if (validDays !== undefined) {
-      updateData.validDays = validDays;
-      needsReApproval = true;
-    }
-
     if (offer !== undefined) {
       if (Number(offer) <= 0 || Number(offer) > 100) {
-        return res.status(400).json({ message: "Offer must be between 1–100%" });
+        return res.status(400).json({ message: "Offer must be 1–100%" });
       }
       updateData.offer = Number(offer);
       needsReApproval = true;
@@ -1203,24 +1213,47 @@ exports.editSellerCoupon = async (req, res) => {
 
     if (limit !== undefined) {
       if (Number(limit) <= 0) {
-        return res.status(400).json({ message: "Limit must be greater than zero" });
+        return res
+          .status(400)
+          .json({ message: "Limit must be greater than zero" });
       }
       updateData.limit = Number(limit);
       needsReApproval = true;
     }
 
+    let newFromDate = existingCoupon.fromTo;
+    let newValidDays = existingCoupon.validDays;
+
     if (fromTo !== undefined) {
-      if (new Date(fromTo) <= new Date()) {
-        return res.status(400).json({ message: "date must be in the future" });
+      const parsed = new Date(fromTo);
+      if (isNaN(parsed.getTime())) {
+        return res.status(400).json({ message: "Invalid from date" });
       }
-      updateData.fromTo = fromTo;
+      newFromDate = parsed;
+      updateData.fromTo = parsed;
       needsReApproval = true;
     }
 
-    // ✅ ON / OFF should NOT trigger approval
+    if (validDays !== undefined) {
+      if (Number(validDays) <= 0) {
+        return res.status(400).json({ message: "Valid days must be positive" });
+      }
+      newValidDays = Number(validDays);
+      updateData.validDays = Number(validDays);
+      needsReApproval = true;
+    }
+
+    // 🔥 recalc expiry exactly like create API
+    if (fromTo !== undefined || validDays !== undefined) {
+      const newExpire = new Date(newFromDate);
+      newExpire.setDate(newExpire.getDate() + Number(newValidDays));
+      updateData.expireDate = newExpire;
+    }
+
+    // status toggle doesn't trigger approval
     if (status !== undefined) {
       if (typeof status !== "boolean") {
-        return res.status(400).json({ message: "Status must be true or false" });
+        return res.status(400).json({ message: "Status must be boolean" });
       }
       updateData.status = status;
     }
@@ -1230,35 +1263,42 @@ exports.editSellerCoupon = async (req, res) => {
       needsReApproval = true;
     }
 
-    // 🔥 Only reset approval when needed
     if (needsReApproval) {
       updateData.approvalStatus = "pending";
     }
 
     if (Object.keys(updateData).length === 0) {
-      return res.status(400).json({ message: "No valid fields provided to update" });
+      return res.status(400).json({ message: "Nothing to update" });
     }
 
     const updatedCoupon = await sellerCoupon.findByIdAndUpdate(
       couponId,
       updateData,
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     );
-
-    if (!updatedCoupon) {
-      return res.status(404).json({ message: "Coupon not found" });
-    }
 
     res.status(200).json({
       message: "Coupon updated successfully",
       coupon: updatedCoupon,
     });
-
   } catch (error) {
     console.error("Edit Coupon Error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
 
+exports.deleteCoupon = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await sellerCoupon.findByIdAndDelete(id);
+    return res.status(200).json({
+      success: true,
+      message: "Coupon deleted successfully",
+    });
+  } catch (error) {
+    console.error("Edit Coupon Error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 
 // https://api.fivlia.in/getSellerProducts?categories=683eeb6ff6f5264ba0295760%683ed131f6f5264ba0295759&subCategories=683ef865f6f5264ba0295774%683ed131f6f5264ba0295755&subsubCategories=683ef865f6f5264ba0295724%683ed131f6f5264ba0295715

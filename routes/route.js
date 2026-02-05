@@ -123,6 +123,7 @@ const {
   sellerWithdrawalRequest,
   getAllStore,
   getCoupons,
+  deleteCoupon,
   createSellerCoupon,
   editSellerCoupon,
   logoutSeller
@@ -380,6 +381,7 @@ router.post("/seller/withdrawalRequest", sellerWithdrawalRequest);
 router.post("/seller/create-seller-coupon", upload, createSellerCoupon);
 router.post("/seller/edit-seller-coupon/:couponId", editSellerCoupon);
 router.get("/seller/get-coupons/:storeId", getCoupons);
+router.delete("/seller/delete-coupons/:id", deleteCoupon);
 // router.put('/editSellerProduct/:id', upload, editSellerProduct)
 // router.put('/updateSellerStock/:id', updateSellerStock)
 router.put("/acceptDeclineRequest", acceptDeclineRequest);

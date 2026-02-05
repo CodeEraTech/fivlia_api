@@ -1575,3 +1575,25 @@ exports.markAllRead = async (req, res) => {
     res.status(500).json({ message: "Failed" });
   }
 };
+
+exports.getTempOrders = async (req, res) => {
+  try {
+    const tempOrders = await TempOrder.find({
+      paymentStatus: { $ne: "Successful" },
+    })
+      .populate("addressId")
+      .populate("storeId")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      tempOrders,
+    });
+  } catch (error) {
+    console.error("Temp order fetch error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch temp orders",
+    });
+  }
+};

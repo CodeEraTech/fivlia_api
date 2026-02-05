@@ -172,6 +172,7 @@ const {
 const {
   placeOrder,
   getOrders,
+  getTempOrders,
   orderStatus,
   test,
   driver,
@@ -466,6 +467,7 @@ router.get("/getCart", verifyToken, getCart);
 router.get("/getDiscount", getDicount);
 router.get("/getVarients/:id", getVarients);
 router.get("/orders", getOrders);
+router.get("/get-temp-orders", getTempOrders);
 router.get("/getSettings", getSettings);
 router.get("/settings", verifyToken, settings);
 router.get("/getAddress", verifyToken, getAddress);

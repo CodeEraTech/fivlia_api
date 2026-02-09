@@ -31,9 +31,9 @@ exports.AvalibleCity = async (req, res) => {
 
 exports.AddZone = async (req, res) => {
   try {
-    const { city, address, zoneTitle, latitude, longitude, range } = req.body;
+    const { city, address, zoneTitle, latitude, longitude, range, nightRange } = req.body;
 
-    if (!city || !address || !latitude || !longitude || !range || !zoneTitle) {
+    if (!city || !address || !latitude || !longitude || !range || !zoneTitle, !nightRange) {
       return res.status(400).json({ message: 'All fields are required' });
     }
 
@@ -43,6 +43,7 @@ exports.AddZone = async (req, res) => {
       latitude,
       longitude,
       range,
+      nightRange,
       status: true,
       cashOnDelivery: false,
       createdAt: new Date()
@@ -249,6 +250,7 @@ exports.updateZoneStatus = async (req, res) => {
       latitude,
       longitude,
       range,
+      nightRange,
       status,
       cashOnDelivery,
     } = req.body;
@@ -284,6 +286,7 @@ exports.updateZoneStatus = async (req, res) => {
             "zones.$.longitude": longitude ?? existingZone.longitude,
             "zones.$.range": range ?? existingZone.range,
             "zones.$.status": status ?? existingZone.status,
+            "zones.$.nightRange": nightRange ?? existingZone.nightRange,
             "zones.$.cashOnDelivery":
               cashOnDelivery ?? existingZone.cashOnDelivery,
             updatedAt: new Date(),
@@ -321,6 +324,7 @@ exports.updateZoneStatus = async (req, res) => {
       latitude: latitude ?? existingZone.latitude,
       longitude: longitude ?? existingZone.longitude,
       range: range ?? existingZone.range,
+      nightRange: nightRange ?? existingZone.nightRange,
       status: status ?? existingZone.status,
       cashOnDelivery: cashOnDelivery ?? existingZone.cashOnDelivery,
       createdAt: existingZone.createdAt || new Date(),

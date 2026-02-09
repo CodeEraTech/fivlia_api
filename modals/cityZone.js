@@ -28,6 +28,7 @@ const mainSchema = new mongoose.Schema(
     latitude: { type: Number },
     longitude: { type: Number },
     range: { type: Number },
+    nightRange: { type: Number},
   },
   { _id: true }
 );

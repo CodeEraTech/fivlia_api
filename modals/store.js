@@ -32,6 +32,7 @@ const storeScheema = new mongoose.Schema(
     aadharCard: [String],
     panCard: [String],
     sellFood: { type: Boolean },
+    businessType: { type: String },
     fsiNumber: String,
     invoicePrefix: { type: String },
     fullAddress: String,

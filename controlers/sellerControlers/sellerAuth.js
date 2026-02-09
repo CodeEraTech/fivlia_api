@@ -35,6 +35,7 @@ exports.addSeller = async (req, res) => {
       Latitude,
       Longitude,
       sellFood,
+      businessType,
       fullAddress,
       referralCode,
     } = req.body;
@@ -133,6 +134,7 @@ exports.addSeller = async (req, res) => {
       Latitude,
       Longitude,
       sellFood,
+      businessType,
       fullAddress,
       referralCode: updatedReferralCode,
     });

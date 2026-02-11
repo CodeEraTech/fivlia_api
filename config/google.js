@@ -108,7 +108,10 @@ async function getStoresWithinRadius(userLat, userLng) {
   );
 
   if (matchedZones.length === 0) {
-    return { zoneAvailable: false };
+    return { 
+      zoneAvailable: false,
+      matchedStores: []
+     };
   }
 
   const matchedZoneIds = matchedZones.map((z) => z._id.toString());
@@ -134,6 +137,7 @@ async function getStoresWithinRadius(userLat, userLng) {
     return {
       zoneAvailable: true,
       storesOpen: false,
+      matchedStores: []
     };
   }
 

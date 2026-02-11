@@ -38,7 +38,8 @@ freeDeliveryLimit:Number,
 minimumOrderCancelTime:Number,
 extraTime:Number,
 imageLink:String,
-
+fixDeliveryCharges:Number,
+perKmCharges:Number
 });
 
 module.exports ={

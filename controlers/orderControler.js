@@ -23,6 +23,11 @@ const { getStoresWithinRadius, isWithinZone } = require("../config/google");
 const { sellerSocketMap, adminSocketMap } = require("../utils/driverSocketMap");
 const { sendAdminNotification } = require("../utils/sendAdminNotification");
 const {
+  getDistanceMeters,
+  getDistanceKm,
+  computeDeliveryCharge,
+} = require("../utils/deliveryCharge");
+const {
   generateAndSendThermalInvoice,
   generateStoreInvoiceId,
 } = require("../config/invoice");
@@ -146,10 +151,16 @@ exports.placeOrder = async (req, res) => {
     console.log(`${nextOrderId} recived`);
     const chargesData = await SettingAdmin.findOne();
 
-    let deliveryChargeRaw = chargesData.Delivery_Charges || 0;
+    // OLD: flat delivery charge
+    // let deliveryChargeRaw = chargesData.Delivery_Charges || 0;
+    // let deliveryGstPercent = chargesData.Delivery_Charges_Gst || 0;
+    // let totalDeliveryCharge =
+    //   deliveryChargeRaw / (1 + deliveryGstPercent / 100);
+
+    let deliveryChargeRaw = 0;
     let deliveryGstPercent = chargesData.Delivery_Charges_Gst || 0;
-    let totalDeliveryCharge =
-      deliveryChargeRaw / (1 + deliveryGstPercent / 100);
+    let totalDeliveryCharge = 0;
+    let deliveryDistanceKm = 0;
 
     const cartItems = await Cart.find({ _id: { $in: cartIds } });
     // console.log(chargesData);
@@ -165,13 +176,14 @@ exports.placeOrder = async (req, res) => {
     const platformFeeRate = (chargesData.Platform_Fee || 0) / 100;
     const platformFeeAmount = itemsTotal * platformFeeRate;
 
-    let totalPrice = itemsTotal;
-    if (itemsTotal >= chargesData.freeDeliveryLimit) {
-      totalPrice = itemsTotal + platformFeeAmount;
-      deliveryChargeRaw = 0;
-    } else {
-      totalPrice = itemsTotal + deliveryChargeRaw + platformFeeAmount;
-    }
+    // OLD: total price before distance-based delivery charge
+    // let totalPrice = itemsTotal;
+    // if (itemsTotal >= chargesData.freeDeliveryLimit) {
+    //   totalPrice = itemsTotal + platformFeeAmount;
+    //   deliveryChargeRaw = 0;
+    // } else {
+    //   totalPrice = itemsTotal + deliveryChargeRaw + platformFeeAmount;
+    // }
 
     // const paymentOption = cartItems[0].paymentOption;
 
@@ -196,6 +208,59 @@ exports.placeOrder = async (req, res) => {
       return res.status(400).json({
         message: "This store does not deliver to your address location.",
       });
+    }
+
+    // === Distance-based delivery charge ===
+    const storeData = await Store.findById(storeId, {
+      Latitude: 1,
+      Longitude: 1,
+    }).lean();
+    const storeLat = parseFloat(storeData?.Latitude);
+    const storeLng = parseFloat(storeData?.Longitude);
+
+    const mapApi = chargesData?.Map_Api?.[0] || {};
+    const googleApi = mapApi.google || {};
+    const googleApiKey = googleApi.status ? googleApi.api_key : null;
+
+    let distanceMeters = 0;
+    if (
+      Number.isFinite(storeLat) &&
+      Number.isFinite(storeLng) &&
+      Number.isFinite(userLat) &&
+      Number.isFinite(userLng)
+    ) {
+      distanceMeters = await getDistanceMeters({
+        storeLat,
+        storeLng,
+        userLat,
+        userLng,
+        googleApiKey,
+      });
+    }
+
+    const distanceKm = getDistanceKm(distanceMeters);
+    deliveryDistanceKm = Number(distanceKm.toFixed(2));
+
+    const fixedFirstKm =
+      chargesData.fixDeliveryCharges ??
+      chargesData.Delivery_Charges ??
+      0;
+    const perKm = chargesData.perKmCharges ?? 0;
+
+    deliveryChargeRaw = computeDeliveryCharge({
+      distanceMeters,
+      fixedFirstKm,
+      perKm,
+    });
+    totalDeliveryCharge =
+      deliveryChargeRaw / (1 + deliveryGstPercent / 100);
+
+    let totalPrice = itemsTotal;
+    if (itemsTotal >= chargesData.freeDeliveryLimit) {
+      totalPrice = itemsTotal + platformFeeAmount;
+      deliveryChargeRaw = 0;
+    } else {
+      totalPrice = itemsTotal + deliveryChargeRaw + platformFeeAmount;
     }
 
     const userId = cartItems[0].userId;
@@ -240,6 +305,7 @@ exports.placeOrder = async (req, res) => {
         storeId,
         deliveryPayout: totalDeliveryCharge,
         deliveryCharges: deliveryChargeRaw,
+        deliveryDistanceKm,
         platformFee: chargesData.Platform_Fee,
       });
 
@@ -342,6 +408,7 @@ exports.placeOrder = async (req, res) => {
         cartIds,
         deliveryPayout: totalDeliveryCharge,
         deliveryCharges: deliveryChargeRaw,
+        deliveryDistanceKm,
         platformFee: chargesData.Platform_Fee,
       });
       const payResponse = await createRazorpayOrder(
@@ -416,6 +483,7 @@ exports.verifyPayment = async (req, res) => {
       platformFee: tempOrder.platformFee,
       gst: tempOrder.gst || "",
       deliveryPayout: tempOrder.deliveryPayout,
+      deliveryDistanceKm: tempOrder.deliveryDistanceKm,
       storeId: tempOrder.storeId,
       transactionId: transactionId || paymentResult?.raw?.id || "",
       paymentStatus: "Successful",

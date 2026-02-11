@@ -494,15 +494,18 @@ exports.driverWallet = async (req, res) => {
         .json({ message: "Payout already processed for this order" });
     }
 
-    const chargesData = await SettingAdmin.findOne();
+    // OLD: flat charge payout calculation
+    // const chargesData = await SettingAdmin.findOne();
+    // let deliveryChargeRaw = chargesData.Delivery_Charges || 0;
+    // let deliveryGstPercent = chargesData.Delivery_Charges_Gst || 0;
+    // let totalDeliveryCharge =
+    //   deliveryChargeRaw / (1 + deliveryGstPercent / 100);
+    // const taxedAmount = deliveryChargeRaw - totalDeliveryCharge;
+    // const payout = order.deliveryPayout || totalDeliveryCharge;
 
-    let deliveryChargeRaw = chargesData.Delivery_Charges || 0;
-    let deliveryGstPercent = chargesData.Delivery_Charges_Gst || 0;
-    let totalDeliveryCharge =
-      deliveryChargeRaw / (1 + deliveryGstPercent / 100);
-
-    const taxedAmount = deliveryChargeRaw - totalDeliveryCharge;
-    const payout = order.deliveryPayout || totalDeliveryCharge;
+    const payout = order.deliveryPayout || 0;
+    const deliveryChargeRaw = order.deliveryCharges || 0;
+    const taxedAmount = Math.max(0, deliveryChargeRaw - payout);
 
     if (!payout) {
       return res.status(404).json({ message: "Driver not found" });

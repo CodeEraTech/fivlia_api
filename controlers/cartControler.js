@@ -4,8 +4,15 @@ const Products = require("../modals/Product");
 const Store = require("../modals/store");
 const User = require("../modals/User");
 const stock = require("../modals/StoreStock");
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 const haversine = require("haversine-distance");
+const Address = require("../modals/Address");
+const { SettingAdmin } = require("../modals/setting");
+const {
+  getDistanceKm,
+  getBillableKm,
+  computeDeliveryCharge,
+} = require("../utils/deliveryCharge");
 
 exports.addCart = async (req, res) => {
   try {
@@ -39,14 +46,14 @@ exports.addCart = async (req, res) => {
     // Fetch active zones
     const zoneDocs = await ZoneData.find({});
     const activeZones = zoneDocs.flatMap((doc) =>
-      doc.zones.filter((z) => z.status === true)
+      doc.zones.filter((z) => z.status === true),
     );
 
     const matchedZone = activeZones.find((zone) => {
       if (!zone.latitude || !zone.longitude || !zone.range) return false;
       const distance = haversine(
         { lat: userLat, lon: userLng },
-        { lat: zone.latitude, lon: zone.longitude }
+        { lat: zone.latitude, lon: zone.longitude },
       );
       return distance <= zone.range;
     });
@@ -91,7 +98,7 @@ exports.addCart = async (req, res) => {
       stockEntry = stockDoc.stock.find(
         (s) =>
           s.productId.toString() === productId.toString() &&
-          s.variantId.toString() === varientId.toString()
+          s.variantId.toString() === varientId.toString(),
       );
     }
 
@@ -111,7 +118,7 @@ exports.addCart = async (req, res) => {
     // Fallback to product.variants if price or mrp is missing
     if (!price || !mrp) {
       const matchedVariant = product.variants?.find(
-        (v) => v._id?.toString() === varientId?.toString()
+        (v) => v._id?.toString() === varientId?.toString(),
       );
 
       if (matchedVariant) {
@@ -153,7 +160,7 @@ exports.addCart = async (req, res) => {
       item: cartItem,
     });
   } catch (error) {
-    console.error("Error in add to cart", error)
+    console.error("Error in add to cart", error);
     return res.status(500).json({
       message: "An error occurred!",
       error: error.message,
@@ -189,7 +196,7 @@ exports.getCart = async (req, res) => {
     const zoneData = await ZoneData.findOne({ "zones._id": storeZone._id });
 
     const zone = zoneData.zones.find(
-      (z) => z._id.toString() === storeZone._id.toString()
+      (z) => z._id.toString() === storeZone._id.toString(),
     );
 
     const cashOnDelivery = zone?.cashOnDelivery || false;
@@ -220,12 +227,78 @@ exports.getCart = async (req, res) => {
       };
     });
 
+    const settings = await SettingAdmin.findOne().lean();
+    let address = null;
+
+    address = await Address.findOne({
+      userId: id,
+      default: true,
+      isDeleted: { $ne: true },
+    }).lean();
+    if (!address) {
+      address = await Address.findOne({
+        userId: id,
+        isDeleted: { $ne: true },
+      })
+        .sort({ createdAt: -1 })
+        .lean();
+    }
+
+    let deliveryCharge = 0;
+    let deliveryDistanceKm = 0;
+    let billableKm = 0;
+
+    if (address && items?.length) {
+      const storeId = items[0].storeId;
+      const store = await Store.findById(storeId, {
+        Latitude: 1,
+        Longitude: 1,
+      }).lean();
+
+      const distanceMeters = Math.round(
+        haversine(
+          {
+            lat: parseFloat(address?.latitude),
+            lon: parseFloat(address?.longitude),
+          },
+          {
+            lat: parseFloat(store?.Latitude),
+            lon: parseFloat(store?.Longitude),
+          },
+        ),
+      );
+
+      deliveryDistanceKm = Number(getDistanceKm(distanceMeters).toFixed(2));
+      billableKm = getBillableKm(distanceMeters);
+
+      const fixedFirstKm =
+        settings?.fixDeliveryCharges ?? settings?.Delivery_Charges ?? 0;
+      const perKm = settings?.perKmCharges ?? 0;
+
+      deliveryCharge = computeDeliveryCharge({
+        distanceMeters,
+        fixedFirstKm,
+        perKm,
+      });
+
+      const itemsTotal = items.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0,
+      );
+      if (itemsTotal >= (settings?.freeDeliveryLimit || 0)) {
+        deliveryCharge = 0;
+      }
+    }
+
     return res.status(200).json({
       status: true,
       message: "Cart items fetched successfully.",
       items: updatedItems,
       paymentOption: cashOnDelivery,
       StoreID: storeId,
+      deliveryCharge,
+      deliveryDistanceKm,
+      billableKm,
     });
   } catch (error) {
     console.error("❌ Error in getCart:", error);
@@ -268,7 +341,7 @@ exports.quantity = async (req, res) => {
     const updated_cart = await Cart.findByIdAndUpdate(
       id,
       { quantity },
-      { new: true }
+      { new: true },
     );
 
     return res.status(200).json({ message: "New Quantity:", updated_cart });
@@ -303,10 +376,12 @@ exports.recommedProduct = async (req, res) => {
     if (!cartItems.length) {
       return res.status(404).json({ message: "Cart is empty" });
     }
-   
-    const cartProductIds = cartItems.map(c => c.productId);
 
-    const cartProducts = await Products.find({ _id: { $in: cartProductIds } }).lean();
+    const cartProductIds = cartItems.map((c) => c.productId);
+
+    const cartProducts = await Products.find({
+      _id: { $in: cartProductIds },
+    }).lean();
 
     if (!cartProducts.length) {
       return res.status(304).json({ message: "Cart products not found" });
@@ -322,17 +397,20 @@ exports.recommedProduct = async (req, res) => {
     // 3️⃣ Extract all allowed category IDs
     let allowedCategoryIds = [];
     if (seller.sellerCategories?.length) {
-
-        const sellerCategoryIds = seller.sellerCategories
-        .map(cat => cat.categoryId.toString())
+      const sellerCategoryIds = seller.sellerCategories
+        .map((cat) => cat.categoryId.toString())
         .filter(Boolean);
 
-        const filteredCartCategories = cartProducts
-        .flatMap(p => p.category || []) // cart product category array
-        .filter(c => sellerCategoryIds.includes(c._id.toString())) // only seller categories
-        .map(c => c._id.toString());
+      const filteredCartCategories = cartProducts
+        .flatMap((p) => p.category || []) // cart product category array
+        .filter((c) => sellerCategoryIds.includes(c._id.toString())) // only seller categories
+        .map((c) => c._id.toString());
 
-         allowedCategoryIds = [...new Set(filteredCartCategories.map(id =>new mongoose.Types.ObjectId(id)))];
+      allowedCategoryIds = [
+        ...new Set(
+          filteredCartCategories.map((id) => new mongoose.Types.ObjectId(id)),
+        ),
+      ];
       // Unofficial sellers: subCategories + subSubCategories
       // allowedCategoryIds = seller.sellerCategories.flatMap(
       //   (cat) =>
@@ -356,10 +434,10 @@ exports.recommedProduct = async (req, res) => {
       });
     }
 
-    console.log('allowedCategoryIds',allowedCategoryIds)
+    console.log("allowedCategoryIds", allowedCategoryIds);
     // 4️⃣ Build query to exclude products already in cart
     const matchQuery = {
-      _id: { $nin: cartProductIds},
+      _id: { $nin: cartProductIds },
       $or: [
         // { "subSubCategory._id": { $in: allowedCategoryIds } },
         // { "subCategory._id": { $in: allowedCategoryIds } },

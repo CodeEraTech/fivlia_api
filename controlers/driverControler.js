@@ -15,7 +15,12 @@ const admin_transaction = require("../modals/adminTranaction");
 const store_transaction = require("../modals/storeTransaction");
 const { FeeInvoiceId } = require("../config/counter");
 const { sendMessages } = require("../utils/sendMessages");
-const sendDriverLocationToUser = require("../utils/sendLatLongToUser");
+// sendDriverLocationToUser intentionally ignored for now
+// const sendDriverLocationToUser = require("../utils/sendLatLongToUser");
+// new socket code of user order status
+const {
+  emitUserOrderStatusUpdate,
+} = require("../utils/emitUserOrderStatusUpdate");
 const DriverRating = require("../modals/DriverRating");
 const {
   generateAndSendThermalInvoice,
@@ -129,8 +134,9 @@ exports.acceptOrder = async (req, res) => {
     const { orderId, status, driverId } = req.body;
 
     const driverData = await driver.findOne({ _id: driverId });
+    let updatedOrder = null;
     if (status === true) {
-      const order = await Order.findOneAndUpdate(
+      updatedOrder = await Order.findOneAndUpdate(
         { orderId },
         {
           driver: {
@@ -141,6 +147,12 @@ exports.acceptOrder = async (req, res) => {
           orderStatus: "Going to Pickup",
         },
         { new: true }
+      );
+
+      // new socket code of user order status
+      await emitUserOrderStatusUpdate(
+        updatedOrder,
+        "driverControler.acceptOrder"
       );
     }
     if (status === false) {
@@ -191,6 +203,12 @@ exports.driverOrderStatus = async (req, res) => {
         { orderId },
         { orderStatus },
         { new: true }
+      );
+
+      // new socket code of user order status
+      await emitUserOrderStatusUpdate(
+        statusUpdate,
+        "driverControler.driverOrderStatus:On Way"
       );
 
       // if (activeIntervals.has(orderId)) {
@@ -308,6 +326,12 @@ exports.driverOrderStatus = async (req, res) => {
           { new: true }
         );
 
+        // new socket code of user order status
+        await emitUserOrderStatusUpdate(
+          statusUpdate,
+          "driverControler.driverOrderStatus:Delivered"
+        );
+
         // ✅ Clean up OTP and Assignments
         await OtpModel.deleteOne({ _id: otpRecord._id });
         await Assign.deleteOne({ orderId: orderId, orderStatus: "Accepted" });
@@ -386,6 +410,12 @@ exports.driverOrderStatus = async (req, res) => {
       { orderId },
       { orderStatus },
       { new: true }
+    );
+
+    // new socket code of user order status
+    await emitUserOrderStatusUpdate(
+      statusUpdate,
+      "driverControler.driverOrderStatus:fallback"
     );
 
     return res.status(200).json({

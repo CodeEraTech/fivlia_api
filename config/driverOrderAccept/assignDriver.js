@@ -10,6 +10,10 @@ const Store = require("../../modals/store");
 const User = require("../../modals/User");
 const { SettingAdmin } = require("../../modals/setting");
 const { notifyEntity } = require("../../utils/notifyStore");
+// new socket code of user order status
+const {
+  emitUserOrderStatusUpdate,
+} = require("../../utils/emitUserOrderStatusUpdate");
 
 const assignedOrders = new Set();
 const rejectedDriversMap = new Map();
@@ -45,7 +49,16 @@ const assignWithBroadcast = async (order, drivers) => {
 
   const retryCount = retryTracker.get(orderId) || 0;
   if (retryCount >= MAX_RETRY_COUNT) {
-    await Order.findOneAndUpdate({ orderId }, { orderStatus: "Cancelled" });
+    const cancelledOrder = await Order.findOneAndUpdate(
+      { orderId },
+      { orderStatus: "Cancelled" },
+      { new: true }
+    );
+    // new socket code of user order status
+    await emitUserOrderStatusUpdate(
+      cancelledOrder,
+      "assignDriver.retryTimeoutCancelled"
+    );
     console.error(`🚫 Max retry attempts reached for order ${orderId}.`);
 
     try {
@@ -213,6 +226,12 @@ const assignWithBroadcast = async (order, drivers) => {
           console.warn(`🉑 orderAlreadyAccepted for ${driverId} - ${orderId}`);
           return;
         }
+
+        // new socket code of user order status
+        await emitUserOrderStatusUpdate(
+          updateResult,
+          "assignDriver.driverAccepted"
+        );
 
         assignedOrders.add(orderId);
         orderAssigned = true;

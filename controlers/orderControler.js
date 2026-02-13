@@ -22,6 +22,10 @@ const AdminStaff = require("../modals/roleBase/adminStaff");
 const { getStoresWithinRadius, isWithinZone } = require("../config/google");
 const { sellerSocketMap, adminSocketMap } = require("../utils/driverSocketMap");
 const { sendAdminNotification } = require("../utils/sendAdminNotification");
+// new socket code of user order status
+const {
+  emitUserOrderStatusUpdate,
+} = require("../utils/emitUserOrderStatusUpdate");
 const {
   getDistanceMeters,
   getDistanceKm,
@@ -991,6 +995,13 @@ exports.orderStatus = async (req, res) => {
         "default",
       );
     }
+
+    // new socket code of user order status
+    const socketOrderPayload = await Order.findById(updatedOrder._id).lean();
+    await emitUserOrderStatusUpdate(
+      socketOrderPayload || updatedOrder,
+      "orderControler.orderStatus"
+    );
 
     return res
       .status(200)

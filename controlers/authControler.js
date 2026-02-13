@@ -7,13 +7,13 @@ const { SettingAdmin } = require("../modals/setting");
 const { whatsappOtp } = require("../config/whatsappsender");
 const mongoose = require("mongoose");
 const OtpModel = require("../modals/otp");
-const {sendVerificationEmail} = require("../config/nodeMailer");
+const { sendVerificationEmail } = require("../config/nodeMailer");
 const { storeRegistrationTemplate } = require("../utils/emailTemplates");
 const { sendMessages } = require("../utils/sendMessages");
 const Login = mongoose.model(
   "Login",
   new mongoose.Schema({}, { strict: false }),
-  "Login"
+  "Login",
 );
 require("dotenv").config();
 // exports.sign = async (req,res) => {
@@ -88,7 +88,7 @@ exports.updateProfile = async (req, res) => {
           Address,
         },
       },
-      { new: true }
+      { new: true },
     );
 
     if (!updatedUser) {
@@ -126,7 +126,7 @@ exports.Login = async (req, res) => {
       await User.updateOne(
         { mobileNumber },
         { $set: { fcmToken } },
-        { upsert: true }
+        { upsert: true },
       );
     }
 
@@ -134,7 +134,7 @@ exports.Login = async (req, res) => {
       const response = await sendMessages(
         mobileNumber,
         message,
-        "1707176060665820902"
+        "1707176060665820902",
       );
       await OtpModel.create({
         mobileNumber,
@@ -210,7 +210,7 @@ exports.signin = async (req, res) => {
 
     await User.updateOne(
       { mobileNumber: formattedNumber },
-      { $set: { userId, fcmToken } }
+      { $set: { userId, fcmToken } },
     );
 
     const token = jwt.sign({ _id: exist._id }, process.env.jwtSecretKey);
@@ -352,11 +352,15 @@ exports.verifyOtp = async (req, res) => {
       const newUser = await User.create({ mobileNumber });
       await OtpModel.deleteOne({ _id: otpRecord._id });
       token = jwt.sign({ _id: newUser._id }, process.env.jwtSecretKey);
-      return res.status(200).json({ message: "Login successful", token });
+      return res
+        .status(200)
+        .json({ message: "Login successful", token, userId: newUser._id });
     } else {
       await OtpModel.deleteOne({ _id: otpRecord._id });
       token = jwt.sign({ _id: exist._id }, process.env.jwtSecretKey);
-      return res.status(200).json({ message: "Login successful", token });
+      return res
+        .status(200)
+        .json({ message: "Login successful", token, userId: exist._id });
     }
   } catch (error) {
     console.error(error);

@@ -711,6 +711,7 @@ exports.getOrderDetails = async (req, res) => {
         const storeData = await Store.findById(order.storeId, {
           Latitude: 1,
           Longitude: 1,
+          storeName: 1,
         }).lean();
 
         if (storeData) {
@@ -718,6 +719,7 @@ exports.getOrderDetails = async (req, res) => {
             Latitude: storeData.Latitude || null,
             Longitude: storeData.Longitude || null,
           };
+          storeName = storeData.storeName
         }
       }
 
@@ -760,6 +762,7 @@ exports.getOrderDetails = async (req, res) => {
         address,
         driver: driverInfo,
         storeLocation,
+        storeName,
         createdAt: order.createdAt,
       });
     }

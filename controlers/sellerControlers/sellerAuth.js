@@ -757,6 +757,7 @@ exports.verifyOtpSeller = async (req, res) => {
           deviceName,
           platform,
           jwtToken: jwttoken,
+          fcmToken,
           createdAt: new Date(),
           lastActiveAt: new Date(),
         };

@@ -551,4 +551,5 @@ router.get("/thermal-invoice/:orderId", generateThermalInvoiceController);
 router.get("/zones", (req, res) => {
   res.json(cityZone);
 });
+
 module.exports = router;

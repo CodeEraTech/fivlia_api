@@ -151,6 +151,39 @@ exports.placeOrder = async (req, res) => {
   try {
     const { cartIds, addressId, storeId, paymentMode } = req.body;
 
+    if (!cartIds?.length || !addressId || !storeId) {
+      console.log(
+        "cartIds, addressId and storeId are required something is missing.",
+      );
+      return res.status(400).json({
+        message: "cartIds, addressId and storeId are required",
+      });
+    }
+
+    const cartItems = await Cart.find({ _id: { $in: cartIds } });
+    // console.log(chargesData);
+    if (!cartItems || cartItems.length === 0) {
+      console.log("Cart items not found.");
+      return res
+        .status(400)
+        .json({ message: `Cart item with ID ${cartIds} not found.` });
+    }
+
+    for (const item of cartItems) {
+      const hasStock = await stock.exists({
+        storeId: storeId,
+        "stock.productId": item.productId,
+        "stock.variantId": item.varientId,
+        "stock.quantity": { $gte: item.quantity },
+      });
+
+      if (!hasStock) {
+        return res.status(400).json({
+          message: `Store does not have enough stock for ${item.name}`,
+        });
+      }
+    }
+
     let nextOrderId = await getNextOrderId(true);
     console.log(`${nextOrderId} recived`);
     const chargesData = await SettingAdmin.findOne();
@@ -165,14 +198,6 @@ exports.placeOrder = async (req, res) => {
     let deliveryGstPercent = chargesData.Delivery_Charges_Gst || 0;
     let totalDeliveryCharge = 0;
     let deliveryDistanceKm = 0;
-
-    const cartItems = await Cart.find({ _id: { $in: cartIds } });
-    // console.log(chargesData);
-    if (!cartItems) {
-      return res
-        .status(400)
-        .json({ message: `Cart item with ID ${cartIds} not found.` });
-    }
 
     const itemsTotal = cartItems.reduce((sum, item) => {
       return sum + Number(item.price) * Number(item.quantity);
@@ -198,6 +223,13 @@ exports.placeOrder = async (req, res) => {
     // }
 
     const address = await Address.findById(addressId);
+
+    if (!address) {
+      console.log("Address not found");
+      return res.status(400).json({
+        message: "Address not found",
+      });
+    }
 
     const userLat = address.latitude;
     const userLng = address.longitude;
@@ -246,9 +278,7 @@ exports.placeOrder = async (req, res) => {
     deliveryDistanceKm = Number(distanceKm.toFixed(2));
 
     const fixedFirstKm =
-      chargesData.fixDeliveryCharges ??
-      chargesData.Delivery_Charges ??
-      0;
+      chargesData.fixDeliveryCharges ?? chargesData.Delivery_Charges ?? 0;
     const perKm = chargesData.perKmCharges ?? 0;
 
     deliveryChargeRaw = computeDeliveryCharge({
@@ -256,8 +286,7 @@ exports.placeOrder = async (req, res) => {
       fixedFirstKm,
       perKm,
     });
-    totalDeliveryCharge =
-      deliveryChargeRaw / (1 + deliveryGstPercent / 100);
+    totalDeliveryCharge = deliveryChargeRaw / (1 + deliveryGstPercent / 100);
 
     let totalPrice = itemsTotal;
     if (itemsTotal >= chargesData.freeDeliveryLimit) {
@@ -719,7 +748,7 @@ exports.getOrderDetails = async (req, res) => {
             Latitude: storeData.Latitude || null,
             Longitude: storeData.Longitude || null,
           };
-          storeName = storeData.storeName
+          storeName = storeData.storeName;
         }
       }
 
@@ -1003,7 +1032,7 @@ exports.orderStatus = async (req, res) => {
     const socketOrderPayload = await Order.findById(updatedOrder._id).lean();
     await emitUserOrderStatusUpdate(
       socketOrderPayload || updatedOrder,
-      "orderControler.orderStatus"
+      "orderControler.orderStatus",
     );
 
     return res

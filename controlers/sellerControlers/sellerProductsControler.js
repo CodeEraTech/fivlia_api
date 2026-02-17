@@ -522,6 +522,7 @@ exports.getSellerProducts = async (req, res) => {
           sku: prod.sku,
           productThumbnailUrl: prod.productThumbnailUrl,
           category: categoryName,
+          subCategory: prod.subCategory?.[0]?.name ?? "Uncategorized",
           mrp: prod.mrp == 0 ? prod.mrp : prod.mrp,
           sell_price: prod.sell_price == 0 ? prod.sell_price : prod.sell_price,
           variants: variantsWithStock,

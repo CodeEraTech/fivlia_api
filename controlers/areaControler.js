@@ -7,6 +7,11 @@ const StoreStock = require("../modals/StoreStock");
 const Store = require("../modals/store");
 const haversine = require("haversine-distance");
 
+const toPositiveNumber = (value) => {
+  if (value === undefined || value === null || value === "") return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
+};
 
 exports.AvalibleCity = async (req, res) => {
   try {
@@ -32,37 +37,47 @@ exports.AvalibleCity = async (req, res) => {
 exports.AddZone = async (req, res) => {
   try {
     const { city, address, zoneTitle, latitude, longitude, range, nightRange } = req.body;
+    const parsedLatitude = Number(latitude);
+    const parsedLongitude = Number(longitude);
+    const parsedRange = toPositiveNumber(range);
+    const parsedNightRange = toPositiveNumber(nightRange);
 
-    if (!city || !address || !latitude || !longitude || !range || !zoneTitle, !nightRange) {
-      return res.status(400).json({ message: 'All fields are required' });
+    if (
+      !city ||
+      !address ||
+      !zoneTitle ||
+      !Number.isFinite(parsedLatitude) ||
+      !Number.isFinite(parsedLongitude) ||
+      (!parsedRange && !parsedNightRange)
+    ) {
+      return res.status(400).json({ message: "All fields are required" });
     }
 
     const zone = {
-      address,
-      zoneTitle,
-      latitude,
-      longitude,
-      range,
-      nightRange,
+      address: address.trim(),
+      zoneTitle: zoneTitle.trim(),
+      latitude: parsedLatitude,
+      longitude: parsedLongitude,
+      range: parsedRange || parsedNightRange,
+      nightRange: parsedNightRange,
       status: true,
       cashOnDelivery: false,
-      createdAt: new Date()
+      createdAt: new Date(),
     };
 
-    // Try to update an existing city document by pushing new zone
-    const result = await ZoneData.findOneAndUpdate(
+    await ZoneData.findOneAndUpdate(
       { city },
       { $push: { zones: zone } },
-      { upsert: true } // If city doesn't exist, create it
+      { upsert: true }
     );
 
-     return res.status(200).json({
-        message: "Zone saved successfully",
-        city,
-      });
+    return res.status(200).json({
+      message: "Zone saved successfully",
+      city,
+    });
   } catch (err) {
     console.error("Error saving location:", err);
-    res.status(500).json({ message: 'Internal Server Error' });
+    res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
@@ -255,40 +270,47 @@ exports.updateZoneStatus = async (req, res) => {
       cashOnDelivery,
     } = req.body;
 
+    const parsedLatitude = latitude === undefined ? undefined : Number(latitude);
+    const parsedLongitude = longitude === undefined ? undefined : Number(longitude);
+    const parsedRange = toPositiveNumber(range);
+    const parsedNightRange = toPositiveNumber(nightRange);
+
     if (!city || typeof city !== "string") {
       return res.status(400).json({ message: "City is required" });
     }
 
-    // Find the document that currently has the zone
     const currentCityDoc = await ZoneData.findOne({ "zones._id": id });
     if (!currentCityDoc) {
       return res.status(404).json({ message: "Zone not found" });
     }
 
-    const existingZone = currentCityDoc.zones.find(
-      (z) => z._id.toString() === id
-    );
+    const existingZone = currentCityDoc.zones.find((z) => z._id.toString() === id);
     if (!existingZone) {
-      return res
-        .status(404)
-        .json({ message: "Zone not found inside document" });
+      return res.status(404).json({ message: "Zone not found inside document" });
     }
 
-    // ✅ If city not changed, update zone in place
+    const normalizedZoneTitle =
+      typeof zoneTitle === "string" && zoneTitle.trim()
+        ? zoneTitle.trim()
+        : existingZone.zoneTitle;
+
     if (currentCityDoc.city === city) {
       await ZoneData.updateOne(
         { city, "zones._id": id },
         {
           $set: {
-            "zones.$.zoneTitle": zoneTitle ?? existingZone.zoneTitle,
+            "zones.$.zoneTitle": normalizedZoneTitle,
             "zones.$.address": address?.trim() || existingZone.address,
-            "zones.$.latitude": latitude ?? existingZone.latitude,
-            "zones.$.longitude": longitude ?? existingZone.longitude,
-            "zones.$.range": range ?? existingZone.range,
+            "zones.$.latitude": Number.isFinite(parsedLatitude)
+              ? parsedLatitude
+              : existingZone.latitude,
+            "zones.$.longitude": Number.isFinite(parsedLongitude)
+              ? parsedLongitude
+              : existingZone.longitude,
+            "zones.$.range": parsedRange ?? existingZone.range,
             "zones.$.status": status ?? existingZone.status,
-            "zones.$.nightRange": nightRange ?? existingZone.nightRange,
-            "zones.$.cashOnDelivery":
-              cashOnDelivery ?? existingZone.cashOnDelivery,
+            "zones.$.nightRange": parsedNightRange ?? existingZone.nightRange,
+            "zones.$.cashOnDelivery": cashOnDelivery ?? existingZone.cashOnDelivery,
             updatedAt: new Date(),
           },
         }
@@ -300,9 +322,6 @@ exports.updateZoneStatus = async (req, res) => {
       });
     }
 
-    // 🔁 City changed → move zone to new city
-
-    // Check if target city exists
     const targetCityDoc = await ZoneData.findOne({ city });
     if (!targetCityDoc) {
       return res
@@ -310,27 +329,21 @@ exports.updateZoneStatus = async (req, res) => {
         .json({ message: `Target city '${city}' does not exist.` });
     }
 
-    // Remove from old city
-    await ZoneData.updateOne(
-      { "zones._id": id },
-      { $pull: { zones: { _id: id } } }
-    );
+    await ZoneData.updateOne({ "zones._id": id }, { $pull: { zones: { _id: id } } });
 
-    // Build updated zone
     const updatedZone = {
       _id: existingZone._id,
-      zoneTitle: zoneTitle ?? existingZone.zoneTitle,
+      zoneTitle: normalizedZoneTitle,
       address: address?.trim() || existingZone.address,
-      latitude: latitude ?? existingZone.latitude,
-      longitude: longitude ?? existingZone.longitude,
-      range: range ?? existingZone.range,
-      nightRange: nightRange ?? existingZone.nightRange,
+      latitude: Number.isFinite(parsedLatitude) ? parsedLatitude : existingZone.latitude,
+      longitude: Number.isFinite(parsedLongitude) ? parsedLongitude : existingZone.longitude,
+      range: parsedRange ?? existingZone.range,
+      nightRange: parsedNightRange ?? existingZone.nightRange,
       status: status ?? existingZone.status,
       cashOnDelivery: cashOnDelivery ?? existingZone.cashOnDelivery,
       createdAt: existingZone.createdAt || new Date(),
     };
 
-    // Push to new city
     await ZoneData.updateOne(
       { city },
       {
@@ -567,3 +580,4 @@ exports.setDefault = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+

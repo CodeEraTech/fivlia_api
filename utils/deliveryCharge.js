@@ -5,6 +5,40 @@ const toNumber = (value) => {
   return Number.isFinite(num) ? num : 0;
 };
 
+const isProvided = (value) =>
+  value !== undefined && value !== null && value !== "";
+
+const pickRateValue = (preferred, fallback) =>
+  isProvided(preferred) ? toNumber(preferred) : toNumber(fallback);
+
+const resolveDeliveryRatesForMode = ({ settings = {}, mode = "day" } = {}) => {
+  const dayFixedFirstKm = pickRateValue(
+    settings?.fixDeliveryCharges,
+    settings?.Delivery_Charges
+  );
+  const dayPerKm = pickRateValue(settings?.perKmCharges, 0);
+
+  const nightFixedFirstKm = pickRateValue(
+    settings?.fixNightDeliveryCharges,
+    dayFixedFirstKm
+  );
+  const nightPerKm = pickRateValue(settings?.perKmNightCharges, dayPerKm);
+
+  if (mode === "night") {
+    return {
+      appliedMode: "night",
+      fixedFirstKm: nightFixedFirstKm,
+      perKm: nightPerKm,
+    };
+  }
+
+  return {
+    appliedMode: "day",
+    fixedFirstKm: dayFixedFirstKm,
+    perKm: dayPerKm,
+  };
+};
+
 const getDistanceMeters = async ({ storeLat, storeLng, userLat, userLng }) => {
   const sLat = toNumber(storeLat);
   const sLng = toNumber(storeLng);
@@ -40,4 +74,5 @@ module.exports = {
   getDistanceKm,
   getBillableKm,
   computeDeliveryCharge,
+  resolveDeliveryRatesForMode,
 };

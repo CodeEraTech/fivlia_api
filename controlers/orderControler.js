@@ -19,7 +19,12 @@ const sendNotification = require("../firebase/pushnotification");
 const Store = require("../modals/store");
 const DriverRating = require("../modals/DriverRating");
 const AdminStaff = require("../modals/roleBase/adminStaff");
-const { getStoresWithinRadius, isWithinZone } = require("../config/google");
+const {
+  getStoresWithinRadius,
+  isWithinZone,
+  getZoneWindowConfig,
+  getCurrentZoneWindowMode,
+} = require("../config/google");
 const { sellerSocketMap, adminSocketMap } = require("../utils/driverSocketMap");
 const { sendAdminNotification } = require("../utils/sendAdminNotification");
 // new socket code of user order status
@@ -30,6 +35,7 @@ const {
   getDistanceMeters,
   getDistanceKm,
   computeDeliveryCharge,
+  resolveDeliveryRatesForMode,
 } = require("../utils/deliveryCharge");
 const {
   generateAndSendThermalInvoice,
@@ -277,9 +283,12 @@ exports.placeOrder = async (req, res) => {
     const distanceKm = getDistanceKm(distanceMeters);
     deliveryDistanceKm = Number(distanceKm.toFixed(2));
 
-    const fixedFirstKm =
-      chargesData.fixDeliveryCharges ?? chargesData.Delivery_Charges ?? 0;
-    const perKm = chargesData.perKmCharges ?? 0;
+    const zoneWindowConfig = await getZoneWindowConfig();
+    const currentWindowMode = getCurrentZoneWindowMode(zoneWindowConfig);
+    const { fixedFirstKm, perKm } = resolveDeliveryRatesForMode({
+      settings: chargesData,
+      mode: currentWindowMode,
+    });
 
     deliveryChargeRaw = computeDeliveryCharge({
       distanceMeters,
@@ -728,12 +737,34 @@ exports.getOrderDetails = async (req, res) => {
           .findOne({ _id: order.driver.driverId })
           .lean();
 
-        driverInfo = {
-          driverId: driverInfo.driverId || "",
-          Id: driverInfo._id || "",
-          name: driverInfo.driverName || "",
-          mobileNo: driverInfo.address?.mobileNo || "",
-        };
+        let avgRating = null;
+        let totalRatings = 0;
+
+        if (driverInfo) {
+          const ratingStats = await DriverRating.aggregate([
+            { $match: { driverId: driverInfo._id } },
+            {
+              $group: {
+                _id: "$driverId",
+                average: { $avg: "$rating" },
+                totalRatings: { $sum: 1 },
+              },
+            },
+          ]);
+          if (ratingStats.length) {
+            avgRating = Number(ratingStats[0].average.toFixed(1));
+            totalRatings = ratingStats[0].totalRatings;
+          }
+
+          driverInfo = {
+            driverId: driverInfo.driverId || "",
+            Id: driverInfo._id || "",
+            name: driverInfo.driverName || "",
+            mobileNo: driverInfo.address?.mobileNo || "",
+            averageRating: avgRating || 0,
+            totalRatings: totalRatings,
+          };
+        }
       }
       let storeLocation = null;
       if (order.storeId) {
@@ -1409,6 +1440,8 @@ exports.sendNotifications = async (req, res) => {
     // Load all zone data once
     const cityZoneDocs = await ZoneData.find({}).lean();
 
+    const zoneWindowConfig = await getZoneWindowConfig();
+
     const isAllCity = city.includes("all");
     const isAllZone = zone.includes("all");
 
@@ -1445,7 +1478,7 @@ exports.sendNotifications = async (req, res) => {
             : cityDoc.zones.filter((z) => zone.includes(z._id.toString()));
           // console.log('zonesToCheck',zonesToCheck)
           const matched = zonesToCheck.some((z) =>
-            isWithinZone(userLat, userLng, z),
+            isWithinZone(userLat, userLng, z, zoneWindowConfig),
           );
           // console.log('user matched',matched)
           if (matched) {
@@ -1539,7 +1572,7 @@ exports.sendNotifications = async (req, res) => {
             ? cityDoc.zones
             : cityDoc.zones.filter((z) => zone.includes(z._id.toString()));
 
-          const matched = zonesToCheck.some((z) => isWithinZone(dLat, dLng, z));
+          const matched = zonesToCheck.some((z) => isWithinZone(dLat, dLng, z, zoneWindowConfig));
           // console.log('driver matched',matched)
           if (matched) {
             tokens.push(dr.fcmToken);
@@ -1708,3 +1741,7 @@ exports.getTempOrders = async (req, res) => {
     });
   }
 };
+
+
+
+

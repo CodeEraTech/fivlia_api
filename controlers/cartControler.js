@@ -12,7 +12,13 @@ const {
   getDistanceKm,
   getBillableKm,
   computeDeliveryCharge,
+  resolveDeliveryRatesForMode,
 } = require("../utils/deliveryCharge");
+const {
+  isWithinZone,
+  getZoneWindowConfig,
+  getCurrentZoneWindowMode,
+} = require("../config/google");
 
 exports.addCart = async (req, res) => {
   try {
@@ -42,21 +48,18 @@ exports.addCart = async (req, res) => {
     if (!userLat || !userLng) {
       return res.status(400).json({ message: "User location not available." });
     }
-
     // Fetch active zones
-    const zoneDocs = await ZoneData.find({});
+    const [zoneDocs, zoneWindowConfig] = await Promise.all([
+      ZoneData.find({}),
+      getZoneWindowConfig(),
+    ]);
     const activeZones = zoneDocs.flatMap((doc) =>
       doc.zones.filter((z) => z.status === true),
     );
 
-    const matchedZone = activeZones.find((zone) => {
-      if (!zone.latitude || !zone.longitude || !zone.range) return false;
-      const distance = haversine(
-        { lat: userLat, lon: userLng },
-        { lat: zone.latitude, lon: zone.longitude },
-      );
-      return distance <= zone.range;
-    });
+    const matchedZone = activeZones.find((zone) =>
+      isWithinZone(userLat, userLng, zone, zoneWindowConfig),
+    );
 
     if (!matchedZone) {
       return res
@@ -247,6 +250,7 @@ exports.getCart = async (req, res) => {
     let deliveryCharge = 0;
     let deliveryDistanceKm = 0;
     let billableKm = 0;
+    let deliveryChargeMode = "day";
 
     if (address && items?.length) {
       const storeId = items[0].storeId;
@@ -271,9 +275,13 @@ exports.getCart = async (req, res) => {
       deliveryDistanceKm = Number(getDistanceKm(distanceMeters).toFixed(2));
       billableKm = getBillableKm(distanceMeters);
 
-      const fixedFirstKm =
-        settings?.fixDeliveryCharges ?? settings?.Delivery_Charges ?? 0;
-      const perKm = settings?.perKmCharges ?? 0;
+      const zoneWindowConfig = await getZoneWindowConfig();
+      const currentWindowMode = getCurrentZoneWindowMode(zoneWindowConfig);
+      const { fixedFirstKm, perKm, appliedMode } = resolveDeliveryRatesForMode({
+        settings,
+        mode: currentWindowMode,
+      });
+      deliveryChargeMode = appliedMode;
 
       deliveryCharge = computeDeliveryCharge({
         distanceMeters,
@@ -297,6 +305,7 @@ exports.getCart = async (req, res) => {
       paymentOption: cashOnDelivery,
       StoreID: storeId,
       deliveryCharge,
+      deliveryChargeMode,
       deliveryDistanceKm,
       billableKm,
     });
@@ -522,3 +531,5 @@ exports.recommedProduct = async (req, res) => {
       .json({ message: "An error occurred!", error: error.message });
   }
 };
+
+

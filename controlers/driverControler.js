@@ -590,14 +590,26 @@ exports.driverWallet = async (req, res) => {
 exports.transactionList = async (req, res) => {
   try {
     const { driverId } = req.params;
-    const transactionList = await Transaction.find({ driverId }).sort({
+
+    const transactionListRaw = await Transaction.find({ driverId }).sort({
       createdAt: -1,
     });
-    const driverWallet = await driver.findOne({ _id: driverId });
-    totalAmount = driverWallet.wallet;
-    return res
-      .status(200)
-      .json({ message: "Transaction List", transactionList, totalAmount });
+
+    const transactionList = transactionListRaw.map(t => ({
+      ...t.toObject(),
+      amount: Number(t.amount.toFixed(2)),
+    }));
+
+    const driverWallet = await driver.findById(driverId);
+
+    const totalAmount = Number((driverWallet?.wallet || 0).toFixed(2));
+
+    return res.status(200).json({
+      message: "Transaction List",
+      transactionList,
+      totalAmount
+    });
+
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "An error occurred" });

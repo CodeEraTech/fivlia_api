@@ -41,7 +41,7 @@ dayStartTime:String,
 dayEndTime:String,
 nightStartTime:String,
 nightEndTime:String,
-// zoneTimeZone:String, // commented: fixed default IST (Asia/Kolkata)
+zoneTimeZone:String,
 imageLink:String,
 fixDeliveryCharges:Number,
 perKmCharges:Number,
@@ -53,5 +53,4 @@ module.exports ={
  SettingAdmin: mongoose.model("SettingAdmin", settingAdminSchema)
 }
 // {"RazorPayKey":{"test":"rzp_live_Fb8vLci1im6l0l","live":"rzp_live_Fb8vLci1im6l0l","status":true,"secretKey":"","activeMode":"test"},"PhonePe":{"test":"","live":"","status":false,"secretKey":""}}
-
 

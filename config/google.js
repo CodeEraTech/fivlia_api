@@ -68,12 +68,12 @@ const getNowInTimezone = (timezone) => {
 };
 
 const toZoneWindowConfig = (settings = {}) => {
-  // const timezoneValue = pickFirstDefined(settings, [
-  //   "zoneTimeZone",
-  //   "zoneTimezone",
-  //   "timeZone",
-  //   "timezone",
-  // ]);
+  const timezoneValue = pickFirstDefined(settings, [
+    "zoneTimeZone",
+    "zoneTimezone",
+    "timeZone",
+    "timezone",
+  ]);
 
   const dayStart = parseWindowMinutes(
     pickFirstDefined(settings, ["dayStartTime", "dayStart", "dayTimeStart"])
@@ -89,8 +89,7 @@ const toZoneWindowConfig = (settings = {}) => {
   );
 
   return {
-    timezone: DEFAULT_TIMEZONE,
-    // timezone: timezoneValue || DEFAULT_TIMEZONE,
+    timezone: timezoneValue || DEFAULT_TIMEZONE,
     dayStart,
     dayEnd,
     nightStart,
@@ -119,7 +118,7 @@ async function getZoneWindowConfig(options = {}) {
       "dayEndTime",
       "nightStartTime",
       "nightEndTime",
-      // "zoneTimeZone",
+      "zoneTimeZone",
       "dayStart",
       "dayEnd",
       "nightStart",
@@ -128,9 +127,9 @@ async function getZoneWindowConfig(options = {}) {
       "dayTimeEnd",
       "nightTimeStart",
       "nightTimeEnd",
-      // "zoneTimezone",
-      // "timeZone",
-      // "timezone",
+      "zoneTimezone",
+      "timeZone",
+      "timezone",
     ].join(" ")
   ).lean();
 

@@ -1177,9 +1177,18 @@ exports.driver = async (req, res) => {
     });
 
     if (existingDriver) {
-      return res.status(409).json({
-        message: "Driver already exists with this email or mobile number",
-      });
+if (existingDriver.approveStatus === "pending_admin_approval") {
+    return res.status(202).json({
+      message:
+        "Your request is under review. Our team will contact you soon.",
+    });
+  }
+
+  if (existingDriver.approveStatus !== "rejected") {
+    return res.status(409).json({
+      message: "Driver already exists with this email or mobile number",
+    });
+  }
     }
 
     let nextDriverId = await getNextDriverId(true);

@@ -37,6 +37,7 @@ exports.driverLogin = async (req, res) => {
 
     const exist = await driver.findOne({
       "address.mobileNo": mobileNumber,
+      approveStatus: "approved",
     });
 
     if (exist.status !== true) {

@@ -37,11 +37,16 @@ exports.driverLogin = async (req, res) => {
 
     const exist = await driver.findOne({
       "address.mobileNo": mobileNumber,
-      approveStatus: "approved",
+      approveStatus: { $nin: ["rejected", "pending_admin_approval"] },
     });
 
     if (exist.status !== true) {
-      return res.status(400).json({ message: "Your account is currently disabled. Please contact support for assistance" });
+      return res
+        .status(400)
+        .json({
+          message:
+            "Your account is currently disabled. Please contact support for assistance",
+        });
     }
     // console.log(exist)
     if (!exist) {
@@ -147,13 +152,13 @@ exports.acceptOrder = async (req, res) => {
           },
           orderStatus: "Going to Pickup",
         },
-        { new: true }
+        { new: true },
       );
 
       // new socket code of user order status
       await emitUserOrderStatusUpdate(
         updatedOrder,
-        "driverControler.acceptOrder"
+        "driverControler.acceptOrder",
       );
     }
     if (status === false) {
@@ -197,19 +202,19 @@ exports.driverOrderStatus = async (req, res) => {
       await OtpModel.findOneAndUpdate(
         { mobileNumber, orderId },
         { otp: generatedOtp, expiresAt: Date.now() + 3 * 24 * 60 * 60 * 1000 },
-        { upsert: true, new: true }
+        { upsert: true, new: true },
       );
 
       const statusUpdate = await Order.findOneAndUpdate(
         { orderId },
         { orderStatus },
-        { new: true }
+        { new: true },
       );
 
       // new socket code of user order status
       await emitUserOrderStatusUpdate(
         statusUpdate,
-        "driverControler.driverOrderStatus:On Way"
+        "driverControler.driverOrderStatus:On Way",
       );
 
       // if (activeIntervals.has(orderId)) {
@@ -276,7 +281,7 @@ exports.driverOrderStatus = async (req, res) => {
         const storeData = await Store.findByIdAndUpdate(
           order.storeId,
           { $inc: { wallet: creditToStore } },
-          { new: true }
+          { new: true },
         );
         // ===> Update Store Transaction
         const data = await store_transaction.create({
@@ -299,7 +304,7 @@ exports.driverOrderStatus = async (req, res) => {
           const updatedWallet = await admin_transaction.findByIdAndUpdate(
             "68ea20d2c05a14a96c12788d",
             { $inc: { wallet: totalCommission } },
-            { new: true }
+            { new: true },
           );
 
           await admin_transaction.create({
@@ -324,13 +329,13 @@ exports.driverOrderStatus = async (req, res) => {
             feeInvoiceId,
             deliverStatus: true,
           },
-          { new: true }
+          { new: true },
         );
 
         // new socket code of user order status
         await emitUserOrderStatusUpdate(
           statusUpdate,
-          "driverControler.driverOrderStatus:Delivered"
+          "driverControler.driverOrderStatus:Delivered",
         );
 
         // ✅ Clean up OTP and Assignments
@@ -410,13 +415,13 @@ exports.driverOrderStatus = async (req, res) => {
     const statusUpdate = await Order.findOneAndUpdate(
       { orderId },
       { orderStatus },
-      { new: true }
+      { new: true },
     );
 
     // new socket code of user order status
     await emitUserOrderStatusUpdate(
       statusUpdate,
-      "driverControler.driverOrderStatus:fallback"
+      "driverControler.driverOrderStatus:fallback",
     );
 
     return res.status(200).json({
@@ -454,7 +459,7 @@ exports.acceptedOrder = async (req, res) => {
           userLat: address1?.latitude,
           userLng: address1?.longitude,
         };
-      })
+      }),
     );
 
     return res.status(200).json({ message: "Orders", enrichedOrders });
@@ -509,7 +514,7 @@ exports.driverWallet = async (req, res) => {
     }
 
     const driverObjectId = mongoose.Types.ObjectId.isValid(
-      order.driver.driverId
+      order.driver.driverId,
     )
       ? new mongoose.Types.ObjectId(order.driver.driverId)
       : null;
@@ -546,7 +551,7 @@ exports.driverWallet = async (req, res) => {
     const updatedDriver = await driver.findOneAndUpdate(
       { "address.mobileNo": order.driver.mobileNumber },
       { $inc: { wallet: payout } },
-      { new: true }
+      { new: true },
     );
     if (!updatedDriver) {
       return res.status(404).json({ message: "Driver not found" });
@@ -567,7 +572,7 @@ exports.driverWallet = async (req, res) => {
     const updatedWallet = await admin_transaction.findByIdAndUpdate(
       "68ea20d2c05a14a96c12788d",
       { $inc: { wallet: taxedAmount } },
-      { new: true }
+      { new: true },
     );
 
     await admin_transaction.create({
@@ -596,7 +601,7 @@ exports.transactionList = async (req, res) => {
       createdAt: -1,
     });
 
-    const transactionList = transactionListRaw.map(t => ({
+    const transactionList = transactionListRaw.map((t) => ({
       ...t.toObject(),
       amount: Number(t.amount.toFixed(2)),
     }));
@@ -608,9 +613,8 @@ exports.transactionList = async (req, res) => {
     return res.status(200).json({
       message: "Transaction List",
       transactionList,
-      totalAmount
+      totalAmount,
     });
-
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "An error occurred" });
@@ -879,7 +883,7 @@ exports.tipDriver = async (req, res) => {
       const order = await Order.findOneAndUpdate(
         { orderId: orderId },
         { note },
-        { new: true }
+        { new: true },
       );
       return res.status(200).json({ message: "Instruction Given" });
     }
@@ -894,7 +898,7 @@ exports.tipDriver = async (req, res) => {
     const updatedDriver = await driver.findByIdAndUpdate(
       driverId,
       { $inc: { wallet: netTip } },
-      { new: true }
+      { new: true },
     );
     if (!updatedDriver) {
       return res.status(404).json({ message: "Driver not found" });
@@ -915,7 +919,7 @@ exports.tipDriver = async (req, res) => {
     const updatedWallet = await admin_transaction.findByIdAndUpdate(
       "68ea20d2c05a14a96c12788d",
       { $inc: { wallet: totalDeduction } },
-      { new: true }
+      { new: true },
     );
 
     await admin_transaction.create({

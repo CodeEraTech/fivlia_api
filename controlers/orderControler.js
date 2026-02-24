@@ -1160,7 +1160,7 @@ exports.test = async (req, res) => {
 
 exports.driver = async (req, res) => {
   try {
-    const { driverName, status, email, approveStatus, password } = req.body;
+    const { driverName, vehicleRegistrationNumber, drivingLicenseNumber, status, email, approveStatus, password } = req.body;
 
     const address = JSON.parse(req.body.address);
 
@@ -1169,12 +1169,10 @@ exports.driver = async (req, res) => {
     const existingDriver = await driver.findOne({
       $and: [
         { approveStatus: { $ne: "rejected" } },
-        { approveStatus: { $ne: "pending_admin_approval" } },
       ],
       $or: [
         { email },
         { "address.mobileNo": mobileNumber }, // check nested field
-        { "address.phone": mobileNumber },
       ],
     });
 
@@ -1206,6 +1204,8 @@ exports.driver = async (req, res) => {
       password,
       approveStatus,
       Police_Verification_Copy,
+      vehicleRegistrationNumber,
+      drivingLicenseNumber,
       aadharCard: {
         front: aadharFrontKey ? `/${aadharFrontKey}` : "",
         back: aadharBackKey ? `/${aadharBackKey}` : "",

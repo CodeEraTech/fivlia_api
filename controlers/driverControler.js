@@ -40,18 +40,18 @@ exports.driverLogin = async (req, res) => {
       approveStatus: { $nin: ["rejected", "pending_admin_approval"] },
     });
 
-    if (exist.status !== true) {
-      return res
-        .status(400)
-        .json({
-          message:
-            "Your account is currently disabled. Please contact support for assistance",
-        });
-    }
     // console.log(exist)
     if (!exist) {
       return res.status(400).json({ message: "User Not Found" });
     }
+
+    if (exist.status !== true) {
+      return res.status(400).json({
+        message:
+          "Your account is currently disabled. Please contact support for assistance",
+      });
+    }
+
     // console.log(exist.password)
     if (exist.password !== password) {
       return res.status(400).json({ message: "Invalid Credentials" });

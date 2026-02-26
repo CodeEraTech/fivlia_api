@@ -711,6 +711,13 @@ exports.withdrawalRequest = async (req, res) => {
     if (!driverData)
       return res.status(404).json({ message: "Driver not found" });
 
+    const settings = await SettingAdmin.findOne();
+    const minWithdrawal = settings?.minWithdrawal || 0;
+    if (amount < minWithdrawal) {
+      return res
+        .status(400)
+        .json({ message: `Minimum withdrawal amount is ₹${minWithdrawal}` });
+    }
     // Calculate total pending withdrawals
     const pendingWithdrawals = await Transaction.aggregate([
       {

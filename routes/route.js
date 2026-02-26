@@ -310,7 +310,7 @@ router.get("/autocomplete-search", getPlaceSuggestions);
 // trackMapApiUsage search
 router.post("/track-map-usage", trackMapUsage);
 
-router.put("/withdrawal/:id/:action/:type", upload, withdrawal);
+router.put("/withdrawal/:id/:action", upload, withdrawal);
 
 //siteMap
 router.post("/createSitemap", createSitemap);

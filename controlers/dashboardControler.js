@@ -367,7 +367,8 @@ exports.getWithdrawalRequest = async (req, res) => {
 
 exports.withdrawal = async (req, res) => {
   try {
-    const { id, action, type } = req.params;
+    const { id, action } = req.params;
+    const { type } = req.query;
     const { note, image } = req.body || {};
 
     const defaultNotes = {

@@ -34,9 +34,10 @@ const storeScheema = new mongoose.Schema(
     sellFood: { type: Boolean },
     businessType: { type: String },
     fsiNumber: String,
+    gstNumber: String,
+    enrollmentId: String,
     invoicePrefix: { type: String },
     fullAddress: String,
-    gstNumber: String,
     emailVerified: { type: Boolean, default: false },
     phoneNumberVerified: { type: Boolean, default: false },
     approveStatus: {

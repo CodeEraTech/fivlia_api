@@ -28,7 +28,7 @@ exports.generateThermalInvoice = async (orderId) => {
     // Calculate totals
     const subtotal = order.items.reduce(
       (sum, item) => sum + item.price * item.quantity,
-      0
+      0,
     );
     const gstTotal = order.items.reduce((sum, item) => {
       const gstRate = parseFloat(item.gst || 0);
@@ -42,7 +42,7 @@ exports.generateThermalInvoice = async (orderId) => {
       store,
       subtotal,
       gstTotal,
-      { dType: "admin" }
+      { dType: "admin" },
     );
 
     // Upload to AWS S3
@@ -64,12 +64,12 @@ exports.generateThermalInvoice = async (orderId) => {
     // Save PDF URL to database
     await Order.findOneAndUpdate(
       { orderId },
-      { $set: { thermalInvoice: shortUrl } }
+      { $set: { thermalInvoice: shortUrl } },
     );
 
     console.log(
       "Thermal invoice PDF generated and uploaded for order:",
-      orderId
+      orderId,
     );
     return shortUrl;
   } catch (err) {
@@ -115,7 +115,7 @@ async function generatePDFInvoice(
   store,
   subtotal,
   gstTotal,
-  { dType = "admin" }
+  { dType = "admin" },
 ) {
   const setting = await SettingAdmin.find().lean();
 
@@ -128,7 +128,7 @@ async function generatePDFInvoice(
       const signatureResponse = await fetch(signatureUrl);
       if (!signatureResponse.ok) {
         throw new Error(
-          `Failed to fetch signature image: ${signatureResponse.statusText}`
+          `Failed to fetch signature image: ${signatureResponse.statusText}`,
         );
       }
       signatureBuffer = await signatureResponse.arrayBuffer();
@@ -144,7 +144,7 @@ async function generatePDFInvoice(
       const signatureResponse = await fetch(signatureUrl);
       if (!signatureResponse.ok) {
         throw new Error(
-          `Failed to fetch signature image: ${signatureResponse.statusText}`
+          `Failed to fetch signature image: ${signatureResponse.statusText}`,
         );
       }
       adminSignatreBuffer = await signatureResponse.arrayBuffer();
@@ -196,10 +196,15 @@ async function generatePDFInvoice(
         }
         if (isSecondInvoice || store.Authorized_Store === true) {
           doc.text(`GST ID: ${setting[0]?.GST_Number || "N/A"}`);
-        } else if (store.gstNumber == "" && store.fsiNumber != "") {
-          doc.text(`FSSAI ID: ${store.fsiNumber || "N/A"}`);
         } else {
-          doc.text(`GST ID: ${store.gstNumber || "N/A"}`);
+          if (store.gstNumber && store.gstNumber.trim() !== "") {
+            // GST Registered Seller
+            doc.text(`GST ID: ${store.gstNumber}`);
+          } else {
+            // Non-GST Seller
+            doc.text(`Enrollment ID: ${store.enrollmentId || "N/A"}`);
+            doc.text(`FSSAI ID: ${store.fsiNumber || "N/A"}`);
+          }
         }
         if (isSecondInvoice) {
           doc.text(`Phone: ${setting[0]?.Owner_Number || "+91-XXXXXXXXXX"}`);
@@ -223,7 +228,7 @@ async function generatePDFInvoice(
         doc.fontSize(8).font("Helvetica");
         doc.text(`Name: ${user.fullName || "N/A"}`);
         doc.text(
-          `Mobile: ${user.mobileNumber || user.alternateNumber || "N/A"}`
+          `Mobile: ${user.mobileNumber || user.alternateNumber || "N/A"}`,
         );
         doc.text(`Email: ${user.email || "N/A"}`);
         doc.text(`Address: ${user.address || "N/A"}`);
@@ -268,7 +273,7 @@ async function generatePDFInvoice(
           align: "center",
           continued: false,
         });
-        doc.text("GST(%)", columns.gst.x, tableTop, {
+        doc.text("Tax(%)", columns.gst.x, tableTop, {
           width: columns.gst.width,
           align: "center",
           continued: false,
@@ -378,7 +383,7 @@ async function generatePDFInvoice(
         // Total GST - label on left, value on right
         doc.fontSize(8);
         const gstY = doc.y;
-        doc.text("GST (included):", tableLeft, gstY, {
+        doc.text("Tax (included):", tableLeft, gstY, {
           width: 80,
           align: "left",
           continued: false,
@@ -444,15 +449,25 @@ async function generatePDFInvoice(
         doc
           .fontSize(8)
           .font("Helvetica")
+          .text("• Not for resale.", tableLeft, doc.y, {
+            width: tableRight - tableLeft,
+            align: "left",
+            lineBreak: true,
+          });
+
+        doc.moveDown(0.3);
+
+        doc
+          .fontSize(8)
+          .font("Helvetica")
           .text(
-            "The goods sold as part of this shipment are intended for end-user consumption and are not for sale.",
+            "• Tax invoice issued on behalf of the seller. All tax liabilities are paid by the seller.",
             tableLeft,
             doc.y,
             {
               width: tableRight - tableLeft,
               align: "left",
-              lineBreak: true,
-            }
+            },
           );
 
         doc.moveDown(0.5);
@@ -562,7 +577,7 @@ async function generatePDFInvoice(
         doc.addPage();
         createFeesInvoice(
           setting[0]?.Delivery_Charges_Gst || 18,
-          adminSignatreBuffer
+          adminSignatreBuffer,
         );
         footer();
       } else if (dType === "seller") {
@@ -599,7 +614,7 @@ exports.generateAndSendThermalInvoice = async (orderId) => {
     const response = await sendMessages(
       user.mobileNumber,
       message,
-      "1707176060687281700"
+      "1707176060687281700",
     );
     console.log(response, 34783487);
     return {
@@ -626,7 +641,7 @@ exports.generatePDFBuffer = async (orderId, dType) => {
 
   const subtotal = order.items.reduce(
     (sum, item) => sum + item.price * item.quantity,
-    0
+    0,
   );
   const gstTotal = order.items.reduce((sum, item) => {
     const gstRate = parseFloat(item.gst || 0);
@@ -649,7 +664,7 @@ exports.generateThermalInvoiceController = async (req, res) => {
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename=thermal_invoice_${orderId}.pdf`
+      `attachment; filename=thermal_invoice_${orderId}.pdf`,
     );
     res.send(pdfBuffer);
   } catch (error) {

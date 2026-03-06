@@ -856,6 +856,7 @@ exports.editSellerProfile = async (req, res) => {
       ownerName,
       gstNumber,
       fsiNumber,
+      enrollmentId,
       PhoneNumber,
       email,
       invoicePrefix,
@@ -906,6 +907,7 @@ exports.editSellerProfile = async (req, res) => {
     if (PhoneNumber) updateFields.PhoneNumber = PhoneNumber;
     if (gstNumber) updateFields.gstNumber = gstNumber;
     if (fsiNumber) updateFields.fsiNumber = fsiNumber;
+    if (enrollmentId) updateFields.enrollmentId = enrollmentId;
     if (password) updateFields.password = password;
     if (openTime) updateFields.openTime = openTime;
     if (closeTime) updateFields.closeTime = closeTime;

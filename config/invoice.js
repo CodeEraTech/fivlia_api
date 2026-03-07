@@ -103,7 +103,10 @@ exports.generateStoreInvoiceId = async (storeId) => {
 
   const newNumber = lastNumber + 1;
   // Pad with leading zeros, e.g., 001, 002, ...
-  const numberPadded = String(newNumber).padStart(3, "0");
+  // const numberPadded = String(newNumber).padStart(3, "0");
+
+  // Pad without leading zeros, e.g., 1, 2, ...
+  const numberPadded = String(newNumber);
 
   return `${prefix}${numberPadded}`;
 };

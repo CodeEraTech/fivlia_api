@@ -58,7 +58,7 @@ exports.storeLogin = async (req, res) => {
         await sendVerificationEmail(
           email,
           "Welcome to Fivlia verify otp for login",
-          otpTemplate(otp)
+          otpTemplate(otp),
         );
         return res.status(200).json({ message: "OTP sent via to Email" });
       }
@@ -281,7 +281,7 @@ exports.storeEdit = async (req, res) => {
         for (let z of zoneArray) {
           z = z.toString().trim();
           const zdoc = cityDoc.zones.find(
-            (zoneObj) => zoneObj._id.toString() === z
+            (zoneObj) => zoneObj._id.toString() === z,
           );
           if (zdoc) {
             zoneObjs.push({
@@ -475,7 +475,7 @@ exports.getStore = async (req, res) => {
           const stockData = stockEntries.find(
             (item) =>
               item.productId.toString() === product._id.toString() &&
-              item.variantId.toString() === variant._id.toString()
+              item.variantId.toString() === variant._id.toString(),
           );
 
           const quantity = stockData?.quantity || 0;
@@ -517,7 +517,7 @@ exports.addCategoryInStore = async (req, res) => {
     const CategoryId = await Store.findByIdAndUpdate(
       id,
       { $addToSet: { Category: Category } },
-      { new: true }
+      { new: true },
     );
 
     return res.status(200).json({ message: "Category Updated", CategoryId });
@@ -534,7 +534,7 @@ exports.removeCategoryInStore = async (req, res) => {
     const deleted = await Store.findOneAndUpdate(
       { _id: id },
       { $pull: { Category: Category } },
-      { new: true }
+      { new: true },
     );
     res.status(200).json({ message: "Category removed successfuly", deleted });
   } catch (error) {

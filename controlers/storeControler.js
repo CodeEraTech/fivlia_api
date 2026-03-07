@@ -247,6 +247,10 @@ exports.storeEdit = async (req, res) => {
       zone,
       Latitude,
       Longitude,
+      gstNumber,
+      fsiNumber,
+      enrollmentId,
+      invoicePrefix,
       ownerName,
       PhoneNumber,
       email,
@@ -348,6 +352,12 @@ exports.storeEdit = async (req, res) => {
     if (closeTime) updateObj.closeTime = closeTime;
     if (status !== undefined) updateObj.status = status;
     if (Description) updateObj.Description = Description;
+
+    updateObj.gstNumber = gstNumber;
+    updateObj.fsiNumber = fsiNumber;
+    updateObj.enrollmentId = enrollmentId;
+    if (invoicePrefix) updateObj.invoicePrefix = invoicePrefix;
+
     if (approveStatus) updateObj.approveStatus = approveStatus;
     if (isAssured !== undefined) {
       updateObj.fivliaAssured =

@@ -1103,6 +1103,7 @@ exports.deliveryStatus = async (req, res) => {
       .json({ message: "Server Error", error: error.message });
   }
 };
+
 exports.updatedeliveryStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -1160,16 +1161,22 @@ exports.test = async (req, res) => {
 
 exports.driver = async (req, res) => {
   try {
-    const { driverName, vehicleRegistrationNumber, drivingLicenseNumber, status, email, approveStatus, password } = req.body;
+    const {
+      driverName,
+      vehicleRegistrationNumber,
+      drivingLicenseNumber,
+      status,
+      email,
+      approveStatus,
+      password,
+    } = req.body;
 
     const address = JSON.parse(req.body.address);
 
     const mobileNumber = address?.mobileNo;
 
     const existingDriver = await driver.findOne({
-      $and: [
-        { approveStatus: { $ne: "rejected" } },
-      ],
+      $and: [{ approveStatus: { $ne: "rejected" } }],
       $or: [
         { email },
         { "address.mobileNo": mobileNumber }, // check nested field
@@ -1177,18 +1184,18 @@ exports.driver = async (req, res) => {
     });
 
     if (existingDriver) {
-if (existingDriver.approveStatus === "pending_admin_approval") {
-    return res.status(202).json({
-      message:
-        "Your request is under review. Our team will contact you soon.",
-    });
-  }
+      if (existingDriver.approveStatus === "pending_admin_approval") {
+        return res.status(202).json({
+          message:
+            "Your request is under review. Our team will contact you soon.",
+        });
+      }
 
-  if (existingDriver.approveStatus !== "rejected") {
-    return res.status(409).json({
-      message: "Driver already exists with this email or mobile number",
-    });
-  }
+      if (existingDriver.approveStatus !== "rejected") {
+        return res.status(409).json({
+          message: "Driver already exists with this email or mobile number",
+        });
+      }
     }
 
     let nextDriverId = await getNextDriverId(true);
@@ -1274,7 +1281,14 @@ exports.getDriver = async (req, res) => {
 exports.editDriver = async (req, res) => {
   try {
     const { driverId } = req.params;
-    const { driverName, status, email, password } = req.body;
+    const {
+      driverName,
+      status,
+      email,
+      password,
+      vehicleRegistrationNumber,
+      drivingLicenseNumber,
+    } = req.body;
 
     let address = {};
     if (req.body.address) {
@@ -1298,6 +1312,8 @@ exports.editDriver = async (req, res) => {
       ...(driverName && { driverName }),
       status,
       ...(email && { email }),
+      ...(vehicleRegistrationNumber && { vehicleRegistrationNumber }),
+      ...(drivingLicenseNumber && { drivingLicenseNumber }),
       ...(password && { password }),
       ...(image && { image }),
       ...(Police_Verification_Copy && {
@@ -1581,7 +1597,9 @@ exports.sendNotifications = async (req, res) => {
             ? cityDoc.zones
             : cityDoc.zones.filter((z) => zone.includes(z._id.toString()));
 
-          const matched = zonesToCheck.some((z) => isWithinZone(dLat, dLng, z, zoneWindowConfig));
+          const matched = zonesToCheck.some((z) =>
+            isWithinZone(dLat, dLng, z, zoneWindowConfig),
+          );
           // console.log('driver matched',matched)
           if (matched) {
             tokens.push(dr.fcmToken);
@@ -1750,7 +1768,3 @@ exports.getTempOrders = async (req, res) => {
     });
   }
 };
-
-
-
-

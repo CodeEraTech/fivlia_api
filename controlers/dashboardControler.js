@@ -356,7 +356,38 @@ exports.getWithdrawalRequest = async (req, res) => {
       createdAt: -1,
     });
 
-    return res.status(200).json({ message: "Withdrawal requests", requests });
+        const enrichedRequests = await Promise.all(
+        requests.map(async (reqItem) => {
+          const driverData = await Driver.findById(reqItem.driverId).select(
+            "driverName address email image wallet driverId",
+          );
+
+          return {
+            _id: reqItem._id,
+            type: reqItem.type,
+            amount: reqItem.amount,
+            driverId: reqItem.driverId,
+            description: reqItem.description,
+            status: reqItem.status,
+            createdAt: reqItem.createdAt,
+            updatedAt: reqItem.updatedAt,
+            driverDetails: driverData
+              ? {
+                  driverName: driverData.driverName,
+                  phoneNumber: driverData.address.mobileNo,
+                  email: driverData.email,
+                  city: driverData.address.city,
+                  locality: driverData.address.locality,
+                  wallet: driverData.wallet,
+                  image: driverData.image,
+                  driverId: driverData.driverId,
+                }
+              : null,
+          };
+        }),
+      );
+
+    return res.status(200).json({ message: "Withdrawal requests", requests:enrichedRequests });
   } catch (error) {
     console.error(error);
     return res

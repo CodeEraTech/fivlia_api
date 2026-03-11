@@ -664,7 +664,7 @@ exports.getDriverDetail = async (req, res) => {
 exports.editProfile = async (req, res) => {
   try {
     const { id } = req.params;
-    const { password } = req.body;
+    const { password, bankDetails } = req.body;
     const image = req.files?.image?.[0]?.location;
 
     const updateData = {};
@@ -673,6 +673,30 @@ exports.editProfile = async (req, res) => {
       updateData.password = password;
     }
 
+    if (bankDetails) {
+      // Parse bankDetails if it comes as JSON string (from form-data)
+      let parsedBankDetails = bankDetails;
+      if (typeof bankDetails === "string") {
+        try {
+          parsedBankDetails = JSON.parse(bankDetails);
+        } catch (err) {
+          return res
+            .status(400)
+            .json({ success: false, message: "Invalid bankDetails format" });
+        }
+      }
+
+      // Validate fields before saving
+      const { bankName, accountHolder, accountNumber, ifsc, branch } =
+        parsedBankDetails;
+      updateFields.bankDetails = {
+        ...(bankName && { bankName }),
+        ...(accountHolder && { accountHolder }),
+        ...(accountNumber && { accountNumber }),
+        ...(ifsc && { ifsc }),
+        ...(branch && { branch }),
+      };
+    }
     if (image) {
       const pathOnly = new URL(image).pathname;
       updateData.image = pathOnly;

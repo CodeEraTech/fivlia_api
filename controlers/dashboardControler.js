@@ -359,7 +359,7 @@ exports.getWithdrawalRequest = async (req, res) => {
         const enrichedRequests = await Promise.all(
         requests.map(async (reqItem) => {
           const driverData = await Driver.findById(reqItem.driverId).select(
-            "driverName address email image wallet driverId",
+            "driverName address email image wallet driverId bankDetails upiId",
           );
 
           return {

@@ -380,6 +380,8 @@ exports.getWithdrawalRequest = async (req, res) => {
                   locality: driverData.address.locality,
                   wallet: driverData.wallet,
                   image: driverData.image,
+                  bankDetails: driverData.bankDetails,
+                  upiId: driverData.upiId,
                   driverId: driverData.driverId,
                 }
               : null,

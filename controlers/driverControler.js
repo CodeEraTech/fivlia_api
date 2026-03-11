@@ -664,13 +664,17 @@ exports.getDriverDetail = async (req, res) => {
 exports.editProfile = async (req, res) => {
   try {
     const { id } = req.params;
-    const { password, bankDetails } = req.body;
+    const { password, bankDetails, upiId } = req.body;
     const image = req.files?.image?.[0]?.location;
 
     const updateData = {};
 
     if (password) {
       updateData.password = password;
+    }
+
+    if (upiId) {
+      updateData.upiId = upiId;
     }
 
     if (bankDetails) {
@@ -689,7 +693,7 @@ exports.editProfile = async (req, res) => {
       // Validate fields before saving
       const { bankName, accountHolder, accountNumber, ifsc, branch } =
         parsedBankDetails;
-      updateFields.bankDetails = {
+      updateData.bankDetails = {
         ...(bankName && { bankName }),
         ...(accountHolder && { accountHolder }),
         ...(accountNumber && { accountNumber }),

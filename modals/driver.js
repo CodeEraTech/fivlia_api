@@ -43,6 +43,7 @@ const driverSchema = new mongoose.Schema(
       ifsc: String,
       branch: String,
     },
+    upiId:String,
     Police_Verification_Copy: String,
     fcmToken: String,
   },

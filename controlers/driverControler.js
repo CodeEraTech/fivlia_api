@@ -739,6 +739,23 @@ exports.withdrawalRequest = async (req, res) => {
     if (!driverData)
       return res.status(404).json({ message: "Driver not found" });
 
+    const isNonEmpty = (value) =>
+      value !== undefined && value !== null && String(value).trim() !== "";
+    const hasUpiId = isNonEmpty(driverData.upiId);
+    const bankDetails = driverData.bankDetails || {};
+    const hasBankDetails =
+      isNonEmpty(bankDetails.bankName) &&
+      isNonEmpty(bankDetails.accountHolder) &&
+      isNonEmpty(bankDetails.accountNumber) &&
+      isNonEmpty(bankDetails.ifsc);
+
+    if (!hasUpiId && !hasBankDetails) {
+      return res.status(400).json({
+        message:
+          "Please add bank details or UPI ID before requesting withdrawal.",
+      });
+    }
+
     const settings = await SettingAdmin.findOne();
     const minWithdrawal = settings?.minWithdrawal || 0;
     if (amount < minWithdrawal) {

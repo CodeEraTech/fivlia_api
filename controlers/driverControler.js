@@ -639,7 +639,20 @@ exports.completedOrders = async (req, res) => {
       "driver.mobileNumber": mobileNumber,
       orderStatus: "Delivered",
     });
-    return res.status(200).json({ message: "Completed Orders", order });
+
+    const driverId = order[0]?.driver?.driverId;
+
+    const ratings = await DriverRating.find({ driverId }).select("rating");
+
+    console.log("Ratings for driver", driverId, ratings);
+    const totalRatings = ratings.length;
+
+    const averageRating =
+      ratings.reduce((acc, r) => acc + (r.rating || 0), 0) / totalRatings;
+
+    return res
+      .status(200)
+      .json({ message: "Completed Orders", order, rating: averageRating });
   } catch (error) {
     console.error(error);
     return res

@@ -64,7 +64,7 @@ exports.generateThermalInvoice = async (orderId) => {
     // Save PDF URL to database
     await Order.findOneAndUpdate(
       { orderId },
-      { $set: { thermalInvoice: shortUrl } },
+      { $set: { thermalInvoice: pdfUrl } },
     );
 
     console.log(

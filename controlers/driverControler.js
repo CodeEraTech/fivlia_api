@@ -642,13 +642,17 @@ exports.completedOrders = async (req, res) => {
 
     const driverId = order[0]?.driver?.driverId;
 
-    const ratings = await DriverRating.find({ driverId }).select("rating");
+    const ratings = driverId
+      ? await DriverRating.find({ driverId }).select("rating")
+      : [];
 
     console.log("Ratings for driver", driverId, ratings);
     const totalRatings = ratings.length;
 
     const averageRating =
-      ratings.reduce((acc, r) => acc + (r.rating || 0), 0) / totalRatings;
+      totalRatings > 0
+        ? ratings.reduce((acc, r) => acc + (r.rating || 0), 0) / totalRatings
+        : 5;
 
     return res
       .status(200)

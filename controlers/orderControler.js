@@ -414,6 +414,7 @@ exports.placeOrder = async (req, res) => {
           "New Order Received 🛒",
           `Order #${newOrder.orderId} worth ₹${newOrder.totalPrice} placed.`,
           "/orders",
+          {},
           "default",
         );
       }
@@ -576,6 +577,7 @@ exports.verifyPayment = async (req, res) => {
           "New Order Received 🛒",
           `Order #${finalOrder.orderId} worth ₹${finalOrder.totalPrice} placed.`,
           "/orders",
+          {},
           "default",
         );
       }

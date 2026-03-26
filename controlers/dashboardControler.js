@@ -352,7 +352,7 @@ exports.getWithdrawalRequest = async (req, res) => {
     }
 
     // For non-seller type (general transaction withdrawal requests)
-    const requests = await Transaction.find({ type: "debit" }).sort({
+    const requests = await Transaction.find({ type: "debit",  status: "Pending" }).sort({
       createdAt: -1,
     });
 

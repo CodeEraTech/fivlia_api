@@ -269,6 +269,7 @@ const {
   getAviableCity,
   getCity,
   AddZone,
+  deleteZone,
   updateZoneStatus,
   getAllZone,
   getZone,
@@ -528,6 +529,7 @@ router.put("/orderStatus/:id", orderStatus);
 router.patch("/update-profile", upload, verifyToken, updateProfile);
 router.patch("/updateProduct/:id", upload, updateProduct);
 router.delete("/deleteAddress/:id", deleteAddress);
+router.delete("/deleteZone/:id", deleteZone);
 router.delete("/deleteProduct/:id", deleteProduct);
 router.delete("/removeCart/:id", deleteCart);
 router.patch("/editFilter/:id", editFilter);

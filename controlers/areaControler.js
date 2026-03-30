@@ -6,11 +6,83 @@ const { getStoresWithinRadius } = require("../config/google");
 const StoreStock = require("../modals/StoreStock");
 const Store = require("../modals/store");
 const haversine = require("haversine-distance");
+const mongoose = require("mongoose");
 
 const toPositiveNumber = (value) => {
   if (value === undefined || value === null || value === "") return null;
   const numeric = Number(value);
   return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
+};
+
+const getZoneStoreCountMap = async (zoneDocs) => {
+  const zoneIds = zoneDocs.flatMap((doc) =>
+    (doc.zones || []).map((zone) => zone?._id).filter(Boolean),
+  );
+
+  if (!zoneIds.length) {
+    return new Map();
+  }
+
+  const storeCounts = await Store.aggregate([
+    {
+      $match: {
+        "zone._id": { $in: zoneIds },
+      },
+    },
+    { $unwind: "$zone" },
+    {
+      $match: {
+        "zone._id": { $in: zoneIds },
+      },
+    },
+    {
+      $group: {
+        _id: {
+          zoneId: "$zone._id",
+          storeId: "$_id",
+        },
+      },
+    },
+    {
+      $group: {
+        _id: "$_id.zoneId",
+        storeCount: { $sum: 1 },
+      },
+    },
+  ]);
+
+  return new Map(
+    storeCounts.map((item) => [item._id.toString(), item.storeCount]),
+  );
+};
+
+const attachStoreCountsToZoneDocs = async (
+  zoneDocs,
+  { onlyActiveZones = false } = {},
+) => {
+  const normalizedZoneDocs = zoneDocs
+    .map((doc) => {
+      const zones = Array.isArray(doc.zones) ? doc.zones : [];
+      const filteredZones = onlyActiveZones
+        ? zones.filter((zone) => zone?.status === true)
+        : zones;
+
+      return {
+        ...doc,
+        zones: filteredZones,
+      };
+    })
+    .filter((doc) => doc.zones.length > 0 || !onlyActiveZones);
+
+  const storeCountMap = await getZoneStoreCountMap(normalizedZoneDocs);
+
+  return normalizedZoneDocs.map((doc) => ({
+    ...doc,
+    zones: doc.zones.map((zone) => ({
+      ...zone,
+      storeCount: storeCountMap.get(zone._id.toString()) || 0,
+    })),
+  }));
 };
 
 exports.AvalibleCity = async (req, res) => {
@@ -88,13 +160,38 @@ exports.deleteZone = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await ZoneData.findByIdAndDelete(id);
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid zone id" });
+    }
 
-    if (!result) {
+    const zoneDoc = await ZoneData.findOne({ "zones._id": id }).lean();
+
+    if (!zoneDoc) {
       return res.status(404).json({ message: "Zone not found" });
     }
 
-    return res.status(200).json({ message: "Zone deleted successfully" });
+    const storeCount = await Store.countDocuments({ "zone._id": id });
+
+    if (storeCount > 0) {
+      return res.status(400).json({
+        message: "Zone cannot be deleted because stores are assigned to it",
+        storeCount,
+      });
+    }
+
+    const result = await ZoneData.updateOne(
+      { "zones._id": id },
+      { $pull: { zones: { _id: id } } },
+    );
+
+    if (!result.modifiedCount) {
+      return res.status(404).json({ message: "Zone not found" });
+    }
+
+    return res.status(200).json({
+      message: "Zone deleted successfully",
+      storeCount: 0,
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "An error occurred" });
@@ -252,7 +349,10 @@ exports.getAllZone = async (req, res) => {
     const cityStatus = await CityData.find({ status: true });
     const activeCityNames = cityStatus.map((city) => city.city);
 
-    const zones = await ZoneData.find({ city: { $in: activeCityNames } });
+    const zoneDocs = await ZoneData.find({
+      city: { $in: activeCityNames },
+    }).lean();
+    const zones = await attachStoreCountsToZoneDocs(zoneDocs);
     res.json(zones);
   } catch (error) {
     console.error(error);

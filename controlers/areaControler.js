@@ -24,10 +24,12 @@ exports.AvalibleCity = async (req, res) => {
       latitude,
       longitude,
       status: true,
-      createdAt: new Date()
+      createdAt: new Date(),
     };
     const result = await CityData.create(dataToInsert);
-    res.status(200).json({ message: "City added successfully", result: result });
+    res
+      .status(200)
+      .json({ message: "City added successfully", result: result });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Error adding city", error: err.message });
@@ -36,7 +38,8 @@ exports.AvalibleCity = async (req, res) => {
 
 exports.AddZone = async (req, res) => {
   try {
-    const { city, address, zoneTitle, latitude, longitude, range, nightRange } = req.body;
+    const { city, address, zoneTitle, latitude, longitude, range, nightRange } =
+      req.body;
     const parsedLatitude = Number(latitude);
     const parsedLongitude = Number(longitude);
     const parsedRange = toPositiveNumber(range);
@@ -68,7 +71,7 @@ exports.AddZone = async (req, res) => {
     await ZoneData.findOneAndUpdate(
       { city },
       { $push: { zones: zone } },
-      { upsert: true }
+      { upsert: true },
     );
 
     return res.status(200).json({
@@ -78,6 +81,23 @@ exports.AddZone = async (req, res) => {
   } catch (err) {
     console.error("Error saving location:", err);
     res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+exports.deleteZone = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await ZoneData.findByIdAndDelete(id);
+
+    if (!result) {
+      return res.status(404).json({ message: "Zone not found" });
+    }
+
+    return res.status(200).json({ message: "Zone deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "An error occurred" });
   }
 };
 
@@ -122,7 +142,7 @@ exports.updateCityStatus = async (req, res) => {
     const cityDoc = await CityData.findByIdAndUpdate(
       id,
       { status, city, state, latitude, longitude, fullAddress },
-      { new: true }
+      { new: true },
     );
     return res
       .status(200)
@@ -178,7 +198,7 @@ exports.updateLocation = async (req, res) => {
           },
         },
       },
-      { new: true }
+      { new: true },
     );
 
     // Get all user addresses
@@ -192,7 +212,7 @@ exports.updateLocation = async (req, res) => {
         if (addr.latitude && addr.longitude) {
           const distance = haversine(
             { lat: latitude, lon: longitude },
-            { lat: addr.latitude, lon: addr.longitude }
+            { lat: addr.latitude, lon: addr.longitude },
           );
           if (distance < shortestDistance) {
             shortestDistance = distance;
@@ -206,7 +226,7 @@ exports.updateLocation = async (req, res) => {
         await Address.findByIdAndUpdate(
           nearestAddress._id,
           { $set: { default: true } },
-          { new: true }
+          { new: true },
         );
       }
     }
@@ -270,8 +290,10 @@ exports.updateZoneStatus = async (req, res) => {
       cashOnDelivery,
     } = req.body;
 
-    const parsedLatitude = latitude === undefined ? undefined : Number(latitude);
-    const parsedLongitude = longitude === undefined ? undefined : Number(longitude);
+    const parsedLatitude =
+      latitude === undefined ? undefined : Number(latitude);
+    const parsedLongitude =
+      longitude === undefined ? undefined : Number(longitude);
     const parsedRange = toPositiveNumber(range);
     const parsedNightRange = toPositiveNumber(nightRange);
 
@@ -284,9 +306,13 @@ exports.updateZoneStatus = async (req, res) => {
       return res.status(404).json({ message: "Zone not found" });
     }
 
-    const existingZone = currentCityDoc.zones.find((z) => z._id.toString() === id);
+    const existingZone = currentCityDoc.zones.find(
+      (z) => z._id.toString() === id,
+    );
     if (!existingZone) {
-      return res.status(404).json({ message: "Zone not found inside document" });
+      return res
+        .status(404)
+        .json({ message: "Zone not found inside document" });
     }
 
     const normalizedZoneTitle =
@@ -310,10 +336,11 @@ exports.updateZoneStatus = async (req, res) => {
             "zones.$.range": parsedRange ?? existingZone.range,
             "zones.$.status": status ?? existingZone.status,
             "zones.$.nightRange": parsedNightRange ?? existingZone.nightRange,
-            "zones.$.cashOnDelivery": cashOnDelivery ?? existingZone.cashOnDelivery,
+            "zones.$.cashOnDelivery":
+              cashOnDelivery ?? existingZone.cashOnDelivery,
             updatedAt: new Date(),
           },
-        }
+        },
       );
 
       return res.status(200).json({
@@ -329,14 +356,21 @@ exports.updateZoneStatus = async (req, res) => {
         .json({ message: `Target city '${city}' does not exist.` });
     }
 
-    await ZoneData.updateOne({ "zones._id": id }, { $pull: { zones: { _id: id } } });
+    await ZoneData.updateOne(
+      { "zones._id": id },
+      { $pull: { zones: { _id: id } } },
+    );
 
     const updatedZone = {
       _id: existingZone._id,
       zoneTitle: normalizedZoneTitle,
       address: address?.trim() || existingZone.address,
-      latitude: Number.isFinite(parsedLatitude) ? parsedLatitude : existingZone.latitude,
-      longitude: Number.isFinite(parsedLongitude) ? parsedLongitude : existingZone.longitude,
+      latitude: Number.isFinite(parsedLatitude)
+        ? parsedLatitude
+        : existingZone.latitude,
+      longitude: Number.isFinite(parsedLongitude)
+        ? parsedLongitude
+        : existingZone.longitude,
       range: parsedRange ?? existingZone.range,
       nightRange: parsedNightRange ?? existingZone.nightRange,
       status: status ?? existingZone.status,
@@ -349,7 +383,7 @@ exports.updateZoneStatus = async (req, res) => {
       {
         $push: { zones: updatedZone },
         $set: { updatedAt: new Date() },
-      }
+      },
     );
 
     return res.status(200).json({
@@ -392,7 +426,7 @@ exports.addAddress = async (req, res) => {
     const userLng = longitude;
     const { zoneAvailable, matchedStores } = await getStoresWithinRadius(
       userLat,
-      userLng
+      userLng,
     );
 
     if (!zoneAvailable) {
@@ -539,7 +573,7 @@ exports.deleteAddress = async (req, res) => {
     const deleteAddress = await Address.findByIdAndUpdate(
       id,
       { isDeleted: true },
-      { new: true }
+      { new: true },
     );
     return res
       .status(200)
@@ -561,7 +595,7 @@ exports.setDefault = async (req, res) => {
     const setDefault = await Address.findByIdAndUpdate(
       addressId,
       { $set: { default: true } },
-      { new: true }
+      { new: true },
     );
 
     if (!setDefault) {
@@ -580,4 +614,3 @@ exports.setDefault = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-

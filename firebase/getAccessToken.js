@@ -22,7 +22,7 @@ const getAccessToken = async () => {
   try {
     const tokens = await jwtClient.authorize();
 
-    // console.log("ACCESS TOKEN:", tokens.access_token);
+    console.log("ACCESS TOKEN:", tokens.access_token);
 
     return tokens.access_token;
   } catch (err) {
@@ -30,6 +30,6 @@ const getAccessToken = async () => {
     return null;
   }
 };
-// getAccessToken();
+getAccessToken();
 
 module.exports = getAccessToken;

@@ -126,6 +126,7 @@ const {
   deleteCoupon,
   createSellerCoupon,
   editSellerCoupon,
+  updateToken,
   logoutSeller
 } = require("../controlers/sellerControlers/sellerAuth");
 
@@ -384,6 +385,7 @@ router.post("/seller/create-seller-coupon", upload, createSellerCoupon);
 router.post("/seller/edit-seller-coupon/:couponId", editSellerCoupon);
 router.get("/seller/get-coupons/:storeId", getCoupons);
 router.delete("/seller/delete-coupons/:id", deleteCoupon);
+router.post("/seller/update-token", verifyToken, updateToken);
 // router.put('/editSellerProduct/:id', upload, editSellerProduct)
 // router.put('/updateSellerStock/:id', updateSellerStock)
 router.put("/acceptDeclineRequest", acceptDeclineRequest);

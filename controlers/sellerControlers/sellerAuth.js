@@ -759,7 +759,7 @@ exports.verifyOtpSeller = async (req, res) => {
           deviceName,
           platform,
           jwtToken: jwttoken,
-          fcmToken:token,
+          fcmToken: token,
           createdAt: new Date(),
           lastActiveAt: new Date(),
         };
@@ -1308,4 +1308,29 @@ exports.deleteCoupon = async (req, res) => {
   }
 };
 
+exports.updateToken = async (req, res) => {
+  try {
+    const userId = req.user;
+    const { deviceId, token } = req.body;
+
+    console.log("req.body of update token", req.body);
+    const tokenUpdate = await seller.findOneAndUpdate(
+      { _id: userId, "devices.deviceId": deviceId },
+      {
+        $set: {
+          "devices.$.fcmToken": token,
+        },
+      },
+      { new: true },
+    );
+    return res.status(200).json({
+      success: true,
+      message: "Token updated successfully",
+      data: tokenUpdate,
+    });
+  } catch (error) {
+    console.error("Update Token Error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 // https://api.fivlia.in/getSellerProducts?categories=683eeb6ff6f5264ba0295760%683ed131f6f5264ba0295759&subCategories=683ef865f6f5264ba0295774%683ed131f6f5264ba0295755&subsubCategories=683ef865f6f5264ba0295724%683ed131f6f5264ba0295715

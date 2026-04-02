@@ -1310,7 +1310,7 @@ exports.deleteCoupon = async (req, res) => {
 
 exports.updateToken = async (req, res) => {
   try {
-    const sellerId = req.params;
+    const {sellerId} = req.params;
     const { deviceId, token } = req.body;
 
     console.log("req.body of update token", req.body);

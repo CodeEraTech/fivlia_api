@@ -1310,12 +1310,12 @@ exports.deleteCoupon = async (req, res) => {
 
 exports.updateToken = async (req, res) => {
   try {
-    const userId = req.user;
+    const sellerId = req.params;
     const { deviceId, token } = req.body;
 
     console.log("req.body of update token", req.body);
     const tokenUpdate = await seller.findOneAndUpdate(
-      { _id: userId, "devices.deviceId": deviceId },
+      { _id: sellerId, "devices.deviceId": deviceId },
       {
         $set: {
           "devices.$.fcmToken": token,

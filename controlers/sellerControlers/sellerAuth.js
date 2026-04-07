@@ -1010,11 +1010,12 @@ exports.sellerWithdrawalRequest = async (req, res) => {
     if (!storeData)
       return res.status(204).json({ message: "Seller not found" });
 
-    if (storeData.emailVerified === false) {
-      return res.status(400).json({
-        message: `Email verification required. Please verify your registered email address before making a withdrawal.`,
-      });
-    }
+    // if (storeData.emailVerified === false) {
+    //   return res.status(400).json({
+    //     message: `Email verification required. Please verify your registered email address before making a withdrawal.`,
+    //   });
+    // }
+    
     const settings = await SettingAdmin.findOne();
     const minWithdrawal = settings?.minWithdrawal || 0;
     if (amount < minWithdrawal) {

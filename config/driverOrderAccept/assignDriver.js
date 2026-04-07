@@ -197,10 +197,10 @@ const assignWithBroadcast = async (order, drivers) => {
       console.log(`✅ Socket order ${orderId} sent to driver ${driverId}`);
 
       // --- Accept Handler ---
-      const handleAccept = async ({
-        driverId: incomingDriverId,
-        orderId: incomingOrderId,
-      }) => {
+      const handleAccept = async (
+        { driverId: incomingDriverId, orderId: incomingOrderId },
+        callback,
+      ) => {
         if (
           incomingOrderId !== orderId ||
           incomingDriverId !== driverId ||
@@ -224,6 +224,13 @@ const assignWithBroadcast = async (order, drivers) => {
 
         if (!updateResult) {
           socket.emit("orderAlreadyAccepted", { orderId });
+          if (callback) {
+            callback({
+              status: false,
+              message: "Order already accepted",
+            });
+          }
+
           console.warn(`🉑 orderAlreadyAccepted for ${driverId} - ${orderId}`);
           return;
         }
@@ -258,6 +265,14 @@ const assignWithBroadcast = async (order, drivers) => {
           }
         });
 
+        if (callback) {
+          callback({
+            status: true,
+            message: "Order accepted successfully",
+            orderId,
+          });
+        }
+
         cleanupAllListeners();
       };
 
@@ -286,7 +301,9 @@ const assignWithBroadcast = async (order, drivers) => {
       };
 
       // Attach Listeners
-      socket.once("acceptOrder", handleAccept);
+      socket.once("acceptOrder", (data, callback) => {
+        handleAccept(data, callback);
+      });
       socket.once("rejectOrder", handleReject);
       socket.once("disconnect", () => {
         socket.__cleanupOrder?.();

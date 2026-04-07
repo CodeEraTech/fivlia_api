@@ -4,7 +4,6 @@ const Products = require("../modals/Product");
 const Store = require("../modals/store");
 const User = require("../modals/User");
 const stock = require("../modals/StoreStock");
-const mongoose = require("mongoose");
 const haversine = require("haversine-distance");
 const Address = require("../modals/Address");
 const { SettingAdmin } = require("../modals/setting");
@@ -380,145 +379,190 @@ exports.recommedProduct = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    // 1️⃣ Get cart items
     const cartItems = await Cart.find({ userId }).lean();
     if (!cartItems.length) {
       return res.status(404).json({ message: "Cart is empty" });
     }
 
-    const cartProductIds = cartItems.map((c) => c.productId);
+    const cartProductIds = cartItems
+      .map((item) => item.productId?.toString())
+      .filter(Boolean);
+    const cartProductIdSet = new Set(cartProductIds);
+    const sellerId = cartItems[0]?.storeId;
 
-    const cartProducts = await Products.find({
-      _id: { $in: cartProductIds },
-    }).lean();
-
-    if (!cartProducts.length) {
-      return res.status(304).json({ message: "Cart products not found" });
+    if (!sellerId) {
+      return res.status(404).json({ message: "Seller not found" });
     }
 
-    // 2️⃣ Get seller of first cart item
-    const firstCartItem = cartItems[0];
-    const seller = await Store.findById(firstCartItem.storeId).lean();
+    const [cartProducts, seller, sellerStockDoc] = await Promise.all([
+      Products.find({
+        _id: { $in: cartProductIds },
+      }).lean(),
+      Store.findById(sellerId).lean(),
+      stock.findOne({ storeId: sellerId }).lean(),
+    ]);
+
+    if (!cartProducts.length) {
+      return res.status(404).json({ message: "Cart products not found" });
+    }
+
     if (!seller) {
       return res.status(404).json({ message: "Seller not found" });
     }
 
-    // 3️⃣ Extract all allowed category IDs
-    let allowedCategoryIds = [];
-    if (seller.sellerCategories?.length) {
-      const sellerCategoryIds = seller.sellerCategories
-        .map((cat) => cat.categoryId.toString())
-        .filter(Boolean);
+    const sellerStockEntries = (sellerStockDoc?.stock || []).filter(
+      (entry) =>
+        entry?.productId &&
+        !cartProductIdSet.has(entry.productId.toString()) &&
+        Number(entry.quantity) > 0,
+    );
 
-      const filteredCartCategories = cartProducts
-        .flatMap((p) => p.category || []) // cart product category array
-        .filter((c) => sellerCategoryIds.includes(c._id.toString())) // only seller categories
-        .map((c) => c._id.toString());
-
-      allowedCategoryIds = [
-        ...new Set(
-          filteredCartCategories.map((id) => new mongoose.Types.ObjectId(id)),
-        ),
-      ];
-      // Unofficial sellers: subCategories + subSubCategories
-      // allowedCategoryIds = seller.sellerCategories.flatMap(
-      //   (cat) =>
-      //     cat.subCategories?.flatMap((sub) =>
-      //       [
-      //         ...(sub.subSubCategories?.map((ssc) => ssc.subSubCategoryId) ||
-      //           []),
-      //         sub.subCategoryId,
-      //       ].filter(Boolean)
-      //     ) || []
-      // );
-    } else if (seller.Category?.length) {
-      // Official store: main categories
-      allowedCategoryIds = seller.Category;
-    }
-
-    if (!allowedCategoryIds.length) {
+    if (!sellerStockEntries.length) {
       return res.status(200).json({
         message: "No recommended products found",
         relatedProducts: [],
       });
     }
 
-    console.log("allowedCategoryIds", allowedCategoryIds);
-    // 4️⃣ Build query to exclude products already in cart
-    const matchQuery = {
-      _id: { $nin: cartProductIds },
-      $or: [
-        // { "subSubCategory._id": { $in: allowedCategoryIds } },
-        // { "subCategory._id": { $in: allowedCategoryIds } },
-        { "category._id": { $in: allowedCategoryIds } },
-      ],
-    };
-    // 5️⃣ Aggregate recommended products with stock info
-    const recommendedProducts = await Products.aggregate([
-      { $match: matchQuery },
-      {
-        $lookup: {
-          from: "stocks",
-          let: { productId: "$_id", variants: "$variants" },
-          pipeline: [
-            { $match: { storeId: seller._id } },
-            { $unwind: "$stock" },
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    // { $gt: ["$stock.quantity", 0] }, // only include stock > 0
-                    {
-                      $or: [
-                        {
-                          $in: [
-                            "$stock.variantId",
-                            {
-                              $ifNull: [
-                                {
-                                  $map: {
-                                    input: "$$variants",
-                                    as: "v",
-                                    in: "$$v._id",
-                                  },
-                                },
-                                [],
-                              ],
-                            },
-                          ],
-                        },
-                        { $eq: ["$stock.productId", "$$productId"] },
-                      ],
-                    },
-                  ],
-                },
-              },
-            },
-            {
-              $project: {
-                _id: "$stock._id",
-                variantId: "$stock.variantId",
-                quantity: "$stock.quantity",
-                price: "$stock.price",
-                mrp: "$stock.mrp",
-              },
-            },
-          ],
-          as: "inventory",
-        },
-      },
-      {
-        $addFields: {
-          maxQuantity: { $ifNull: [{ $max: "$inventory.quantity" }, 0] },
+    const candidateProductIds = [
+      ...new Set(sellerStockEntries.map((entry) => entry.productId.toString())),
+    ];
+
+    const candidateProducts = await Products.find({
+      _id: { $in: candidateProductIds },
+      status: true,
+      online_visible: true,
+    }).lean();
+
+    const cartCategoryIds = new Set(
+      cartProducts
+        .flatMap((product) => product.category || [])
+        .map((category) => category?._id?.toString())
+        .filter(Boolean),
+    );
+    const cartSubCategoryIds = new Set(
+      cartProducts
+        .flatMap((product) => product.subCategory || [])
+        .map((category) => category?._id?.toString())
+        .filter(Boolean),
+    );
+    const cartSubSubCategoryIds = new Set(
+      cartProducts
+        .flatMap((product) => product.subSubCategory || [])
+        .map((category) => category?._id?.toString())
+        .filter(Boolean),
+    );
+
+    const stockByProductId = sellerStockEntries.reduce((acc, entry) => {
+      const productId = entry.productId.toString();
+
+      if (!acc[productId]) {
+        acc[productId] = [];
+      }
+
+      acc[productId].push(entry);
+      return acc;
+    }, {});
+
+    const recommendedProducts = candidateProducts
+      .map((product) => {
+        const productStockEntries =
+          stockByProductId[product._id.toString()] || [];
+
+        if (!productStockEntries.length) {
+          return null;
+        }
+
+        let relationPriority = 0;
+
+        if (
+          (product.subSubCategory || []).some((category) =>
+            cartSubSubCategoryIds.has(category?._id?.toString()),
+          )
+        ) {
+          relationPriority = 3;
+        } else if (
+          (product.subCategory || []).some((category) =>
+            cartSubCategoryIds.has(category?._id?.toString()),
+          )
+        ) {
+          relationPriority = 2;
+        } else if (
+          (product.category || []).some((category) =>
+            cartCategoryIds.has(category?._id?.toString()),
+          )
+        ) {
+          relationPriority = 1;
+        }
+
+        const stockByVariantId = new Map(
+          productStockEntries
+            .filter((entry) => entry.variantId)
+            .map((entry) => [entry.variantId.toString(), entry]),
+        );
+
+        const variants = Array.isArray(product.variants)
+          ? product.variants
+              .map((variant) => {
+                const stockEntry = stockByVariantId.get(
+                  variant?._id?.toString(),
+                );
+
+                if (!stockEntry) {
+                  return null;
+                }
+
+                return {
+                  ...variant,
+                  sell_price: stockEntry.price ?? variant.sell_price,
+                  mrp: stockEntry.mrp ?? variant.mrp,
+                  quantity: stockEntry.quantity ?? 0,
+                };
+              })
+              .filter((variant) => variant && variant.quantity > 0)
+          : [];
+
+        const inventory = productStockEntries
+          .filter((entry) => Number(entry.quantity) > 0)
+          .map((entry) => ({
+            variantId: entry.variantId ?? null,
+            quantity: entry.quantity,
+            price: entry.price ?? null,
+            mrp: entry.mrp ?? null,
+          }));
+
+        const maxQuantity = inventory.length
+          ? Math.max(...inventory.map((item) => item.quantity || 0))
+          : 0;
+
+        if (!inventory.length) {
+          return null;
+        }
+
+        return {
+          ...product,
+          variants,
+          inventory,
           storeId: seller._id,
           storeName: seller.storeName,
-        },
-      },
-      // { $match: { maxQuantity: { $gt: 0 } } }, // filter products with no stock
-      { $sort: { maxQuantity: -1 } },
-      { $limit: 20 },
-      { $project: { maxQuantity: 0 } }, // remove temporary field
-    ]);
+          relationPriority,
+          maxQuantity,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => {
+        if (b.relationPriority !== a.relationPriority) {
+          return b.relationPriority - a.relationPriority;
+        }
+
+        if (b.maxQuantity !== a.maxQuantity) {
+          return b.maxQuantity - a.maxQuantity;
+        }
+
+        return (a.productName || "").localeCompare(b.productName || "");
+      })
+      .slice(0, 20)
+      .map(({ relationPriority, maxQuantity, ...product }) => product);
 
     return res.status(200).json({
       message: "Recommended products fetched successfully",
@@ -531,5 +575,4 @@ exports.recommedProduct = async (req, res) => {
       .json({ message: "An error occurred!", error: error.message });
   }
 };
-
 

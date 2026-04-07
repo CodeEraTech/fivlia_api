@@ -1426,6 +1426,7 @@ exports.unit = async (req, res) => {
       .json({ message: "An error occured!", error: error.message });
   }
 };
+
 exports.getUnit = async (req, res) => {
   try {
     const Units = await Unit.find();

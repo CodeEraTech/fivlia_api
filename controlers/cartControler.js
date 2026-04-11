@@ -18,6 +18,10 @@ const {
   getZoneWindowConfig,
   getCurrentZoneWindowMode,
 } = require("../config/google");
+const {
+  getActiveStoreOffer,
+  applyStoreOfferToPrice,
+} = require("../utils/storeOffer");
 
 exports.addCart = async (req, res) => {
   try {
@@ -118,7 +122,7 @@ exports.addCart = async (req, res) => {
     let mrp = stockEntry?.mrp;
 
     // Fallback to product.variants if price or mrp is missing
-    if (!price || !mrp) {
+    if (price == null || mrp == null) {
       const matchedVariant = product.variants?.find(
         (v) => v._id?.toString() === varientId?.toString(),
       );
@@ -130,9 +134,20 @@ exports.addCart = async (req, res) => {
     }
 
     // Final fallback to avoid undefined values (optional)
-    if (!price || !mrp) {
+    if (price == null || mrp == null) {
       return res.status(400).json({
         message: "Price/MRP could not be determined for the selected variant.",
+      });
+    }
+
+    const activeOffer = await getActiveStoreOffer(storeId);
+    const finalPrice = activeOffer
+      ? applyStoreOfferToPrice(price, activeOffer.offer)
+      : Math.round(Number(price));
+
+    if (finalPrice == null) {
+      return res.status(400).json({
+        message: "Price could not be determined for the selected variant.",
       });
     }
 
@@ -147,7 +162,7 @@ exports.addCart = async (req, res) => {
       name,
       image,
       quantity,
-      price,
+      price: finalPrice,
       mrp,
       tax,
       productId,
@@ -394,12 +409,13 @@ exports.recommedProduct = async (req, res) => {
       return res.status(404).json({ message: "Seller not found" });
     }
 
-    const [cartProducts, seller, sellerStockDoc] = await Promise.all([
+    const [cartProducts, seller, sellerStockDoc, activeOffer] = await Promise.all([
       Products.find({
         _id: { $in: cartProductIds },
       }).lean(),
       Store.findById(sellerId).lean(),
       stock.findOne({ storeId: sellerId }).lean(),
+      getActiveStoreOffer(sellerId),
     ]);
 
     if (!cartProducts.length) {
@@ -512,9 +528,15 @@ exports.recommedProduct = async (req, res) => {
                   return null;
                 }
 
+                const basePrice = stockEntry.price ?? variant.sell_price;
+                const finalPrice = applyStoreOfferToPrice(
+                  basePrice,
+                  activeOffer?.offer,
+                );
+
                 return {
                   ...variant,
-                  sell_price: stockEntry.price ?? variant.sell_price,
+                  sell_price: finalPrice ?? basePrice,
                   mrp: stockEntry.mrp ?? variant.mrp,
                   quantity: stockEntry.quantity ?? 0,
                 };
@@ -524,12 +546,19 @@ exports.recommedProduct = async (req, res) => {
 
         const inventory = productStockEntries
           .filter((entry) => Number(entry.quantity) > 0)
-          .map((entry) => ({
-            variantId: entry.variantId ?? null,
-            quantity: entry.quantity,
-            price: entry.price ?? null,
-            mrp: entry.mrp ?? null,
-          }));
+          .map((entry) => {
+            const finalPrice = applyStoreOfferToPrice(
+              entry.price,
+              activeOffer?.offer,
+            );
+
+            return {
+              variantId: entry.variantId ?? null,
+              quantity: entry.quantity,
+              price: finalPrice ?? entry.price ?? null,
+              mrp: entry.mrp ?? null,
+            };
+          });
 
         const maxQuantity = inventory.length
           ? Math.max(...inventory.map((item) => item.quantity || 0))

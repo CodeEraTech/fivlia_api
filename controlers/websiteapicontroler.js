@@ -28,6 +28,10 @@ const Charity = require("../modals/Charity");
 const CharityContent = require("../modals/charityContent");
 const Franchise = require("../modals/franchise");
 const Coupon = require("../modals/sellerCoupon");
+const {
+  getActiveStoreOffer,
+  applyStoreOfferToPrice,
+} = require("../utils/storeOffer");
 
 exports.forwebbestselling = async (req, res) => {
   try {
@@ -1532,14 +1536,7 @@ exports.getAllSellerProducts = async (req, res) => {
     );
 
     // 🔥 FETCH & VALIDATE ACTIVE OFFER
-    let activeOffer = await Coupon.findOne({
-      storeId: id,
-      status: true,
-      approvalStatus: "approved",
-      expireDate: { $gte: new Date() },
-    })
-      .sort({ createdAt: -1 }) // latest offer first
-      .lean();
+    let activeOffer = await getActiveStoreOffer(id);
 
     const stockEntries = stockData
       .flatMap((doc) => doc.stock || [])
@@ -1590,19 +1587,22 @@ exports.getAllSellerProducts = async (req, res) => {
           );
 
           let sellPrice = stockEntry?.price ?? variant.sell_price;
-          let originalPrice = sellPrice;
+          let originalPrice = Number(sellPrice);
 
           if (activeOffer) {
-            sellPrice =
-              sellPrice - (sellPrice * Number(activeOffer.offer)) / 100;
+            sellPrice = applyStoreOfferToPrice(sellPrice, activeOffer.offer);
           }
 
           return {
             ...variant,
             stock: stockEntry?.quantity ?? 0,
             mrp: stockEntry?.mrp ?? variant.mrp,
-            sell_price: Math.round(sellPrice),
-            original_price: activeOffer ? originalPrice : null,
+            sell_price: Number.isFinite(Number(sellPrice))
+              ? Number(sellPrice)
+              : 0,
+            original_price: activeOffer && Number.isFinite(originalPrice)
+              ? originalPrice
+              : null,
             status: stockEntry?.status ?? false,
           };
         });

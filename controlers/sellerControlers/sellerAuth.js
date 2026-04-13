@@ -1098,7 +1098,10 @@ exports.getAllStore = async (req, res) => {
 
 exports.logoutSeller = async (req, res) => {
   try {
+    const {type} = req.query;
+
     const { sellerId, deviceId } = req.body;
+
     if (!sellerId) {
       return res.status(400).json({ message: "Seller ID is required" });
     }
@@ -1107,6 +1110,14 @@ exports.logoutSeller = async (req, res) => {
     if (!sellerDoc) {
       return res.status(204).json({ message: "Seller not found" });
     }
+
+    if(type === "all") {
+      sellerDoc.devices = [];
+      await sellerDoc.save();
+      return res.status(200).json({
+        message: "Logged out from all devices successfully",
+      });
+    } //logout from all devices
 
     // ✅ Logout from one specific device
     if (!deviceId) {

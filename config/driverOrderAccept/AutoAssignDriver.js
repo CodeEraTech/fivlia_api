@@ -45,7 +45,9 @@ const autoAssignDriver = async (orderId) => {
       console.log('distance',distance)
 
       if (distance <= 5000) {
-        console.log("Raw Drivers", drivers)
+        console.log("Raw Drivers", drivers.map(dr => String(dr.driverName)));
+        console.log("Busy Drivers", busyDriverIds);
+        console.log("Rejected Drivers for Order", rejectedDriverIdsForOrder);
         availableDrivers.push({ driverz: d, distance });
         console.log("Available driver:", availableDrivers);
       }

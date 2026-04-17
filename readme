@@ -1,57 +1,972 @@
-const nodemailer = require("nodemailer");
-const {verificationEmailTemplate} = require('../utils/emailTemplates')
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com", // Or use the server IP if given: 172.93.223.239
-  port: 465, // Use 465 for SSL (recommended)
-  secure: true, // true for port 465, false for 587
-  auth: {
-    user: "fivliaindia@gmail.com", // Your no-reply email
-    pass: "xybmyypjxwyeldgl",
-  },
-});
-
-const sendVerificationEmail = async (to, firstName, lastName, storeName) => {
-  await transporter.sendMail({
-    from: "Fivlia <fivliaindia@gmail.com>",
-    to,
-    subject: "Fivlia Seller Registration",
-    html: `
-        <h3>Hello ${firstName} ${lastName},</h3>
-        <p>Thank you for registering your store <strong>${storeName}</strong> with Fivlia.</p>
-        <p>Your account is under verification. You will be notified once it's approved by our team.</p>
-        <p>Regards,<br/>Fivlia Team</p>
-      `,
-  });
-};
-
-const sendVerificationEmailLink = async (
-  to,
-  firstName,
-  lastName,
-  verifyUrl
-) => {
-const emailHtml = verificationEmailTemplate(firstName, lastName, verifyUrl);
-
-  await transporter.sendMail({
-    from: "Fivlia <fivliaindia@gmail.com>",
-    to,
-    subject: "Verify Your Fivlia Seller Email",
-    html: emailHtml,
-  });
-};
-
-const sendMailContact = async (to, subject, userEmail, htmlContent) => {
-  await transporter.sendMail({
-    from: "Fivlia <fivliaindia@gmail.com>",
-    replyTo: userEmail,
-    to,
-    subject,
-    html: htmlContent,
-  });
-};
-
-module.exports = {
-  sendVerificationEmail,
-  sendMailContact,
-  sendVerificationEmailLink,
-};
+4|server  | Raw Drivers [
+4|server  |   'Vikash Kumar',       'Ravi Bhushan',
+4|server  |   'Vishal Jangra',      'TestDriver',
+4|server  |   'Rohit Kumar',        'Rakesh Kumar',
+4|server  |   'Monu',               'Ravi',
+4|server  |   'Vijender Kumar',     'Manoj Kumar',
+4|server  |   'Dishant',            'Nitin Kumar',
+4|server  |   'Sudhir Kumar',       'Udit Narayan',
+4|server  |   'Shalesh',            'Kuldeep Singh',
+4|server  |   'Ajay Kumar',         'Rahul',
+4|server  |   'Nitesh Kumar',       'Nitesh Kumar',
+4|server  |   'Nishant  Sehrawat ', 'Nishant  Sehrawat ',
+4|server  |   'Nishant  Sehrawat ', 'Raunak Singh',
+4|server  |   'Nishant  Sehrawat ', 'Nishant  Sehrawat ',
+4|server  |   'Manoj Kumar',        'sandeep singh',
+4|server  |   'Dinesh Kumar',       'Surender Raikwar',
+4|server  |   'Subash Jangra',      'Deepak Kumar',
+4|server  |   'Yogesh Jangra',      'Arjun Bairwa',
+4|server  |   'Mayank  Rekhari ',   'Pankaj Kumar',
+4|server  |   'himanshu',           'test driver rishur',
+4|server  |   'Nikhil Jangra',      'Karan Karan'
+4|server  | ]
+4|server  | Busy Drivers [
+4|server  |   '68f1d8c5a72119a8c21c6c34',
+4|server  |   '69c5073d7334baedf7907601',
+4|server  |   '698306452460124eebe90547',
+4|server  |   '69c66c4111e3744c3d212e03'
+4|server  | ]
+4|server  | Rejected Drivers for Order []
+4|server  | Available driver: [
+4|server  |   {
+4|server  |     driverz: {
+4|server  |       address: [Object],
+4|server  |       aadharCard: [Object],
+4|server  |       drivingLicence: [Object],
+4|server  |       _id: new ObjectId('6944f641718c537e854574bc'),
+4|server  |       driverId: 'FV028',
+4|server  |       driverName: 'Udit Narayan',
+4|server  |       image: '/image/1766127166129-image.jpeg',
+4|server  |       status: true,
+4|server  |       email: 'uditnarayansathi@gmail.com',
+4|server  |       password: '1234',
+4|server  |       activeStatus: 'online',
+4|server  |       Police_Verification_Copy: '/Police_Verification_Copy/1766127166172-Police_Verification_Copy.jpeg',
+4|server  |       createdAt: 2025-12-19T06:52:49.109Z,
+4|server  |       updatedAt: 2026-03-05T13:44:35.733Z,
+4|server  |       __v: 0,
+4|server  |       fcmToken: 'f3NuAxdCQX-aBkNFmqEdbk:APA91bHyDmLi29lFVlHWyOq8I-vgVYwXigalyv2xAAxrCcWuNpa0ktunKGuvX0NNdzlaX9yeAHoiwRLfxQTUdqJVdybqzZ-EDSOIEHB67pp0maiua_QPmfE',
+4|server  |       driverDeviceId: 'AQ3A.250226.002'
+4|server  |     },
+4|server  |     distance: 1316
+4|server  |   },
+4|server  |   {
+4|server  |     driverz: {
+4|server  |       address: [Object],
+4|server  |       aadharCard: [Object],
+4|server  |       drivingLicence: [Object],
+4|server  |       _id: new ObjectId('69883912917546a7815aeeb3'),
+4|server  |       driverId: 'FV041',
+4|server  |       driverName: 'Kuldeep Singh',
+4|server  |       image: '/image/1770535184635-image.jpeg',
+4|server  |       status: true,
+4|server  |       email: 'ks3514499@gmail.com',
+4|server  |       password: '1234',
+4|server  |       activeStatus: 'online',
+4|server  |       Police_Verification_Copy: '/Police_Verification_Copy/1770535184719-Police_Verification_Copy.jpeg',
+4|server  |       createdAt: 2026-02-08T07:19:46.683Z,
+4|server  |       updatedAt: 2026-02-10T11:19:12.271Z,
+4|server  |       __v: 0,
+4|server  |       fcmToken: 'fjdFfl7OQ8WMEWiZqTejJy:APA91bF-H8pjOf3d-XbFcb3mUpM8XK0yWr44cAQZ6gP1MfqDnW5e35O6qJ9JbkUQVNSv56JTHhJZpy5lA2UUwMsfSZkUPAZ3952sCHX7CXgb_RTS44n4l1o',
+4|server  |       driverDeviceId: 'UP1A.231005.007',
+4|server  |       wallet: 25
+4|server  |     },
+4|server  |     distance: 1373
+4|server  |   },
+4|server  |   {
+4|server  |     driverz: {
+4|server  |       address: [Object],
+4|server  |       aadharCard: [Object],
+4|server  |       drivingLicence: [Object],
+4|server  |       _id: new ObjectId('699fed2da89f885b790b69d0'),
+4|server  |       driverId: 'FV056',
+4|server  |       driverName: 'Dinesh Kumar',
+4|server  |       image: '/image/1772088620359-image.jpeg',
+4|server  |       status: true,
+4|server  |       email: 'kuberpictures@gmail.com',
+4|server  |       password: '1234',
+4|server  |       activeStatus: 'online',
+4|server  |       Police_Verification_Copy: '/Police_Verification_Copy/1772088620397-Police_Verification_Copy.jpg',
+4|server  |       createdAt: 2026-02-26T06:50:21.815Z,
+4|server  |       updatedAt: 2026-02-26T06:55:21.503Z,
+4|server  |       __v: 0,
+4|server  |       fcmToken: 'eCtMddoSR7iPvwuK2PKlGu:APA91bHKlTUdUXwNFvoLdAxMafe6EWihY4ke_Vi6Gos8eI_LU9S6gmJpXiH6XZn6S_dl_PBzurTJy9zLVpLJ3M3WJftONkqLIbfO3u03puUXOerqjl7dmHY',
+4|server  |       driverDeviceId: 'UKQ1.230924.001'
+4|server  |     },
+4|server  |     distance: 1149
+4|server  |   },
+4|server  |   {
+4|server  |     driverz: {
+4|server  |       address: [Object],
+4|server  |       aadharCard: [Object],
+4|server  |       drivingLicence: [Object],
+4|server  |       _id: new ObjectId('69aac55b0739ac966bbeafcc'),
+4|server  |       driverId: 'FV059',
+4|server  |       driverName: 'Subash Jangra',
+4|server  |       image: '/image/1772879019630-image.jpg',
+4|server  |       status: true,
+4|server  |       email: 'subhashj6789@gmail.com',
+4|server  |       password: '1234',
+4|server  |       activeStatus: 'online',
+4|server  |       Police_Verification_Copy: '/Police_Verification_Copy/1772799321381-Police_Verification_Copy.jpeg',
+4|server  |       createdAt: 2026-03-06T12:15:23.316Z,
+4|server  |       updatedAt: 2026-03-27T03:54:35.669Z,
+4|server  |       __v: 0,
+4|server  |       fcmToken: 'czpFrKhHRPCuD_zjXnqjHG:APA91bGEfCJevQfMgEM-eJrS1v7TRwtpLScAHFlq_-0JVyqV-paEnAGcFuXKAw8VWf2qKdllcxDznEbKMgtoHVxUEhPABu5a2vNCgG0-DCV496ixrrxYWQk',
+4|server  |       driverDeviceId: 'UKQ1.230924.001',
+4|server  |       wallet: 71.1864406779661,
+4|server  |       upiId: 'subhashj689@ibl'
+4|server  |     },
+4|server  |     distance: 2427
+4|server  |   },
+4|server  |   {
+4|server  |     driverz: {
+4|server  |       address: [Object],
+4|server  |       aadharCard: [Object],
+4|server  |       drivingLicence: [Object],
+4|server  |       _id: new ObjectId('69b8ede5607cdc050255707b'),
+4|server  |       driverId: 'FV061',
+4|server  |       driverName: 'Yogesh Jangra',
+4|server  |       image: '/image/1773727386410-image.png',
+4|server  |       status: true,
+4|server  |       email: 'yjangra207@gmail.com',
+4|server  |       password: '1234',
+4|server  |       vehicleRegistrationNumber: '00',
+4|server  |       drivingLicenseNumber: '00',
+4|server  |       activeStatus: 'online',
+4|server  |       Police_Verification_Copy: '/Police_Verification_Copy/1773727203413-Police_Verification_Copy.jpg',
+4|server  |       createdAt: 2026-03-17T06:00:05.630Z,
+4|server  |       updatedAt: 2026-03-26T14:51:18.934Z,
+4|server  |       __v: 0,
+4|server  |       driverDeviceId: 'CP1A.260305.018',
+4|server  |       upiId: 'mirkanyogesh@ptyes'
+4|server  |     },
+4|server  |     distance: 3761
+4|server  |   }
+4|server  | ]
+4|server  | distance 8634176
+4|server  | Available driver After Sorting: [
+4|server  |   {
+4|server  |     driverz: {
+4|server  |       address: [Object],
+4|server  |       aadharCard: [Object],
+4|server  |       drivingLicence: [Object],
+4|server  |       _id: new ObjectId('699fed2da89f885b790b69d0'),
+4|server  |       driverId: 'FV056',
+4|server  |       driverName: 'Dinesh Kumar',
+4|server  |       image: '/image/1772088620359-image.jpeg',
+4|server  |       status: true,
+4|server  |       email: 'kuberpictures@gmail.com',
+4|server  |       password: '1234',
+4|server  |       activeStatus: 'online',
+4|server  |       Police_Verification_Copy: '/Police_Verification_Copy/1772088620397-Police_Verification_Copy.jpg',
+4|server  |       createdAt: 2026-02-26T06:50:21.815Z,
+4|server  |       updatedAt: 2026-02-26T06:55:21.503Z,
+4|server  |       __v: 0,
+4|server  |       fcmToken: 'eCtMddoSR7iPvwuK2PKlGu:APA91bHKlTUdUXwNFvoLdAxMafe6EWihY4ke_Vi6Gos8eI_LU9S6gmJpXiH6XZn6S_dl_PBzurTJy9zLVpLJ3M3WJftONkqLIbfO3u03puUXOerqjl7dmHY',
+4|server  |       driverDeviceId: 'UKQ1.230924.001'
+4|server  |     },
+4|server  |     distance: 1149
+4|server  |   },
+4|server  |   {
+4|server  |     driverz: {
+4|server  |       address: [Object],
+4|server  |       aadharCard: [Object],
+4|server  |       drivingLicence: [Object],
+4|server  |       _id: new ObjectId('6944f641718c537e854574bc'),
+4|server  |       driverId: 'FV028',
+4|server  |       driverName: 'Udit Narayan',
+4|server  |       image: '/image/1766127166129-image.jpeg',
+4|server  |       status: true,
+4|server  |       email: 'uditnarayansathi@gmail.com',
+4|server  |       password: '1234',
+4|server  |       activeStatus: 'online',
+4|server  |       Police_Verification_Copy: '/Police_Verification_Copy/1766127166172-Police_Verification_Copy.jpeg',
+4|server  |       createdAt: 2025-12-19T06:52:49.109Z,
+4|server  |       updatedAt: 2026-03-05T13:44:35.733Z,
+4|server  |       __v: 0,
+4|server  |       fcmToken: 'f3NuAxdCQX-aBkNFmqEdbk:APA91bHyDmLi29lFVlHWyOq8I-vgVYwXigalyv2xAAxrCcWuNpa0ktunKGuvX0NNdzlaX9yeAHoiwRLfxQTUdqJVdybqzZ-EDSOIEHB67pp0maiua_QPmfE',
+4|server  |       driverDeviceId: 'AQ3A.250226.002'
+4|server  |     },
+4|server  |     distance: 1316
+4|server  |   },
+4|server  |   {
+4|server  |     driverz: {
+4|server  |       address: [Object],
+4|server  |       aadharCard: [Object],
+4|server  |       drivingLicence: [Object],
+4|server  |       _id: new ObjectId('69883912917546a7815aeeb3'),
+4|server  |       driverId: 'FV041',
+4|server  |       driverName: 'Kuldeep Singh',
+4|server  |       image: '/image/1770535184635-image.jpeg',
+4|server  |       status: true,
+4|server  |       email: 'ks3514499@gmail.com',
+4|server  |       password: '1234',
+4|server  |       activeStatus: 'online',
+4|server  |       Police_Verification_Copy: '/Police_Verification_Copy/1770535184719-Police_Verification_Copy.jpeg',
+4|server  |       createdAt: 2026-02-08T07:19:46.683Z,
+4|server  |       updatedAt: 2026-02-10T11:19:12.271Z,
+4|server  |       __v: 0,
+4|server  |       fcmToken: 'fjdFfl7OQ8WMEWiZqTejJy:APA91bF-H8pjOf3d-XbFcb3mUpM8XK0yWr44cAQZ6gP1MfqDnW5e35O6qJ9JbkUQVNSv56JTHhJZpy5lA2UUwMsfSZkUPAZ3952sCHX7CXgb_RTS44n4l1o',
+4|server  |       driverDeviceId: 'UP1A.231005.007',
+4|server  |       wallet: 25
+4|server  |     },
+4|server  |     distance: 1373
+4|server  |   },
+4|server  |   {
+4|server  |     driverz: {
+4|server  |       address: [Object],
+4|server  |       aadharCard: [Object],
+4|server  |       drivingLicence: [Object],
+4|server  |       _id: new ObjectId('69aac55b0739ac966bbeafcc'),
+4|server  |       driverId: 'FV059',
+4|server  |       driverName: 'Subash Jangra',
+4|server  |       image: '/image/1772879019630-image.jpg',
+4|server  |       status: true,
+4|server  |       email: 'subhashj6789@gmail.com',
+4|server  |       password: '1234',
+4|server  |       activeStatus: 'online',
+4|server  |       Police_Verification_Copy: '/Police_Verification_Copy/1772799321381-Police_Verification_Copy.jpeg',
+4|server  |       createdAt: 2026-03-06T12:15:23.316Z,
+4|server  |       updatedAt: 2026-03-27T03:54:35.669Z,
+4|server  |       __v: 0,
+4|server  |       fcmToken: 'czpFrKhHRPCuD_zjXnqjHG:APA91bGEfCJevQfMgEM-eJrS1v7TRwtpLScAHFlq_-0JVyqV-paEnAGcFuXKAw8VWf2qKdllcxDznEbKMgtoHVxUEhPABu5a2vNCgG0-DCV496ixrrxYWQk',
+4|server  |       driverDeviceId: 'UKQ1.230924.001',
+4|server  |       wallet: 71.1864406779661,
+4|server  |       upiId: 'subhashj689@ibl'
+4|server  |     },
+4|server  |     distance: 2427
+4|server  |   },
+4|server  |   {
+4|server  |     driverz: {
+4|server  |       address: [Object],
+4|server  |       aadharCard: [Object],
+4|server  |       drivingLicence: [Object],
+4|server  |       _id: new ObjectId('69b8ede5607cdc050255707b'),
+4|server  |       driverId: 'FV061',
+4|server  |       driverName: 'Yogesh Jangra',
+4|server  |       image: '/image/1773727386410-image.png',
+4|server  |       status: true,
+4|server  |       email: 'yjangra207@gmail.com',
+4|server  |       password: '1234',
+4|server  |       vehicleRegistrationNumber: '00',
+4|server  |       drivingLicenseNumber: '00',
+4|server  |       activeStatus: 'online',
+4|server  |       Police_Verification_Copy: '/Police_Verification_Copy/1773727203413-Police_Verification_Copy.jpg',
+4|server  |       createdAt: 2026-03-17T06:00:05.630Z,
+4|server  |       updatedAt: 2026-03-26T14:51:18.934Z,
+4|server  |       __v: 0,
+4|server  |       driverDeviceId: 'CP1A.260305.018',
+4|server  |       upiId: 'mirkanyogesh@ptyes'
+4|server  |     },
+4|server  |     distance: 3761
+4|server  |   }
+4|server  | ]
+4|server  | ⚙️ Auto-adjusted retries: 180 x 10s = 30 min
+4|server  | 📢 Broadcasting order OID406 to 5 drivers...
+4|server  | 📱 Driver 699fed2da89f885b790b69d0 offline, push-only mode
+4|server  | 📱 Driver 6944f641718c537e854574bc offline, push-only mode
+4|server  | 📱 Driver 69883912917546a7815aeeb3 offline, push-only mode
+4|server  | 📱 Driver 69aac55b0739ac966bbeafcc offline, push-only mode
+4|server  | 📱 Driver 69b8ede5607cdc050255707b offline, push-only mode
+4|server  | Push error: FirebaseMessagingError: Requested entity was not found.
+4|server  |     at FirebaseMessagingError.fromServerError (/home/api/public_html/node_modules/firebase-admin/lib/utils/error.js:269:16)
+4|server  |     at createFirebaseError (/home/api/public_html/node_modules/firebase-admin/lib/messaging/messaging-errors-internal.js:36:47)
+4|server  |     at /home/api/public_html/node_modules/firebase-admin/lib/messaging/messaging-api-request-internal.js:74:75
+4|server  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+4|server  |   errorInfo: {
+4|server  |     code: 'messaging/registration-token-not-registered',
+4|server  |     message: 'Requested entity was not found.'
+4|server  |   },
+4|server  |   codePrefix: 'messaging'
+4|server  | }
+4|server  | Push error: FirebaseMessagingError: Requested entity was not found.
+4|server  |     at FirebaseMessagingError.fromServerError (/home/api/public_html/node_modules/firebase-admin/lib/utils/error.js:269:16)
+4|server  |     at createFirebaseError (/home/api/public_html/node_modules/firebase-admin/lib/messaging/messaging-errors-internal.js:36:47)
+4|server  |     at /home/api/public_html/node_modules/firebase-admin/lib/messaging/messaging-api-request-internal.js:74:75
+4|server  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+4|server  |   errorInfo: {
+4|server  |     code: 'messaging/registration-token-not-registered',
+4|server  |     message: 'Requested entity was not found.'
+4|server  |   },
+4|server  |   codePrefix: 'messaging'
+4|server  | }
+4|server  | Push error: FirebaseMessagingError: Requested entity was not found.
+4|server  |     at FirebaseMessagingError.fromServerError (/home/api/public_html/node_modules/firebase-admin/lib/utils/error.js:269:16)
+4|server  |     at createFirebaseError (/home/api/public_html/node_modules/firebase-admin/lib/messaging/messaging-errors-internal.js:36:47)
+4|server  |     at /home/api/public_html/node_modules/firebase-admin/lib/messaging/messaging-api-request-internal.js:74:75
+4|server  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+4|server  |   errorInfo: {
+4|server  |     code: 'messaging/registration-token-not-registered',
+4|server  |     message: 'Requested entity was not found.'
+4|server  |   },
+4|server  |   codePrefix: 'messaging'
+4|server  | }
+4|server  | Push error: FirebaseMessagingError: Requested entity was not found.
+4|server  |     at FirebaseMessagingError.fromServerError (/home/api/public_html/node_modules/firebase-admin/lib/utils/error.js:269:16)
+4|server  |     at createFirebaseError (/home/api/public_html/node_modules/firebase-admin/lib/messaging/messaging-errors-internal.js:36:47)
+4|server  |     at /home/api/public_html/node_modules/firebase-admin/lib/messaging/messaging-api-request-internal.js:74:75
+4|server  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+4|server  |   errorInfo: {
+4|server  |     code: 'messaging/registration-token-not-registered',
+4|server  |     message: 'Requested entity was not found.'
+4|server  |   },
+4|server  |   codePrefix: 'messaging'
+4|server  | }
+4|server  | 🔁 All drivers rejected or no response for order OID406. Retrying with all drivers...
+4|server  | distance 108729
+4|server  | distance 8634176
+4|server  | distance 8634176
+4|server  | distance 114567
+4|server  | distance 8634176
+4|server  | distance 138704
+4|server  | distance 138320
+4|server  | distance 8634176
+4|server  | distance 140154
+4|server  | distance 140563
+4|server  | distance 8634176
+4|server  | distance 98029
+4|server  | distance 1316
+4|server  | Raw Drivers [
+4|server  |   'Vikash Kumar',       'Ravi Bhushan',
+4|server  |   'Vishal Jangra',      'TestDriver',
+4|server  |   'Rohit Kumar',        'Rakesh Kumar',
+4|server  |   'Monu',               'Ravi',
+4|server  |   'Vijender Kumar',     'Manoj Kumar',
+4|server  |   'Dishant',            'Nitin Kumar',
+4|server  |   'Sudhir Kumar',       'Udit Narayan',
+4|server  |   'Shalesh',            'Kuldeep Singh',
+4|server  |   'Ajay Kumar',         'Rahul',
+4|server  |   'Nitesh Kumar',       'Nitesh Kumar',
+4|server  |   'Nishant  Sehrawat ', 'Nishant  Sehrawat ',
+4|server  |   'Nishant  Sehrawat ', 'Raunak Singh',
+4|server  |   'Nishant  Sehrawat ', 'Nishant  Sehrawat ',
+4|server  |   'Manoj Kumar',        'sandeep singh',
+4|server  |   'Dinesh Kumar',       'Surender Raikwar',
+4|server  |   'Subash Jangra',      'Deepak Kumar',
+4|server  |   'Yogesh Jangra',      'Arjun Bairwa',
+4|server  |   'Mayank  Rekhari ',   'Pankaj Kumar',
+4|server  |   'himanshu',           'test driver rishur',
+4|server  |   'Nikhil Jangra',      'Karan Karan'
+4|server  | ]
+4|server  | Busy Drivers [
+4|server  |   '68f1d8c5a72119a8c21c6c34',
+4|server  |   '69c5073d7334baedf7907601',
+4|server  |   '698306452460124eebe90547',
+4|server  |   '69c66c4111e3744c3d212e03'
+4|server  | ]
+4|server  | Rejected Drivers for Order []
+4|server  | Available driver: [
+4|server  |   {
+4|server  |     driverz: {
+4|server  |       address: [Object],
+4|server  |       aadharCard: [Object],
+4|server  |       drivingLicence: [Object],
+4|server  |       _id: new ObjectId('6944f641718c537e854574bc'),
+4|server  |       driverId: 'FV028',
+4|server  |       driverName: 'Udit Narayan',
+4|server  |       image: '/image/1766127166129-image.jpeg',
+4|server  |       status: true,
+4|server  |       email: 'uditnarayansathi@gmail.com',
+4|server  |       password: '1234',
+4|server  |       activeStatus: 'online',
+4|server  |       Police_Verification_Copy: '/Police_Verification_Copy/1766127166172-Police_Verification_Copy.jpeg',
+4|server  |       createdAt: 2025-12-19T06:52:49.109Z,
+4|server  |       updatedAt: 2026-03-05T13:44:35.733Z,
+4|server  |       __v: 0,
+4|server  |       fcmToken: 'f3NuAxdCQX-aBkNFmqEdbk:APA91bHyDmLi29lFVlHWyOq8I-vgVYwXigalyv2xAAxrCcWuNpa0ktunKGuvX0NNdzlaX9yeAHoiwRLfxQTUdqJVdybqzZ-EDSOIEHB67pp0maiua_QPmfE',
+4|server  |       driverDeviceId: 'AQ3A.250226.002'
+4|server  |     },
+4|server  |     distance: 1316
+4|server  |   }
+4|server  | ]
+4|server  | distance 1373
+4|server  | Raw Drivers [
+4|server  |   'Vikash Kumar',       'Ravi Bhushan',
+4|server  |   'Vishal Jangra',      'TestDriver',
+4|server  |   'Rohit Kumar',        'Rakesh Kumar',
+4|server  |   'Monu',               'Ravi',
+4|server  |   'Vijender Kumar',     'Manoj Kumar',
+4|server  |   'Dishant',            'Nitin Kumar',
+4|server  |   'Sudhir Kumar',       'Udit Narayan',
+4|server  |   'Shalesh',            'Kuldeep Singh',
+4|server  |   'Ajay Kumar',         'Rahul',
+4|server  |   'Nitesh Kumar',       'Nitesh Kumar',
+4|server  |   'Nishant  Sehrawat ', 'Nishant  Sehrawat ',
+4|server  |   'Nishant  Sehrawat ', 'Raunak Singh',
+4|server  |   'Nishant  Sehrawat ', 'Nishant  Sehrawat ',
+4|server  |   'Manoj Kumar',        'sandeep singh',
+4|server  |   'Dinesh Kumar',       'Surender Raikwar',
+4|server  |   'Subash Jangra',      'Deepak Kumar',
+4|server  |   'Yogesh Jangra',      'Arjun Bairwa',
+4|server  |   'Mayank  Rekhari ',   'Pankaj Kumar',
+4|server  |   'himanshu',           'test driver rishur',
+4|server  |   'Nikhil Jangra',      'Karan Karan'
+4|server  | ]
+4|server  | Busy Drivers [
+4|server  |   '68f1d8c5a72119a8c21c6c34',
+4|server  |   '69c5073d7334baedf7907601',
+4|server  |   '698306452460124eebe90547',
+4|server  |   '69c66c4111e3744c3d212e03'
+4|server  | ]
+4|server  | Rejected Drivers for Order []
+4|server  | Available driver: [
+4|server  |   {
+4|server  |     driverz: {
+4|server  |       address: [Object],
+4|server  |       aadharCard: [Object],
+4|server  |       drivingLicence: [Object],
+4|server  |       _id: new ObjectId('6944f641718c537e854574bc'),
+4|server  |       driverId: 'FV028',
+4|server  |       driverName: 'Udit Narayan',
+4|server  |       image: '/image/1766127166129-image.jpeg',
+4|server  |       status: true,
+4|server  |       email: 'uditnarayansathi@gmail.com',
+4|server  |       password: '1234',
+4|server  |       activeStatus: 'online',
+4|server  |       Police_Verification_Copy: '/Police_Verification_Copy/1766127166172-Police_Verification_Copy.jpeg',
+4|server  |       createdAt: 2025-12-19T06:52:49.109Z,
+4|server  |       updatedAt: 2026-03-05T13:44:35.733Z,
+4|server  |       __v: 0,
+4|server  |       fcmToken: 'f3NuAxdCQX-aBkNFmqEdbk:APA91bHyDmLi29lFVlHWyOq8I-vgVYwXigalyv2xAAxrCcWuNpa0ktunKGuvX0NNdzlaX9yeAHoiwRLfxQTUdqJVdybqzZ-EDSOIEHB67pp0maiua_QPmfE',
+4|server  |       driverDeviceId: 'AQ3A.250226.002'
+4|server  |     },
+4|server  |     distance: 1316
+4|server  |   },
+4|server  |   {
+4|server  |     driverz: {
+4|server  |       address: [Object],
+4|server  |       aadharCard: [Object],
+4|server  |       drivingLicence: [Object],
+4|server  |       _id: new ObjectId('69883912917546a7815aeeb3'),
+4|server  |       driverId: 'FV041',
+4|server  |       driverName: 'Kuldeep Singh',
+4|server  |       image: '/image/1770535184635-image.jpeg',
+4|server  |       status: true,
+4|server  |       email: 'ks3514499@gmail.com',
+4|server  |       password: '1234',
+4|server  |       activeStatus: 'online',
+4|server  |       Police_Verification_Copy: '/Police_Verification_Copy/1770535184719-Police_Verification_Copy.jpeg',
+4|server  |       createdAt: 2026-02-08T07:19:46.683Z,
+4|server  |       updatedAt: 2026-02-10T11:19:12.271Z,
+4|server  |       __v: 0,
+4|server  |       fcmToken: 'fjdFfl7OQ8WMEWiZqTejJy:APA91bF-H8pjOf3d-XbFcb3mUpM8XK0yWr44cAQZ6gP1MfqDnW5e35O6qJ9JbkUQVNSv56JTHhJZpy5lA2UUwMsfSZkUPAZ3952sCHX7CXgb_RTS44n4l1o',
+4|server  |       driverDeviceId: 'UP1A.231005.007',
+4|server  |       wallet: 25
+4|server  |     },
+4|server  |     distance: 1373
+4|server  |   }
+4|server  | ]
+4|server  | distance 97924
+4|server  | distance 114780
+4|server  | distance 146176
+4|server  | distance 1149
+4|server  | Raw Drivers [
+4|server  |   'Vikash Kumar',       'Ravi Bhushan',
+4|server  |   'Vishal Jangra',      'TestDriver',
+4|server  |   'Rohit Kumar',        'Rakesh Kumar',
+4|server  |   'Monu',               'Ravi',
+4|server  |   'Vijender Kumar',     'Manoj Kumar',
+4|server  |   'Dishant',            'Nitin Kumar',
+4|server  |   'Sudhir Kumar',       'Udit Narayan',
+4|server  |   'Shalesh',            'Kuldeep Singh',
+4|server  |   'Ajay Kumar',         'Rahul',
+4|server  |   'Nitesh Kumar',       'Nitesh Kumar',
+4|server  |   'Nishant  Sehrawat ', 'Nishant  Sehrawat ',
+4|server  |   'Nishant  Sehrawat ', 'Raunak Singh',
+4|server  |   'Nishant  Sehrawat ', 'Nishant  Sehrawat ',
+4|server  |   'Manoj Kumar',        'sandeep singh',
+4|server  |   'Dinesh Kumar',       'Surender Raikwar',
+4|server  |   'Subash Jangra',      'Deepak Kumar',
+4|server  |   'Yogesh Jangra',      'Arjun Bairwa',
+4|server  |   'Mayank  Rekhari ',   'Pankaj Kumar',
+4|server  |   'himanshu',           'test driver rishur',
+4|server  |   'Nikhil Jangra',      'Karan Karan'
+4|server  | ]
+4|server  | Busy Drivers [
+4|server  |   '68f1d8c5a72119a8c21c6c34',
+4|server  |   '69c5073d7334baedf7907601',
+4|server  |   '698306452460124eebe90547',
+4|server  |   '69c66c4111e3744c3d212e03'
+4|server  | ]
+4|server  | Rejected Drivers for Order []
+4|server  | Available driver: [
+4|server  |   {
+4|server  |     driverz: {
+4|server  |       address: [Object],
+4|server  |       aadharCard: [Object],
+4|server  |       drivingLicence: [Object],
+4|server  |       _id: new ObjectId('6944f641718c537e854574bc'),
+4|server  |       driverId: 'FV028',
+4|server  |       driverName: 'Udit Narayan',
+4|server  |       image: '/image/1766127166129-image.jpeg',
+4|server  |       status: true,
+4|server  |       email: 'uditnarayansathi@gmail.com',
+4|server  |       password: '1234',
+4|server  |       activeStatus: 'online',
+4|server  |       Police_Verification_Copy: '/Police_Verification_Copy/1766127166172-Police_Verification_Copy.jpeg',
+4|server  |       createdAt: 2025-12-19T06:52:49.109Z,
+4|server  |       updatedAt: 2026-03-05T13:44:35.733Z,
+4|server  |       __v: 0,
+4|server  |       fcmToken: 'f3NuAxdCQX-aBkNFmqEdbk:APA91bHyDmLi29lFVlHWyOq8I-vgVYwXigalyv2xAAxrCcWuNpa0ktunKGuvX0NNdzlaX9yeAHoiwRLfxQTUdqJVdybqzZ-EDSOIEHB67pp0maiua_QPmfE',
+4|server  |       driverDeviceId: 'AQ3A.250226.002'
+4|server  |     },
+4|server  |     distance: 1316
+4|server  |   },
+4|server  |   {
+4|server  |     driverz: {
+4|server  |       address: [Object],
+4|server  |       aadharCard: [Object],
+4|server  |       drivingLicence: [Object],
+4|server  |       _id: new ObjectId('69883912917546a7815aeeb3'),
+4|server  |       driverId: 'FV041',
+4|server  |       driverName: 'Kuldeep Singh',
+4|server  |       image: '/image/1770535184635-image.jpeg',
+4|server  |       status: true,
+4|server  |       email: 'ks3514499@gmail.com',
+4|server  |       password: '1234',
+4|server  |       activeStatus: 'online',
+4|server  |       Police_Verification_Copy: '/Police_Verification_Copy/1770535184719-Police_Verification_Copy.jpeg',
+4|server  |       createdAt: 2026-02-08T07:19:46.683Z,
+4|server  |       updatedAt: 2026-02-10T11:19:12.271Z,
+4|server  |       __v: 0,
+4|server  |       fcmToken: 'fjdFfl7OQ8WMEWiZqTejJy:APA91bF-H8pjOf3d-XbFcb3mUpM8XK0yWr44cAQZ6gP1MfqDnW5e35O6qJ9JbkUQVNSv56JTHhJZpy5lA2UUwMsfSZkUPAZ3952sCHX7CXgb_RTS44n4l1o',
+4|server  |       driverDeviceId: 'UP1A.231005.007',
+4|server  |       wallet: 25
+4|server  |     },
+4|server  |     distance: 1373
+4|server  |   },
+4|server  |   {
+4|server  |     driverz: {
+4|server  |       address: [Object],
+4|server  |       aadharCard: [Object],
+4|server  |       drivingLicence: [Object],
+4|server  |       _id: new ObjectId('699fed2da89f885b790b69d0'),
+4|server  |       driverId: 'FV056',
+4|server  |       driverName: 'Dinesh Kumar',
+4|server  |       image: '/image/1772088620359-image.jpeg',
+4|server  |       status: true,
+4|server  |       email: 'kuberpictures@gmail.com',
+4|server  |       password: '1234',
+4|server  |       activeStatus: 'online',
+4|server  |       Police_Verification_Copy: '/Police_Verification_Copy/1772088620397-Police_Verification_Copy.jpg',
+4|server  |       createdAt: 2026-02-26T06:50:21.815Z,
+4|server  |       updatedAt: 2026-02-26T06:55:21.503Z,
+4|server  |       __v: 0,
+4|server  |       fcmToken: 'eCtMddoSR7iPvwuK2PKlGu:APA91bHKlTUdUXwNFvoLdAxMafe6EWihY4ke_Vi6Gos8eI_LU9S6gmJpXiH6XZn6S_dl_PBzurTJy9zLVpLJ3M3WJftONkqLIbfO3u03puUXOerqjl7dmHY',
+4|server  |       driverDeviceId: 'UKQ1.230924.001'
+4|server  |     },
+4|server  |     distance: 1149
+4|server  |   }
+4|server  | ]
+4|server  | distance 2427
+4|server  | Raw Drivers [
+4|server  |   'Vikash Kumar',       'Ravi Bhushan',
+4|server  |   'Vishal Jangra',      'TestDriver',
+4|server  |   'Rohit Kumar',        'Rakesh Kumar',
+4|server  |   'Monu',               'Ravi',
+4|server  |   'Vijender Kumar',     'Manoj Kumar',
+4|server  |   'Dishant',            'Nitin Kumar',
+4|server  |   'Sudhir Kumar',       'Udit Narayan',
+4|server  |   'Shalesh',            'Kuldeep Singh',
+4|server  |   'Ajay Kumar',         'Rahul',
+4|server  |   'Nitesh Kumar',       'Nitesh Kumar',
+4|server  |   'Nishant  Sehrawat ', 'Nishant  Sehrawat ',
+4|server  |   'Nishant  Sehrawat ', 'Raunak Singh',
+4|server  |   'Nishant  Sehrawat ', 'Nishant  Sehrawat ',
+4|server  |   'Manoj Kumar',        'sandeep singh',
+4|server  |   'Dinesh Kumar',       'Surender Raikwar',
+4|server  |   'Subash Jangra',      'Deepak Kumar',
+4|server  |   'Yogesh Jangra',      'Arjun Bairwa',
+4|server  |   'Mayank  Rekhari ',   'Pankaj Kumar',
+4|server  |   'himanshu',           'test driver rishur',
+4|server  |   'Nikhil Jangra',      'Karan Karan'
+4|server  | ]
+4|server  | Busy Drivers [
+4|server  |   '68f1d8c5a72119a8c21c6c34',
+4|server  |   '69c5073d7334baedf7907601',
+4|server  |   '698306452460124eebe90547',
+4|server  |   '69c66c4111e3744c3d212e03'
+4|server  | ]
+4|server  | Rejected Drivers for Order []
+4|server  | Available driver: [
+4|server  |   {
+4|server  |     driverz: {
+4|server  |       address: [Object],
+4|server  |       aadharCard: [Object],
+4|server  |       drivingLicence: [Object],
+4|server  |       _id: new ObjectId('6944f641718c537e854574bc'),
+4|server  |       driverId: 'FV028',
+4|server  |       driverName: 'Udit Narayan',
+4|server  |       image: '/image/1766127166129-image.jpeg',
+4|server  |       status: true,
+4|server  |       email: 'uditnarayansathi@gmail.com',
+4|server  |       password: '1234',
+4|server  |       activeStatus: 'online',
+4|server  |       Police_Verification_Copy: '/Police_Verification_Copy/1766127166172-Police_Verification_Copy.jpeg',
+4|server  |       createdAt: 2025-12-19T06:52:49.109Z,
+4|server  |       updatedAt: 2026-03-05T13:44:35.733Z,
+4|server  |       __v: 0,
+4|server  |       fcmToken: 'f3NuAxdCQX-aBkNFmqEdbk:APA91bHyDmLi29lFVlHWyOq8I-vgVYwXigalyv2xAAxrCcWuNpa0ktunKGuvX0NNdzlaX9yeAHoiwRLfxQTUdqJVdybqzZ-EDSOIEHB67pp0maiua_QPmfE',
+4|server  |       driverDeviceId: 'AQ3A.250226.002'
+4|server  |     },
+4|server  |     distance: 1316
+4|server  |   },
+4|server  |   {
+4|server  |     driverz: {
+4|server  |       address: [Object],
+4|server  |       aadharCard: [Object],
+4|server  |       drivingLicence: [Object],
+4|server  |       _id: new ObjectId('69883912917546a7815aeeb3'),
+4|server  |       driverId: 'FV041',
+4|server  |       driverName: 'Kuldeep Singh',
+4|server  |       image: '/image/1770535184635-image.jpeg',
+4|server  |       status: true,
+4|server  |       email: 'ks3514499@gmail.com',
+4|server  |       password: '1234',
+4|server  |       activeStatus: 'online',
+4|server  |       Police_Verification_Copy: '/Police_Verification_Copy/1770535184719-Police_Verification_Copy.jpeg',
+4|server  |       createdAt: 2026-02-08T07:19:46.683Z,
+4|server  |       updatedAt: 2026-02-10T11:19:12.271Z,
+4|server  |       __v: 0,
+4|server  |       fcmToken: 'fjdFfl7OQ8WMEWiZqTejJy:APA91bF-H8pjOf3d-XbFcb3mUpM8XK0yWr44cAQZ6gP1MfqDnW5e35O6qJ9JbkUQVNSv56JTHhJZpy5lA2UUwMsfSZkUPAZ3952sCHX7CXgb_RTS44n4l1o',
+4|server  |       driverDeviceId: 'UP1A.231005.007',
+4|server  |       wallet: 25
+4|server  |     },
+4|server  |     distance: 1373
+4|server  |   },
+4|server  |   {
+4|server  |     driverz: {
+4|server  |       address: [Object],
+4|server  |       aadharCard: [Object],
+4|server  |       drivingLicence: [Object],
+4|server  |       _id: new ObjectId('699fed2da89f885b790b69d0'),
+4|server  |       driverId: 'FV056',
+4|server  |       driverName: 'Dinesh Kumar',
+4|server  |       image: '/image/1772088620359-image.jpeg',
+4|server  |       status: true,
+4|server  |       email: 'kuberpictures@gmail.com',
+4|server  |       password: '1234',
+4|server  |       activeStatus: 'online',
+4|server  |       Police_Verification_Copy: '/Police_Verification_Copy/1772088620397-Police_Verification_Copy.jpg',
+4|server  |       createdAt: 2026-02-26T06:50:21.815Z,
+4|server  |       updatedAt: 2026-02-26T06:55:21.503Z,
+4|server  |       __v: 0,
+4|server  |       fcmToken: 'eCtMddoSR7iPvwuK2PKlGu:APA91bHKlTUdUXwNFvoLdAxMafe6EWihY4ke_Vi6Gos8eI_LU9S6gmJpXiH6XZn6S_dl_PBzurTJy9zLVpLJ3M3WJftONkqLIbfO3u03puUXOerqjl7dmHY',
+4|server  |       driverDeviceId: 'UKQ1.230924.001'
+4|server  |     },
+4|server  |     distance: 1149
+4|server  |   },
+4|server  |   {
+4|server  |     driverz: {
+4|server  |       address: [Object],
+4|server  |       aadharCard: [Object],
+4|server  |       drivingLicence: [Object],
+4|server  |       _id: new ObjectId('69aac55b0739ac966bbeafcc'),
+4|server  |       driverId: 'FV059',
+4|server  |       driverName: 'Subash Jangra',
+4|server  |       image: '/image/1772879019630-image.jpg',
+4|server  |       status: true,
+4|server  |       email: 'subhashj6789@gmail.com',
+4|server  |       password: '1234',
+4|server  |       activeStatus: 'online',
+4|server  |       Police_Verification_Copy: '/Police_Verification_Copy/1772799321381-Police_Verification_Copy.jpeg',
+4|server  |       createdAt: 2026-03-06T12:15:23.316Z,
+4|server  |       updatedAt: 2026-03-27T03:54:35.669Z,
+4|server  |       __v: 0,
+4|server  |       fcmToken: 'czpFrKhHRPCuD_zjXnqjHG:APA91bGEfCJevQfMgEM-eJrS1v7TRwtpLScAHFlq_-0JVyqV-paEnAGcFuXKAw8VWf2qKdllcxDznEbKMgtoHVxUEhPABu5a2vNCgG0-DCV496ixrrxYWQk',
+4|server  |       driverDeviceId: 'UKQ1.230924.001',
+4|server  |       wallet: 71.1864406779661,
+4|server  |       upiId: 'subhashj689@ibl'
+4|server  |     },
+4|server  |     distance: 2427
+4|server  |   }
+4|server  | ]
+4|server  | distance 71615
+4|server  | distance 3761
+4|server  | Raw Drivers [
+4|server  |   'Vikash Kumar',       'Ravi Bhushan',
+4|server  |   'Vishal Jangra',      'TestDriver',
+4|server  |   'Rohit Kumar',        'Rakesh Kumar',
+4|server  |   'Monu',               'Ravi',
+4|server  |   'Vijender Kumar',     'Manoj Kumar',
+4|server  |   'Dishant',            'Nitin Kumar',
+4|server  |   'Sudhir Kumar',       'Udit Narayan',
+4|server  |   'Shalesh',            'Kuldeep Singh',
+4|server  |   'Ajay Kumar',         'Rahul',
+4|server  |   'Nitesh Kumar',       'Nitesh Kumar',
+4|server  |   'Nishant  Sehrawat ', 'Nishant  Sehrawat ',
+4|server  |   'Nishant  Sehrawat ', 'Raunak Singh',
+4|server  |   'Nishant  Sehrawat ', 'Nishant  Sehrawat ',
+4|server  |   'Manoj Kumar',        'sandeep singh',
+4|server  |   'Dinesh Kumar',       'Surender Raikwar',
+4|server  |   'Subash Jangra',      'Deepak Kumar',
+4|server  |   'Yogesh Jangra',      'Arjun Bairwa',
+4|server  |   'Mayank  Rekhari ',   'Pankaj Kumar',
+4|server  |   'himanshu',           'test driver rishur',
+4|server  |   'Nikhil Jangra',      'Karan Karan'
+4|server  | ]
+4|server  | Busy Drivers [
+4|server  |   '68f1d8c5a72119a8c21c6c34',
+4|server  |   '69c5073d7334baedf7907601',
+4|server  |   '698306452460124eebe90547',
+4|server  |   '69c66c4111e3744c3d212e03'
+4|server  | ]
+4|server  | Rejected Drivers for Order []
+4|server  | Available driver: [
+4|server  |   {
+4|server  |     driverz: {
+4|server  |       address: [Object],
+4|server  |       aadharCard: [Object],
+4|server  |       drivingLicence: [Object],
+4|server  |       _id: new ObjectId('6944f641718c537e854574bc'),
+4|server  |       driverId: 'FV028',
+4|server  |       driverName: 'Udit Narayan',
+4|server  |       image: '/image/1766127166129-image.jpeg',
+4|server  |       status: true,
+4|server  |       email: 'uditnarayansathi@gmail.com',
+4|server  |       password: '1234',
+4|server  |       activeStatus: 'online',
+4|server  |       Police_Verification_Copy: '/Police_Verification_Copy/1766127166172-Police_Verification_Copy.jpeg',
+4|server  |       createdAt: 2025-12-19T06:52:49.109Z,
+4|server  |       updatedAt: 2026-03-05T13:44:35.733Z,
+4|server  |       __v: 0,
+4|server  |       fcmToken: 'f3NuAxdCQX-aBkNFmqEdbk:APA91bHyDmLi29lFVlHWyOq8I-vgVYwXigalyv2xAAxrCcWuNpa0ktunKGuvX0NNdzlaX9yeAHoiwRLfxQTUdqJVdybqzZ-EDSOIEHB67pp0maiua_QPmfE',
+4|server  |       driverDeviceId: 'AQ3A.250226.002'
+4|server  |     },
+4|server  |     distance: 1316
+4|server  |   },
+4|server  |   {
+4|server  |     driverz: {
+4|server  |       address: [Object],
+4|server  |       aadharCard: [Object],
+4|server  |       drivingLicence: [Object],
+4|server  |       _id: new ObjectId('69883912917546a7815aeeb3'),
+4|server  |       driverId: 'FV041',
+4|server  |       driverName: 'Kuldeep Singh',
+4|server  |       image: '/image/1770535184635-image.jpeg',
+4|server  |       status: true,
+4|server  |       email: 'ks3514499@gmail.com',
+4|server  |       password: '1234',
+4|server  |       activeStatus: 'online',
+4|server  |       Police_Verification_Copy: '/Police_Verification_Copy/1770535184719-Police_Verification_Copy.jpeg',
+4|server  |       createdAt: 2026-02-08T07:19:46.683Z,
+4|server  |       updatedAt: 2026-02-10T11:19:12.271Z,
+4|server  |       __v: 0,
+4|server  |       fcmToken: 'fjdFfl7OQ8WMEWiZqTejJy:APA91bF-H8pjOf3d-XbFcb3mUpM8XK0yWr44cAQZ6gP1MfqDnW5e35O6qJ9JbkUQVNSv56JTHhJZpy5lA2UUwMsfSZkUPAZ3952sCHX7CXgb_RTS44n4l1o',
+4|server  |       driverDeviceId: 'UP1A.231005.007',
+4|server  |       wallet: 25
+4|server  |     },
+4|server  |     distance: 1373
+4|server  |   },
+4|server  |   {
+4|server  |     driverz: {
+4|server  |       address: [Object],
+4|server  |       aadharCard: [Object],
+4|server  |       drivingLicence: [Object],
+4|server  |       _id: new ObjectId('699fed2da89f885b790b69d0'),
+4|server  |       driverId: 'FV056',
+4|server  |       driverName: 'Dinesh Kumar',
+4|server  |       image: '/image/1772088620359-image.jpeg',
+4|server  |       status: true,
+4|server  |       email: 'kuberpictures@gmail.com',
+4|server  |       password: '1234',
+4|server  |       activeStatus: 'online',
+4|server  |       Police_Verification_Copy: '/Police_Verification_Copy/1772088620397-Police_Verification_Copy.jpg',
+4|server  |       createdAt: 2026-02-26T06:50:21.815Z,
+4|server  |       updatedAt: 2026-02-26T06:55:21.503Z,
+4|server  |       __v: 0,
+4|server  |       fcmToken: 'eCtMddoSR7iPvwuK2PKlGu:APA91bHKlTUdUXwNFvoLdAxMafe6EWihY4ke_Vi6Gos8eI_LU9S6gmJpXiH6XZn6S_dl_PBzurTJy9zLVpLJ3M3WJftONkqLIbfO3u03puUXOerqjl7dmHY',
+4|server  |       driverDeviceId: 'UKQ1.230924.001'
+4|server  |     },
+4|server  |     distance: 1149
+4|server  |   },
+4|server  |   {
+4|server  |     driverz: {
+4|server  |       address: [Object],
+4|server  |       aadharCard: [Object],
+4|server  |       drivingLicence: [Object],
+4|server  |       _id: new ObjectId('69aac55b0739ac966bbeafcc'),
+4|server  |       driverId: 'FV059',
+4|server  |       driverName: 'Subash Jangra',
+4|server  |       image: '/image/1772879019630-image.jpg',
+4|server  |       status: true,
+4|server  |       email: 'subhashj6789@gmail.com',
+4|server  |       password: '1234',
+4|server  |       activeStatus: 'online',
+4|server  |       Police_Verification_Copy: '/Police_Verification_Copy/1772799321381-Police_Verification_Copy.jpeg',
+4|server  |       createdAt: 2026-03-06T12:15:23.316Z,
+4|server  |       updatedAt: 2026-03-27T03:54:35.669Z,
+4|server  |       __v: 0,
+4|server  |       fcmToken: 'czpFrKhHRPCuD_zjXnqjHG:APA91bGEfCJevQfMgEM-eJrS1v7TRwtpLScAHFlq_-0JVyqV-paEnAGcFuXKAw8VWf2qKdllcxDznEbKMgtoHVxUEhPABu5a2vNCgG0-DCV496ixrrxYWQk',
+4|server  |       driverDeviceId: 'UKQ1.230924.001',
+4|server  |       wallet: 71.1864406779661,
+4|server  |       upiId: 'subhashj689@ibl'
+4|server  |     },
+4|server  |     distance: 2427
+4|server  |   },
+4|server  |   {
+4|server  |     driverz: {
+4|server  |       address: [Object],
+4|server  |       aadharCard: [Object],
+4|server  |       drivingLicence: [Object],
+4|server  |       _id: new ObjectId('69b8ede5607cdc050255707b'),
+4|server  |       driverId: 'FV061',
+4|server  |       driverName: 'Yogesh Jangra',
+4|server  |       image: '/image/1773727386410-image.png',
+4|server  |       status: true,
+4|server  |       email: 'yjangra207@gmail.com',
+4|server  |       password: '1234',
+4|server  |       vehicleRegistrationNumber: '00',
+4|server  |       drivingLicenseNumber: '00',
+4|server  |       activeStatus: 'online',
+4|server  |       Police_Verification_Copy: '/Police_Verification_Copy/1773727203413-Police_Verification_Copy.jpg',
+4|server  |       createdAt: 2026-03-17T06:00:05.630Z,
+4|server  |       updatedAt: 2026-03-26T14:51:18.934Z,
+4|server  |       __v: 0,
+4|server  |       driverDeviceId: 'CP1A.260305.018',
+4|server  |       upiId: 'mirkanyogesh@ptyes'
+4|server  |     },
+4|server  |     distance: 3761
+4|server  |   }
+4|server  | ]
+4|server  | distance 8634176
+4|server  | Available driver After Sorting: [
+4|server  |   {
+4|server  |     driverz: {
+4|server  |       address: [Object],
+4|server  |       aadharCard: [Object],
+4|server  |       drivingLicence: [Object],
+4|server  |       _id: new ObjectId('699fed2da89f885b790b69d0'),
+4|server  |       driverId: 'FV056',
+4|server  |       driverName: 'Dinesh Kumar',
+4|server  |       image: '/image/1772088620359-image.jpeg',
+4|server  |       status: true,
+4|server  |       email: 'kuberpictures@gmail.com',
+4|server  |       password: '1234',
+4|server  |       activeStatus: 'online',
+4|server  |       Police_Verification_Copy: '/Police_Verification_Copy/1772088620397-Police_Verification_Copy.jpg',
+4|server  |       createdAt: 2026-02-26T06:50:21.815Z,
+4|server  |       updatedAt: 2026-02-26T06:55:21.503Z,
+4|server  |       __v: 0,
+4|server  |       fcmToken: 'eCtMddoSR7iPvwuK2PKlGu:APA91bHKlTUdUXwNFvoLdAxMafe6EWihY4ke_Vi6Gos8eI_LU9S6gmJpXiH6XZn6S_dl_PBzurTJy9zLVpLJ3M3WJftONkqLIbfO3u03puUXOerqjl7dmHY',
+4|server  |       driverDeviceId: 'UKQ1.230924.001'
+4|server  |     },
+4|server  |     distance: 1149
+4|server  |   },
+4|server  |   {
+4|server  |     driverz: {
+4|server  |       address: [Object],
+4|server  |       aadharCard: [Object],
+4|server  |       drivingLicence: [Object],
+4|server  |       _id: new ObjectId('6944f641718c537e854574bc'),
+4|server  |       driverId: 'FV028',
+4|server  |       driverName: 'Udit Narayan',
+4|server  |       image: '/image/1766127166129-image.jpeg',
+4|server  |       status: true,
+4|server  |       email: 'uditnarayansathi@gmail.com',
+4|server  |       password: '1234',
+4|server  |       activeStatus: 'online',
+4|server  |       Police_Verification_Copy: '/Police_Verification_Copy/1766127166172-Police_Verification_Copy.jpeg',
+4|server  |       createdAt: 2025-12-19T06:52:49.109Z,
+4|server  |       updatedAt: 2026-03-05T13:44:35.733Z,
+4|server  |       __v: 0,
+4|server  |       fcmToken: 'f3NuAxdCQX-aBkNFmqEdbk:APA91bHyDmLi29lFVlHWyOq8I-vgVYwXigalyv2xAAxrCcWuNpa0ktunKGuvX0NNdzlaX9yeAHoiwRLfxQTUdqJVdybqzZ-EDSOIEHB67pp0maiua_QPmfE',
+4|server  |       driverDeviceId: 'AQ3A.250226.002'
+4|server  |     },
+4|server  |     distance: 1316
+4|server  |   },
+4|server  |   {
+4|server  |     driverz: {
+4|server  |       address: [Object],
+4|server  |       aadharCard: [Object],
+4|server  |       drivingLicence: [Object],
+4|server  |       _id: new ObjectId('69883912917546a7815aeeb3'),
+4|server  |       driverId: 'FV041',
+4|server  |       driverName: 'Kuldeep Singh',
+4|server  |       image: '/image/1770535184635-image.jpeg',
+4|server  |       status: true,
+4|server  |       email: 'ks3514499@gmail.com',
+4|server  |       password: '1234',
+4|server  |       activeStatus: 'online',
+4|server  |       Police_Verification_Copy: '/Police_Verification_Copy/1770535184719-Police_Verification_Copy.jpeg',
+4|server  |       createdAt: 2026-02-08T07:19:46.683Z,
+4|server  |       updatedAt: 2026-02-10T11:19:12.271Z,
+4|server  |       __v: 0,
+4|server  |       fcmToken: 'fjdFfl7OQ8WMEWiZqTejJy:APA91bF-H8pjOf3d-XbFcb3mUpM8XK0yWr44cAQZ6gP1MfqDnW5e35O6qJ9JbkUQVNSv56JTHhJZpy5lA2UUwMsfSZkUPAZ3952sCHX7CXgb_RTS44n4l1o',
+4|server  |       driverDeviceId: 'UP1A.231005.007',
+4|server  |       wallet: 25
+4|server  |     },
+4|server  |     distance: 1373
+4|server  |   },
+4|server  |   {
+4|server  |     driverz: {
+4|server  |       address: [Object],
+4|server  |       aadharCard: [Object],
+4|server  |       drivingLicence: [Object],
+4|server  |       _id: new ObjectId('69aac55b0739ac966bbeafcc'),
+4|server  |       driverId: 'FV059',
+4|server  |       driverName: 'Subash Jangra',
+4|server  |       image: '/image/1772879019630-image.jpg',
+4|server  |       status: true,
+4|server  |       email: 'subhashj6789@gmail.com',
+4|server  |       password: '1234',
+4|server  |       activeStatus: 'online',
+4|server  |       Police_Verification_Copy: '/Police_Verification_Copy/1772799321381-Police_Verification_Copy.jpeg',
+4|server  |       createdAt: 2026-03-06T12:15:23.316Z,
+4|server  |       updatedAt: 2026-03-27T03:54:35.669Z,
+4|server  |       __v: 0,
+4|server  |       fcmToken: 'czpFrKhHRPCuD_zjXnqjHG:APA91bGEfCJevQfMgEM-eJrS1v7TRwtpLScAHFlq_-0JVyqV-paEnAGcFuXKAw8VWf2qKdllcxDznEbKMgtoHVxUEhPABu5a2vNCgG0-DCV496ixrrxYWQk',
+4|server  |       driverDeviceId: 'UKQ1.230924.001',
+4|server  |       wallet: 71.1864406779661,
+4|server  |       upiId: 'subhashj689@ibl'
+4|server  |     },
+4|server  |     distance: 2427
+4|server  |   },
+4|server  |   {
+4|server  |     driverz: {
+4|server  |       address: [Object],
+4|server  |       aadharCard: [Object],
+4|server  |       drivingLicence: [Object],
+4|server  |       _id: new ObjectId('69b8ede5607cdc050255707b'),
+4|server  |       driverId: 'FV061',
+4|server  |       driverName: 'Yogesh Jangra',
+4|server  |       image: '/image/1773727386410-image.png',
+4|server  |       status: true,
+4|server  |       email: 'yjangra207@gmail.com',
+4|server  |       password: '1234',
+4|server  |       vehicleRegistrationNumber: '00',
+4|server  |       drivingLicenseNumber: '00',
+4|server  |       activeStatus: 'online',
+4|server  |       Police_Verification_Copy: '/Police_Verification_Copy/1773727203413-Police_Verification_Copy.jpg',
+4|server  |       createdAt: 2026-03-17T06:00:05.630Z,
+4|server  |       updatedAt: 2026-03-26T14:51:18.934Z,
+4|server  |       __v: 0,
+4|server  |       driverDeviceId: 'CP1A.260305.018',
+4|server  |       upiId: 'mirkanyogesh@ptyes'
+4|server  |     },
+4|server  |     distance: 3761
+4|server  |   }
+4|server  | ]
+4|server  | ⚙️ Auto-adjusted retries: 180 x 10s = 30 min
+4|server  | 📢 Broadcasting order OID406 to 5 drivers...
+4|server  | 📱 Driver 699fed2da89f885b790b69d0 offline, push-only mode
+4|server  | 📱 Driver 6944f641718c537e854574bc offline, push-only mode
+4|server  | 📱 Driver 69883912917546a7815aeeb3 offline, push-only mode
+4|server  | 📱 Driver 69aac55b0739ac966bbeafcc offline, push-only mode
+4|server  | 📱 Driver 69b8ede5607cdc050255707b offline, push-only mode
+^C
+root@sstsit:/home/api/public_html# pm2 restart server
+Use --update-env to update environment variables
+[PM2] Applying action restartProcessId on app [server](ids: [ 4 ])
+[PM2] [server](4) ✓
+┌────┬───────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name          │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼───────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 2  │ admin8010     │ default     │ N/A     │ fork    │ 1636     │ 5M     │ 0    │ online    │ 0%       │ 154.2mb  │ root     │ disabled │
+│ 0  │ fivlia8000    │ default     │ N/A     │ fork    │ 1622     │ 5M     │ 0    │ online    │ 0%       │ 209.0mb  │ root     │ disabled │
+│ 1  │ seller8030    │ default     │ N/A     │ fork    │ 1625     │ 5M     │ 0    │ online    │ 0%       │ 217.5mb  │ root     │ disabled │
+│ 4  │ server        │ default     │ N/A     │ fork    │ 1526432  │ 0s     │ 601… │ online    │ 0%       │ 17.3mb   │ root     │ disabled │
+│ 3  │ store8020     │ default     │ N/A     │ fork    │ 1648     │ 5M     │ 0    │ online    │ 0%       │ 229.8mb  │ root     │ disabled │
+└────┴───────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+root@sstsit:/home/api/public_html# 

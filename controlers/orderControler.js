@@ -915,6 +915,17 @@ exports.orderStatus = async (req, res) => {
     const updatedOrder = await Order.findByIdAndUpdate(id, updateData, {
       new: true,
     });
+
+    if (status === "Cancelled") {
+      const deleteAssignments = await Assign.deleteMany({
+        orderId: updatedOrder.orderId,
+        orderStatus: "Accepted",
+      });
+      console.log(
+        `Deleted ${deleteAssignments.deletedCount} Accepted assignments for cancelled order ${updatedOrder.orderId}`,
+      );
+    }
+
     if (!updatedOrder)
       return res.status(404).json({ message: "Order not found" });
     if (status === "Accepted") {

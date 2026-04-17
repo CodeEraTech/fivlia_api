@@ -42,13 +42,18 @@ const autoAssignDriver = async (orderId) => {
       const driverLng = driverData.longitude;
 
       const distance = findAvailableDriversNearUser(userLat, userLng, driverLat, driverLng);
-// console.log('distance',distance)
+      console.log('distance',distance)
+
       if (distance <= 5000) {
+        console.log("Raw Drivers", drivers)
         availableDrivers.push({ driverz: d, distance });
+        console.log("Available driver:", availableDrivers);
       }
     }
 
     availableDrivers.sort((a, b) => a.distance - b.distance);
+
+    console.log("Available driver After Sorting:", availableDrivers);
 
     assignWithSocketLoop(order, availableDrivers.map(d => d.driverz));
 

@@ -34,8 +34,8 @@ const autoAssignDriver = async (orderId) => {
       const driverDocRef = db.collection('updates').doc(String(d._id));
       const driverSnapshot = await driverDocRef.get();
       if (!driverSnapshot.exists) {
-  continue;
-}
+        continue;
+      }
       const driverData = driverSnapshot.data();
 // console.log('driverData',driverData)
       const driverLat = driverData.latitude;

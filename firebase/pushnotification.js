@@ -1,7 +1,7 @@
 const axios = require("axios");
 const getAccessToken = require("./getAccessToken"); // adjust path if needed
 
-async function sendNotification(fcmToken, title, body, clickAction = "/dashboard1", data = {},soundType = "custom_sound" ) {
+async function sendNotification(fcmToken, title, body, clickAction = "/dashboard1", data = {},soundType ) {
   const token = await getAccessToken();
 
   const fcmUrl = "https://fcm.googleapis.com/v1/projects/fivlia-quick-commerce/messages:send";
@@ -15,15 +15,15 @@ async function sendNotification(fcmToken, title, body, clickAction = "/dashboard
       },
       android: {
         notification: {
-          sound: soundType === "default" ? "default" : soundType,
-          ...(soundType !== "default" ? { channelId: "channel_id" } : {}),
+          sound: soundType,
+          channelId: "channel_id",
         },
       },
       apns: {
         payload: {
           aps: {
             alert: { title, body },
-            sound: soundType === "custom_sound.wav" ? "custom_sound.wav" : "custom_sound.wav",
+            sound: `${soundType}.wav`,
           },
         },
       },

@@ -5,25 +5,174 @@ const {
 const Assign = require("../../modals/driverModals/assignments");
 const Address = require("../../modals/Address");
 const { Order } = require("../../modals/order");
+const Dispatch = require("../../modals/dispatch");
 const admin = require("../../firebase/firebase");
 const Store = require("../../modals/store");
 const User = require("../../modals/User");
 const { SettingAdmin } = require("../../modals/setting");
 const { notifyEntity } = require("../../utils/notifyStore");
+const { getRedisClient } = require("../../utils/redisClient");
 // new socket code of user order status
 const {
   emitUserOrderStatusUpdate,
 } = require("../../utils/emitUserOrderStatusUpdate");
 
-const assignedOrders = new Set();
-const rejectedDriversMap = new Map();
-const retryTracker = new Map();
 const orderTimeouts = new Map();
+const DISPATCH_REDIS_TTL_SECONDS = Number(
+  process.env.DISPATCH_REDIS_TTL_SECONDS || 24 * 60 * 60,
+);
+
+const getDispatchRedisKeys = (orderId) => ({
+  state: `dispatch:${orderId}:state`,
+  rejectedDrivers: `dispatch:${orderId}:rejectedDrivers`,
+  respondedDrivers: `dispatch:${orderId}:respondedDrivers`,
+});
+
+const touchDispatchRedisKeys = async (redis, keys) => {
+  if (!redis || !DISPATCH_REDIS_TTL_SECONDS) return;
+
+  await Promise.all([
+    redis.expire(keys.state, DISPATCH_REDIS_TTL_SECONDS),
+    redis.expire(keys.rejectedDrivers, DISPATCH_REDIS_TTL_SECONDS),
+    redis.expire(keys.respondedDrivers, DISPATCH_REDIS_TTL_SECONDS),
+  ]);
+};
+
+const cacheRedisDispatchState = async (orderId, state, redisClient = null) => {
+  const redis = redisClient || (await getRedisClient());
+  if (!redis || !state) return;
+
+  const keys = getDispatchRedisKeys(orderId);
+  const rejectedDrivers = (state.rejectedDrivers || []).map((id) =>
+    id.toString(),
+  );
+  const respondedDrivers = (state.respondedDrivers || []).map((id) =>
+    id.toString(),
+  );
+
+  try {
+    await redis.hSet(keys.state, {
+      assigned: state.assigned ? "1" : "0",
+      retryCount: String(state.retryCount || 0),
+      status: state.status || "pending",
+    });
+
+    await redis.del(keys.rejectedDrivers);
+    if (rejectedDrivers.length) {
+      await redis.sAdd(keys.rejectedDrivers, rejectedDrivers);
+    }
+
+    await redis.del(keys.respondedDrivers);
+    if (respondedDrivers.length) {
+      await redis.sAdd(keys.respondedDrivers, respondedDrivers);
+    }
+
+    await touchDispatchRedisKeys(redis, keys);
+  } catch (err) {
+    console.warn("Redis dispatch cache write failed:", err.message);
+  }
+};
+
+const readRedisDispatchState = async (orderId) => {
+  const redis = await getRedisClient();
+  if (!redis) return null;
+
+  const keys = getDispatchRedisKeys(orderId);
+
+  try {
+    const state = await redis.hGetAll(keys.state);
+    if (
+      !state ||
+      !Object.prototype.hasOwnProperty.call(state, "assigned") ||
+      !Object.prototype.hasOwnProperty.call(state, "retryCount")
+    ) {
+      return null;
+    }
+
+    const [rejectedDrivers, respondedDrivers] = await Promise.all([
+      redis.sMembers(keys.rejectedDrivers),
+      redis.sMembers(keys.respondedDrivers),
+    ]);
+
+    await touchDispatchRedisKeys(redis, keys);
+
+    return {
+      assigned: state.assigned === "1",
+      retryCount: Number(state.retryCount || 0),
+      rejectedDrivers,
+      respondedDrivers,
+      status: state.status || "pending",
+    };
+  } catch (err) {
+    console.warn("Redis dispatch cache read failed:", err.message);
+    return null;
+  }
+};
+
+const createDispatchState = async (orderId) =>
+  Dispatch.findOneAndUpdate(
+    { orderId },
+    {
+      $setOnInsert: {
+        orderId,
+        assigned: false,
+        retryCount: 0,
+        rejectedDrivers: [],
+        respondedDrivers: [],
+        status: "pending",
+      },
+    },
+    { upsert: true, new: true },
+  ).lean();
+
+const getDispatchState = async (orderId) => {
+  const redisState = await readRedisDispatchState(orderId);
+  if (redisState) return redisState;
+
+  const dispatchState = await createDispatchState(orderId);
+  await cacheRedisDispatchState(orderId, dispatchState);
+  return dispatchState;
+};
+
+const updateRedisDispatchState = async (orderId, updater) => {
+  const redis = await getRedisClient();
+  if (!redis || !updater) return;
+
+  const keys = getDispatchRedisKeys(orderId);
+
+  try {
+    const stateExists = await redis.exists(keys.state);
+    if (!stateExists) {
+      const dispatchState = await Dispatch.findOne({ orderId }).lean();
+      await cacheRedisDispatchState(orderId, dispatchState, redis);
+      return;
+    }
+
+    await updater(redis, keys);
+    await touchDispatchRedisKeys(redis, keys);
+  } catch (err) {
+    console.warn("Redis dispatch cache update failed:", err.message);
+  }
+};
+
+const updateDispatchState = async (orderId, update, redisUpdater = null) => {
+  await Dispatch.updateOne(
+    { orderId },
+    { $setOnInsert: { orderId }, ...update },
+    { upsert: true, setDefaultsOnInsert: false },
+  );
+
+  await updateRedisDispatchState(orderId, redisUpdater);
+};
+
+const toStringSet = (values = []) =>
+  new Set(values.map((value) => value.toString()));
 
 const assignWithBroadcast = async (order, drivers) => {
   const orderId = order.orderId.toString();
+  const dispatchState = await getDispatchState(orderId);
 
-  if (assignedOrders.has(orderId)) {
+  if (dispatchState?.assigned) {
     console.warn(`⚠️ Order ${orderId} already assigned. Aborting broadcast.`);
     return;
   }
@@ -48,7 +197,7 @@ const assignWithBroadcast = async (order, drivers) => {
     }s = ${cancelAfterMinutes} min`,
   );
 
-  const retryCount = retryTracker.get(orderId) || 0;
+  const retryCount = dispatchState?.retryCount || 0;
   if (retryCount >= MAX_RETRY_COUNT) {
     const cancelledOrder = await Order.findOneAndUpdate(
       { orderId },
@@ -99,10 +248,34 @@ const assignWithBroadcast = async (order, drivers) => {
     } catch (e) {
       console.error("⚠️ Auto-cancel push error:", e);
     }
+    await updateDispatchState(
+      orderId,
+      {
+        $set: { assigned: false, status: "cancelled" },
+      },
+      async (redis, keys) => {
+        await redis.hSet(keys.state, {
+          assigned: "0",
+          status: "cancelled",
+        });
+      },
+    );
     return;
   }
 
-  retryTracker.set(orderId, retryCount + 1);
+  await updateDispatchState(
+    orderId,
+    {
+      $inc: { retryCount: 1 },
+      $set: { status: "pending" },
+    },
+    async (redis, keys) => {
+      await Promise.all([
+        redis.hIncrBy(keys.state, "retryCount", 1),
+        redis.hSet(keys.state, { status: "pending" }),
+      ]);
+    },
+  );
 
   let orderAssigned = false;
   const respondedDrivers = new Set();
@@ -110,7 +283,7 @@ const assignWithBroadcast = async (order, drivers) => {
   const orderStore = await Store.findOne({ _id: order.storeId }).lean();
   const orderUser = await User.findOne({ _id: order.userId }).lean();
 
-  const rejectedDrivers = rejectedDriversMap.get(orderId) || new Set();
+  const rejectedDrivers = toStringSet(dispatchState?.rejectedDrivers);
 
   const availableDrivers = drivers.filter(
     (driver) => !rejectedDrivers.has(driver._id.toString()),
@@ -241,8 +414,23 @@ const assignWithBroadcast = async (order, drivers) => {
           "assignDriver.driverAccepted",
         );
 
-        assignedOrders.add(orderId);
         orderAssigned = true;
+        await updateDispatchState(
+          orderId,
+          {
+            $set: { assigned: true, status: "assigned" },
+            $addToSet: { respondedDrivers: driverId },
+          },
+          async (redis, keys) => {
+            await Promise.all([
+              redis.hSet(keys.state, {
+                assigned: "1",
+                status: "assigned",
+              }),
+              redis.sAdd(keys.respondedDrivers, driverId),
+            ]);
+          },
+        );
 
         console.log(`🎉 Driver ${driverId} accepted order ${orderId}`);
 
@@ -290,6 +478,26 @@ const assignWithBroadcast = async (order, drivers) => {
 
         respondedDrivers.add(driverId);
         rejectedDrivers.add(driverId);
+        await updateDispatchState(
+          orderId,
+          {
+            $set: { assigned: false, status: "pending" },
+            $addToSet: {
+              rejectedDrivers: driverId,
+              respondedDrivers: driverId,
+            },
+          },
+          async (redis, keys) => {
+            await Promise.all([
+              redis.hSet(keys.state, {
+                assigned: "0",
+                status: "pending",
+              }),
+              redis.sAdd(keys.rejectedDrivers, driverId),
+              redis.sAdd(keys.respondedDrivers, driverId),
+            ]);
+          },
+        );
 
         await Assign.updateOne(
           { driverId, orderId },
@@ -333,7 +541,6 @@ const assignWithBroadcast = async (order, drivers) => {
 
     const isStillUnassigned =
       !orderAssigned &&
-      !assignedOrders.has(orderId) &&
       (!existingOrder?.driver ||
         existingOrder?.orderStatus !== "Going to Pickup");
 
@@ -347,12 +554,34 @@ const assignWithBroadcast = async (order, drivers) => {
         console.info(
           `🔁 All drivers rejected or no response for order ${orderId}. Retrying with all drivers...`,
         );
-        rejectedDriversMap.set(orderId, new Set());
+        await updateDispatchState(
+          orderId,
+          {
+            $set: { rejectedDrivers: [] },
+          },
+          async (redis, keys) => {
+            await redis.del(keys.rejectedDrivers);
+          },
+        );
       } else {
         console.info(
           `⏱️ No driver accepted order ${orderId}. Retrying with remaining drivers...`,
         );
-        rejectedDriversMap.set(orderId, rejectedDrivers);
+        await updateDispatchState(
+          orderId,
+          {
+            $set: { rejectedDrivers: Array.from(rejectedDrivers) },
+          },
+          async (redis, keys) => {
+            await redis.del(keys.rejectedDrivers);
+            if (rejectedDrivers.size) {
+              await redis.sAdd(
+                keys.rejectedDrivers,
+                Array.from(rejectedDrivers),
+              );
+            }
+          },
+        );
       }
 
       cleanupAllListeners();

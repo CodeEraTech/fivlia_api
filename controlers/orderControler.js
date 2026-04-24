@@ -100,6 +100,7 @@ const notifySeller = async (
   body,
   clickAction = "/dashboard1",
   data = {},
+  soundType = "custom_sound",
 ) => {
   try {
     // ✅ Support both new (devices[]) and old (fcmToken) formats
@@ -125,7 +126,14 @@ const notifySeller = async (
     // Send to each token (keep your existing logic)
     for (const token of tokens) {
       try {
-        await sendNotification(token, title, body, clickAction, data);
+        await sendNotification(
+          token,
+          title,
+          body,
+          clickAction,
+          data,
+          soundType,
+        );
       } catch (err) {
         console.error(
           "notifySeller: sendNotification failed for token",
@@ -415,7 +423,7 @@ exports.placeOrder = async (req, res) => {
           `Order #${newOrder.orderId} worth ₹${newOrder.totalPrice} placed.`,
           "/orders",
           {},
-          "default",
+          "custom_sound",
         );
       }
 
@@ -578,7 +586,7 @@ exports.verifyPayment = async (req, res) => {
           `Order #${finalOrder.orderId} worth ₹${finalOrder.totalPrice} placed.`,
           "/orders",
           {},
-          "default",
+          "custom_sound",
         );
       }
 
@@ -897,7 +905,7 @@ exports.orderStatus = async (req, res) => {
               orderId: orderDoc.orderId,
               driverName: driverDoc.driverName,
             },
-            "default",
+            "custom_sound",
           );
         }
       }
@@ -1039,7 +1047,7 @@ exports.orderStatus = async (req, res) => {
             `Driver delivered order #${updatedOrder.orderId}.`,
             "/dashboard1",
             { orderId: updatedOrder.orderId },
-            "default",
+            "custom_sound",
           );
         }
 
@@ -1633,6 +1641,21 @@ exports.sendNotifications = async (req, res) => {
     const response = await admin.messaging().sendEachForMulticast({
       tokens,
       notification: { title, body: description },
+      android: {
+        notification: {
+          sound: "custom_sound", // android custom sound (no extension)
+          channelId: "channel_id",
+        },
+      },
+
+      apns: {
+        payload: {
+          aps: {
+            sound: "custom_sound.wav", // iOS requires extension
+          },
+        },
+      },
+
       data: { click_action: "FLUTTER_NOTIFICATION_CLICK" },
     });
 

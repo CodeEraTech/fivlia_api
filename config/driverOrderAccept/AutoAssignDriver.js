@@ -11,7 +11,7 @@ const { Order } = require("../../modals/order");
 const driver = require("../../modals/driver");
 const { ZoneData } = require("../../modals/cityZone");
 const admin = require("../../firebase/firebase");
-
+const telegramOrderLog = require("../../utils/telegram_logs");
 const db = admin.firestore();
 
 const autoAssignDriver = async (orderId) => {
@@ -62,6 +62,7 @@ const autoAssignDriver = async (orderId) => {
     const zoneRange = getActiveZoneRange(matchedZone, zoneWindowConfig);
 
     const availableDrivers = [];
+    const rawDriversWithDistance = [];
 
     for (let d of drivers) {
       if (busyDriverIds.includes(String(d._id))) continue;
@@ -84,13 +85,25 @@ const autoAssignDriver = async (orderId) => {
       );
       console.log("distance", distance);
 
+      rawDriversWithDistance.push(`${d.driverName} (${d._id}) | ${distance}m`);
+
       if (distance <= (zoneRange || 5000)) {
         console.log(
           "Raw Drivers",
           drivers.map((dr) => String(dr.driverName)),
         );
+
         console.log("Busy Drivers", busyDriverIds);
+
+        await telegramOrderLog("🚚 BUSY DRIVERS", {
+          orderId: order.orderId,
+          busyDrivers: busyDriverIds,
+        });
         console.log("Rejected Drivers for Order", rejectedDriverIdsForOrder);
+        await telegramOrderLog("❌ REJECTED DRIVERS", {
+          orderId: order.orderId,
+          rejectedDrivers: rejectedDriverIdsForOrder,
+        });
         availableDrivers.push({ driverz: d, distance });
         console.log("Available driver:", availableDrivers);
       }
@@ -98,6 +111,17 @@ const autoAssignDriver = async (orderId) => {
 
     availableDrivers.sort((a, b) => a.distance - b.distance);
 
+    await telegramOrderLog("🚚 RAW DRIVERS", {
+      orderId: order.orderId,
+      drivers: rawDriversWithDistance,
+    });
+
+    await telegramOrderLog("📍 AVAILABLE DRIVERS", {
+      orderId: order.orderId,
+      drivers: availableDrivers.map(
+        (d) => `${d.driverz.driverName} (${d.driverz._id}) | ${d.distance}m`,
+      ),
+    });
     console.log("Available driver After Sorting:", availableDrivers);
 
     assignWithSocketLoop(

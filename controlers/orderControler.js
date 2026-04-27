@@ -38,6 +38,11 @@ const {
   resolveDeliveryRatesForMode,
 } = require("../utils/deliveryCharge");
 const {
+  buildPlatformPushConfig,
+  CUSTOM_PUSH_SOUND,
+  DEFAULT_PUSH_SOUND,
+} = require("../utils/pushSoundConfig");
+const {
   generateAndSendThermalInvoice,
   generateStoreInvoiceId,
 } = require("../config/invoice");
@@ -52,6 +57,8 @@ const {
   verifyRazorpayPayment,
   getCommison,
 } = require("../utils/razorpayService");
+
+const telegramOrderLog = require("../utils/telegram_logs");
 
 const MAX_DISTANCE_METERS = 5000;
 const MAX_ATTEMPTS = 10; // retry 10 times (for example, every 30s = 5 minutes total)
@@ -100,7 +107,7 @@ const notifySeller = async (
   body,
   clickAction = "/dashboard1",
   data = {},
-  soundType = "custom_sound",
+  soundType = CUSTOM_PUSH_SOUND,
 ) => {
   try {
     // ✅ Support both new (devices[]) and old (fcmToken) formats
@@ -382,6 +389,16 @@ exports.placeOrder = async (req, res) => {
       }
       const sellerDoc = await Store.findById(storeId);
 
+      await telegramOrderLog("📦 ORDER PLACED", {
+        orderId: newOrder.orderId,
+        userId: userId,
+        storeId: storeId,
+        storeName: sellerDoc?.storeName,
+        amount: newOrder.totalPrice,
+        paymentMode: "Cash On Delivery",
+      });
+
+
       if (sellerDoc) {
         await notifySeller(
           sellerDoc,
@@ -392,6 +409,12 @@ exports.placeOrder = async (req, res) => {
         console.log(
           `${nextOrderId} notification started for seller-> ${sellerDoc.storeName}`,
         );
+
+        await telegramOrderLog("🏪 STORE NOTIFIED", {
+          orderId: newOrder.orderId,
+          storeId: sellerDoc._id,
+          storeName: sellerDoc.storeName,
+        });
         // repeatNotifyStore(newOrder.orderId, sellerDoc);
 
         const sellerSocket = sellerSocketMap.get(sellerDoc._id.toString());
@@ -423,7 +446,7 @@ exports.placeOrder = async (req, res) => {
           `Order #${newOrder.orderId} worth ₹${newOrder.totalPrice} placed.`,
           "/orders",
           {},
-          "custom_sound",
+          CUSTOM_PUSH_SOUND,
         );
       }
 
@@ -546,6 +569,13 @@ exports.verifyPayment = async (req, res) => {
 
     const finalOrder = await Order.create(orderData);
 
+    await telegramOrderLog("📦 ORDER PLACED", {
+      orderId: finalOrder.orderId,
+      userId: finalOrder.userId,
+      storeId: finalOrder.storeId,
+      amount: finalOrder.totalPrice,
+    });
+
     for (const item of tempOrder.items) {
       await stock.updateOne(
         {
@@ -586,7 +616,7 @@ exports.verifyPayment = async (req, res) => {
           `Order #${finalOrder.orderId} worth ₹${finalOrder.totalPrice} placed.`,
           "/orders",
           {},
-          "custom_sound",
+          CUSTOM_PUSH_SOUND,
         );
       }
 
@@ -890,7 +920,7 @@ exports.orderStatus = async (req, res) => {
               driverMobile: driverDoc.address?.mobileNo || "",
               storeName: storeData?.storeName || "Fivlia",
             },
-            "default",
+            DEFAULT_PUSH_SOUND,
           );
         }
 
@@ -905,7 +935,7 @@ exports.orderStatus = async (req, res) => {
               orderId: orderDoc.orderId,
               driverName: driverDoc.driverName,
             },
-            "custom_sound",
+            CUSTOM_PUSH_SOUND,
           );
         }
       }
@@ -922,6 +952,12 @@ exports.orderStatus = async (req, res) => {
     // 1. Update order status
     const updatedOrder = await Order.findByIdAndUpdate(id, updateData, {
       new: true,
+    });
+
+    await telegramOrderLog("📦 ORDER STATUS UPDATED", {
+      orderId: updatedOrder.orderId,
+      status,
+      storeId: updatedOrder.storeId,
     });
 
     if (status === "Cancelled") {
@@ -1047,7 +1083,7 @@ exports.orderStatus = async (req, res) => {
             `Driver delivered order #${updatedOrder.orderId}.`,
             "/dashboard1",
             { orderId: updatedOrder.orderId },
-            "custom_sound",
+            CUSTOM_PUSH_SOUND,
           );
         }
 
@@ -1076,7 +1112,7 @@ exports.orderStatus = async (req, res) => {
           orderId: updatedOrder.orderId,
           statusCode: statusInfo.statusCode,
         },
-        "default",
+        DEFAULT_PUSH_SOUND,
       );
     }
 
@@ -1481,7 +1517,8 @@ exports.sendNotifications = async (req, res) => {
   try {
     const { title, description, sendType, city = [], zone = [] } = req.body;
 
-    let tokens = [];
+    let userTokens = [];
+    let customSoundTokens = [];
 
     // Load all zone data once
     const cityZoneDocs = await ZoneData.find({}).lean();
@@ -1504,7 +1541,7 @@ exports.sendNotifications = async (req, res) => {
 
         // ALL CITY → include all users
         if (isAllCity) {
-          tokens.push(u.fcmToken);
+          userTokens.push(u.fcmToken);
           continue;
         }
 
@@ -1528,7 +1565,7 @@ exports.sendNotifications = async (req, res) => {
           );
           // console.log('user matched',matched)
           if (matched) {
-            tokens.push(u.fcmToken);
+            userTokens.push(u.fcmToken);
             break;
           }
         }
@@ -1557,7 +1594,7 @@ exports.sendNotifications = async (req, res) => {
 
         // ALL CITY → include all sellers
         if (isAllCity) {
-          tokens.push(...sellerTokens);
+          customSoundTokens.push(...sellerTokens);
           continue;
         }
 
@@ -1567,7 +1604,7 @@ exports.sendNotifications = async (req, res) => {
 
         // ALL ZONE → include all sellers of selected city
         if (isAllZone) {
-          tokens.push(...sellerTokens);
+          customSoundTokens.push(...sellerTokens);
           continue;
         }
 
@@ -1575,7 +1612,7 @@ exports.sendNotifications = async (req, res) => {
         const intersects = storeZoneIds.some((zid) => zone.includes(zid));
         // console.log('seller intersects',intersects)
         if (intersects) {
-          tokens.push(...sellerTokens);
+          customSoundTokens.push(...sellerTokens);
         }
       }
     }
@@ -1594,7 +1631,7 @@ exports.sendNotifications = async (req, res) => {
 
         // ALL CITY → include all drivers
         if (isAllCity) {
-          tokens.push(dr.fcmToken);
+          customSoundTokens.push(dr.fcmToken);
           continue;
         }
 
@@ -1623,7 +1660,7 @@ exports.sendNotifications = async (req, res) => {
           );
           // console.log('driver matched',matched)
           if (matched) {
-            tokens.push(dr.fcmToken);
+            customSoundTokens.push(dr.fcmToken);
             break;
           }
         }
@@ -1633,37 +1670,48 @@ exports.sendNotifications = async (req, res) => {
     /* ---------------------------------------------------------
        4️⃣ SEND NOTIFICATIONS
     --------------------------------------------------------- */
-    tokens = [...new Set(tokens)].filter(Boolean);
+    userTokens = [...new Set(userTokens)].filter(Boolean);
+    customSoundTokens = [...new Set(customSoundTokens)].filter(Boolean);
 
-    if (tokens.length === 0)
+    const customTokenSet = new Set(customSoundTokens);
+    userTokens = userTokens.filter((token) => !customTokenSet.has(token));
+
+    const totalRecipients = userTokens.length + customSoundTokens.length;
+
+    if (totalRecipients === 0)
       return res.status(400).json({ message: "No recipients found" });
 
-    const response = await admin.messaging().sendEachForMulticast({
-      tokens,
-      notification: { title, body: description },
-      android: {
-        notification: {
-          sound: "custom_sound", // android custom sound (no extension)
-          channelId: "channel_id",
-        },
-      },
+    const [userResponse, customSoundResponse] = await Promise.all([
+      userTokens.length
+        ? admin.messaging().sendEachForMulticast({
+            tokens: userTokens,
+            notification: { title, body: description },
+            ...buildPlatformPushConfig(title, description, DEFAULT_PUSH_SOUND),
+            data: { click_action: "FLUTTER_NOTIFICATION_CLICK" },
+          })
+        : Promise.resolve(null),
+      customSoundTokens.length
+        ? admin.messaging().sendEachForMulticast({
+            tokens: customSoundTokens,
+            notification: { title, body: description },
+            ...buildPlatformPushConfig(title, description, CUSTOM_PUSH_SOUND),
+            data: { click_action: "FLUTTER_NOTIFICATION_CLICK" },
+          })
+        : Promise.resolve(null),
+    ]);
 
-      apns: {
-        payload: {
-          aps: {
-            sound: "custom_sound.wav", // iOS requires extension
-          },
-        },
-      },
-
-      data: { click_action: "FLUTTER_NOTIFICATION_CLICK" },
-    });
+    const successCount =
+      (userResponse?.successCount || 0) +
+      (customSoundResponse?.successCount || 0);
+    const failureCount =
+      (userResponse?.failureCount || 0) +
+      (customSoundResponse?.failureCount || 0);
 
     res.json({
       message: "Notification sent",
-      totalSentTo: tokens.length,
-      success: response.successCount,
-      failed: response.failureCount,
+      totalSentTo: totalRecipients,
+      success: successCount,
+      failed: failureCount,
     });
   } catch (err) {
     console.error(err);

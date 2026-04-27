@@ -10,7 +10,12 @@ const admin = require("../../firebase/firebase");
 const Store = require("../../modals/store");
 const User = require("../../modals/User");
 const { SettingAdmin } = require("../../modals/setting");
+const telegramOrderLog = require("../../utils/telegram_logs");
 const { notifyEntity } = require("../../utils/notifyStore");
+const {
+  buildPlatformPushConfig,
+  DEFAULT_PUSH_SOUND,
+} = require("../../utils/pushSoundConfig");
 const { getRedisClient } = require("../../utils/redisClient");
 // new socket code of user order status
 const {
@@ -228,9 +233,11 @@ const assignWithBroadcast = async (order, drivers) => {
               title: "Order Cancelled ❌",
               body: `Your order #${orderId} was cancelled as no driver accepted.`,
             },
-            android: {
-              notification: { channelId: "default_channel", sound: "default" },
-            },
+            ...buildPlatformPushConfig(
+              "Order Cancelled ❌",
+              `Your order #${orderId} was cancelled as no driver accepted.`,
+              DEFAULT_PUSH_SOUND,
+            ),
             data: { type: "cancelled", orderId },
           });
         }
@@ -325,7 +332,7 @@ const assignWithBroadcast = async (order, drivers) => {
             },
             android: {
               notification: {
-                channelId: "custom_sound_channel",
+                channelId: "channel_id",
                 sound: "custom_sound",
               },
             },
@@ -335,8 +342,12 @@ const assignWithBroadcast = async (order, drivers) => {
               screen: "TodayOrderScreen",
             },
           })
-          .then(() => {
+          .then(async () => {
             console.log(`📩 Push sent to driver ${driverId}`);
+
+            await telegramOrderLog("📲 PUSH SENT TO DRIVER", {
+              driverId,
+            });
           })
           .catch((err) => console.error("Push error:", err));
       }
@@ -348,7 +359,7 @@ const assignWithBroadcast = async (order, drivers) => {
       const socket = driverSocketMap.get(driverId);
 
       if (!socket) {
-        console.log(`📱 Driver ${driverId} offline, push-only mode`);
+        console.log(`📱 Driver ${driverId} not connected to socket, push-only mode`);
         return;
       }
 
@@ -434,6 +445,12 @@ const assignWithBroadcast = async (order, drivers) => {
 
         console.log(`🎉 Driver ${driverId} accepted order ${orderId}`);
 
+        await telegramOrderLog("✅ DRIVER ACCEPTED", {
+          orderId,
+          driverId,
+          driverName: driver.driverName,
+        });
+
         if (orderTimeouts.has(orderId)) {
           clearTimeout(orderTimeouts.get(orderId));
           orderTimeouts.delete(orderId);
@@ -506,6 +523,12 @@ const assignWithBroadcast = async (order, drivers) => {
         );
 
         console.log(`❌ Driver ${driverId} rejected order ${orderId}`);
+
+        await telegramOrderLog("❌ DRIVER REJECTED", {
+          orderId,
+          driverId,
+          driverName: driver.driverName,
+        });
       };
 
       // Attach Listeners

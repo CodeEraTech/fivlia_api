@@ -26,6 +26,11 @@ const {
   generateAndSendThermalInvoice,
   generateStoreInvoiceId,
 } = require("../config/invoice");
+const {
+  buildPlatformPushConfig,
+  CUSTOM_PUSH_SOUND,
+  DEFAULT_PUSH_SOUND,
+} = require("../utils/pushSoundConfig");
 const Transaction = require("../modals/driverModals/transaction");
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
@@ -345,12 +350,11 @@ exports.driverOrderStatus = async (req, res) => {
                 title: "Order Delivered 🎉",
                 body: `Your order #${orderId} has been delivered successfully.`,
               },
-              android: {
-                notification: {
-                  channelId: "default_channel",
-                  sound: "default",
-                },
-              },
+              ...buildPlatformPushConfig(
+                "Order Delivered 🎉",
+                `Your order #${orderId} has been delivered successfully.`,
+                DEFAULT_PUSH_SOUND,
+              ),
               data: {
                 type: "delivered",
                 orderId: orderId.toString(),
@@ -370,12 +374,11 @@ exports.driverOrderStatus = async (req, res) => {
                 title: "Order Delivered 🎉",
                 body: `Driver delivered order #${orderId}.`,
               },
-              android: {
-                notification: {
-                  channelId: "default_channel",
-                  sound: "default",
-                },
-              },
+              ...buildPlatformPushConfig(
+                "Order Delivered 🎉",
+                `Driver delivered order #${orderId}.`,
+                CUSTOM_PUSH_SOUND,
+              ),
               data: {
                 type: "delivered",
                 orderId: orderId.toString(),

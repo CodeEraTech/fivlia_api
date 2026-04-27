@@ -1,9 +1,6 @@
 const express = require("express");
-const path = require("path");
 require("dotenv").config();
 const connectDb = require("./database/database");
-const fs = require("fs");
-const https = require("https");
 const http = require("http");
 const socketIo = require("socket.io");
 const registerDriverSocket = require("./socket/socket");

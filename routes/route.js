@@ -232,6 +232,7 @@ const {
   GetSubSubCategories,
   GetSubCategories,
   setCommison,
+  EditSubCategory
 } = require("../controlers/categorycontroler");
 
 const {
@@ -549,6 +550,8 @@ router.put("/editNotification/:id", upload, editNotification);
 router.put("/markAllRead", markAllRead);
 router.delete("/deleteNotification/:id", deleteNotification);
 router.put("/setCommison", setCommison);
+
+router.post("/edit-category/:id", upload, EditSubCategory);
 
 router.get("/thermal-invoice/:orderId", generateThermalInvoiceController);
 

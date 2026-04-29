@@ -1696,6 +1696,8 @@ exports.getTopSeller = async (req, res) => {
       // Fetch ratings for the store
       const ratings = await Rating.find({ storeId: store._id });
 
+      const activeOffer = await getActiveStoreOffer(store._id);
+
       // Calculate average rating
       const averageRating =
         ratings.reduce((sum, rating) => sum + rating.rating, 0) /
@@ -1708,6 +1710,7 @@ exports.getTopSeller = async (req, res) => {
         image: store.image,
         averageRating: averageRating.toFixed(1),
         isAssured: store.fivliaAssured || false,
+        activeOffer: activeOffer?.offer || null,
       });
     }
 

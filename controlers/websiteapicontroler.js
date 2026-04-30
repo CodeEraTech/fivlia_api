@@ -1597,9 +1597,10 @@ exports.getAllSellerProducts = async (req, res) => {
             ...variant,
             stock: stockEntry?.quantity ?? 0,
             mrp: stockEntry?.mrp ?? variant.mrp,
-            sell_price: Number.isFinite(Number(sellPrice))
+            discounted_price: Number.isFinite(Number(sellPrice))
               ? Number(sellPrice)
               : 0,
+            sell_price:originalPrice,
             original_price: activeOffer && Number.isFinite(originalPrice)
               ? originalPrice
               : null,

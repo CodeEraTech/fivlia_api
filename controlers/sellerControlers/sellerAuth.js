@@ -1005,7 +1005,9 @@ exports.editSellerProfile = async (req, res) => {
 
 exports.sellerWithdrawalRequest = async (req, res) => {
   try {
-    const { storeId, amount } = req.body;
+    const { storeId } = req.body;
+    const amount = parseFloat(req.body.amount);
+
     const storeData = await seller.findById(storeId);
     if (!storeData)
       return res.status(204).json({ message: "Seller not found" });
@@ -1015,7 +1017,7 @@ exports.sellerWithdrawalRequest = async (req, res) => {
     //     message: `Email verification required. Please verify your registered email address before making a withdrawal.`,
     //   });
     // }
-    
+
     const settings = await SettingAdmin.findOne();
     const minWithdrawal = settings?.minWithdrawal || 0;
     if (amount < minWithdrawal) {
@@ -1098,7 +1100,7 @@ exports.getAllStore = async (req, res) => {
 
 exports.logoutSeller = async (req, res) => {
   try {
-    const {type} = req.query;
+    const { type } = req.query;
 
     const { sellerId, deviceId } = req.body;
 
@@ -1111,7 +1113,7 @@ exports.logoutSeller = async (req, res) => {
       return res.status(204).json({ message: "Seller not found" });
     }
 
-    if(type === "all") {
+    if (type === "all") {
       sellerDoc.devices = [];
       await sellerDoc.save();
       return res.status(200).json({
@@ -1322,7 +1324,7 @@ exports.deleteCoupon = async (req, res) => {
 
 exports.updateToken = async (req, res) => {
   try {
-    const {sellerId} = req.params;
+    const { sellerId } = req.params;
     const { deviceId, token } = req.body;
 
     console.log("req.body of update token", req.body);

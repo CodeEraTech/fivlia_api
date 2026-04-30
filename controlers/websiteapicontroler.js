@@ -47,7 +47,7 @@ exports.forwebbestselling = async (req, res) => {
     ]);
 
     const activeCitySet = new Set(
-      activeCities.map((c) => c.city?.toLowerCase())
+      activeCities.map((c) => c.city?.toLowerCase()),
     );
     const activeZoneIds = new Set();
     for (const doc of zoneDocs) {
@@ -70,7 +70,7 @@ exports.forwebbestselling = async (req, res) => {
     // Collect all category IDs
     const allCategoryIds = new Set();
     let categoryIds = allowedStores.flatMap((store) =>
-      Array.isArray(store.Category) ? store.Category : [store.Category]
+      Array.isArray(store.Category) ? store.Category : [store.Category],
     );
 
     if (categoryIds.length < 1) {
@@ -129,8 +129,8 @@ exports.forwebbestselling = async (req, res) => {
     // Only include products that have at least one entry in stock
     const stockProductIds = new Set(
       stockDocs.flatMap((doc) =>
-        (doc.stock || []).map((item) => item.productId.toString())
-      )
+        (doc.stock || []).map((item) => item.productId.toString()),
+      ),
     );
 
     // Fetch best-selling products from allowed categories and stock
@@ -210,7 +210,7 @@ exports.forwebbestselling = async (req, res) => {
       // Rebuild inventory for this product
       enrichedProduct.inventory = product.variants.map((variant) => {
         const match = variantOptions.find(
-          (opt) => opt.variantId.toString() === variant._id.toString()
+          (opt) => opt.variantId.toString() === variant._id.toString(),
         );
         return { variantId: variant._id, quantity: match ? match.quantity : 0 };
       });
@@ -218,7 +218,7 @@ exports.forwebbestselling = async (req, res) => {
       // Update sell_price and mrp for the selected variant
       product.variants.forEach((variant) => {
         const match = variantOptions.find(
-          (opt) => opt.variantId.toString() === variant._id.toString()
+          (opt) => opt.variantId.toString() === variant._id.toString(),
         );
         if (match) {
           variant.sell_price = match.price;
@@ -302,7 +302,7 @@ exports.forwebgetProduct = async (req, res) => {
         ? store.Category.map((id) => id?.toString())
         : store.Category
           ? [store.Category.toString()]
-          : []
+          : [],
     );
 
     if (storeCategoryIds.length < 1) {
@@ -428,8 +428,8 @@ exports.forwebgetProduct = async (req, res) => {
           if (filterId) {
             const matches = (product.filter || []).some((f) =>
               (f.selected || []).some(
-                (sel) => sel._id.toString() === filterId.toString()
-              )
+                (sel) => sel._id.toString() === filterId.toString(),
+              ),
             );
             if (!matches) continue;
           }
@@ -474,7 +474,7 @@ exports.forwebgetProduct = async (req, res) => {
 
         finalProd.inventory = product.variants.map((variant) => {
           const match = variantOptions.find(
-            (opt) => opt.variantId === variant._id.toString()
+            (opt) => opt.variantId === variant._id.toString(),
           );
           return {
             variantId: variant._id.toString(),
@@ -484,7 +484,7 @@ exports.forwebgetProduct = async (req, res) => {
 
         finalProd.variants = product.variants.map((variant) => {
           const match = variantOptions.find(
-            (opt) => opt.variantId === variant._id.toString()
+            (opt) => opt.variantId === variant._id.toString(),
           );
           return {
             ...variant,
@@ -646,7 +646,7 @@ exports.forwebgetFeatureProduct = async (req, res) => {
     ]);
 
     const activeCitySet = new Set(
-      activeCities.map((c) => c.city.toLowerCase())
+      activeCities.map((c) => c.city.toLowerCase()),
     );
     const activeZoneIds = new Set();
 
@@ -677,7 +677,7 @@ exports.forwebgetFeatureProduct = async (req, res) => {
         ? store.Category.map((id) => id?.toString())
         : store.Category
           ? [store.Category.toString()]
-          : []
+          : [],
     );
 
     // Fallback to sellerCategories if no Category found
@@ -732,8 +732,8 @@ exports.forwebgetFeatureProduct = async (req, res) => {
     // Only include products which have stock entries
     const stockProductIds = new Set(
       stockDocs.flatMap((doc) =>
-        (doc.stock || []).map((item) => item.productId.toString())
-      )
+        (doc.stock || []).map((item) => item.productId.toString()),
+      ),
     );
 
     // Fetch featured products based on category and stock
@@ -810,7 +810,7 @@ exports.forwebgetFeatureProduct = async (req, res) => {
       // Rebuild inventory
       enrichedProduct.inventory = product.variants.map((variant) => {
         const match = variantOptions.find(
-          (opt) => opt.variantId.toString() === variant._id.toString()
+          (opt) => opt.variantId.toString() === variant._id.toString(),
         );
         return { variantId: variant._id, quantity: match ? match.quantity : 0 };
       });
@@ -818,7 +818,7 @@ exports.forwebgetFeatureProduct = async (req, res) => {
       // Update variant prices
       product.variants.forEach((variant) => {
         const match = variantOptions.find(
-          (opt) => opt.variantId.toString() === variant._id.toString()
+          (opt) => opt.variantId.toString() === variant._id.toString(),
         );
         if (match) {
           variant.sell_price = match.price;
@@ -872,7 +872,7 @@ exports.forwebsearchProduct = async (req, res) => {
         ? store.Category.map((id) => id?.toString())
         : store.Category
           ? [store.Category.toString()]
-          : []
+          : [],
     );
 
     if (storeCategoryIds.length < 1) {
@@ -906,7 +906,7 @@ exports.forwebsearchProduct = async (req, res) => {
     }
 
     const categoryArray = [...allCategoryIds].map(
-      (id) => new mongoose.Types.ObjectId(id)
+      (id) => new mongoose.Types.ObjectId(id),
     );
 
     // Fetch stock data
@@ -930,8 +930,8 @@ exports.forwebsearchProduct = async (req, res) => {
     // Only include products that have at least one entry in stock
     const stockProductIds = new Set(
       stockDocs.flatMap((doc) =>
-        (doc.stock || []).map((item) => item.productId.toString())
-      )
+        (doc.stock || []).map((item) => item.productId.toString()),
+      ),
     );
 
     // Build aggregation pipeline using Atlas Search
@@ -989,7 +989,7 @@ exports.forwebsearchProduct = async (req, res) => {
         online_visible: true,
         _id: {
           $in: Array.from(stockProductIds).map(
-            (id) => new mongoose.Types.ObjectId(id)
+            (id) => new mongoose.Types.ObjectId(id),
           ),
         },
         $or: [
@@ -1021,9 +1021,9 @@ exports.forwebsearchProduct = async (req, res) => {
 
     const sellers = name
       ? await Store.find({
-        _id: { $in: allowedStoreIds },
-        storeName: { $regex: name, $options: "i" },
-      }).lean()
+          _id: { $in: allowedStoreIds },
+          storeName: { $regex: name, $options: "i" },
+        }).lean()
       : [];
 
     // Enrich product objects with inventory, price, best store etc.
@@ -1154,7 +1154,7 @@ exports.forwebgetRelatedProducts = async (req, res) => {
 
         // Type match
         const matchedTypes = (p.type || []).filter((t) =>
-          (product.type || []).includes(t)
+          (product.type || []).includes(t),
         );
         if (matchedTypes.length > 0) score += 2;
 
@@ -1237,7 +1237,7 @@ exports.forwebgetBanner = async (req, res) => {
     const matchedBanners = await getBannersWithinRadius(
       userLat,
       userLng,
-      allBanners
+      allBanners,
     );
 
     let finalBanners = [...matchedBanners];
@@ -1266,7 +1266,7 @@ exports.forwebgetBanner = async (req, res) => {
           { $sort: { createdAt: -1 } }, // 🔑 latest first
           {
             $group: {
-              _id: "$storeId",          // one per seller
+              _id: "$storeId", // one per seller
               coupon: { $first: "$$ROOT" },
             },
           },
@@ -1336,7 +1336,7 @@ exports.getDeliveryEstimateForWebsite = async (req, res) => {
 
     const { zoneAvailable, matchedStores } = await getStoresWithinRadius(
       currentLat,
-      currentLong
+      currentLong,
     );
 
     if (!zoneAvailable || !matchedStores || !matchedStores.length) {
@@ -1353,7 +1353,7 @@ exports.getDeliveryEstimateForWebsite = async (req, res) => {
         store,
         distanceMeters: haversine(
           { lat: currentLat, lng: currentLong },
-          { lat: parseFloat(store.Latitude), lng: parseFloat(store.Longitude) }
+          { lat: parseFloat(store.Latitude), lng: parseFloat(store.Longitude) },
         ),
       }))
       .sort((a, b) => a.distanceMeters - b.distanceMeters)[0];
@@ -1379,14 +1379,14 @@ exports.getDeliveryEstimateForWebsite = async (req, res) => {
           subCallType: "getDeliveryEsitmateForWebsite_websiteapicontroler",
         },
         { $inc: { count: 1 }, $set: { lastCalledAt: new Date() } },
-        { upsert: true, new: true }
+        { upsert: true, new: true },
       );
 
       // Call Ola API only once
       const olaResult = await getDistance(
         { lat: parseFloat(store.Latitude), lng: parseFloat(store.Longitude) },
         { lat: currentLat, lng: currentLong },
-        olaApi.api_key
+        olaApi.api_key,
       );
 
       if (olaResult?.status === "OK") {
@@ -1434,7 +1434,7 @@ exports.editPage = async (req, res) => {
     const editPage = await page.findByIdAndUpdate(
       id,
       { pageTitle, pageSlug, pageContent },
-      { new: true }
+      { new: true },
     );
     return res.status(200).json({ message: "Page edited", editPage });
   } catch (error) {
@@ -1484,7 +1484,7 @@ exports.updatePageStatus = async (req, res) => {
     const updatedPage = await page.findByIdAndUpdate(
       id,
       { status },
-      { new: true }
+      { new: true },
     );
     if (!updatedPage) {
       return res.status(404).json({ message: "Page not found" });
@@ -1513,7 +1513,7 @@ exports.contactUs = async (req, res) => {
       ["no-reply@fivlia.com", "support@fivlia.in"],
       "New Contact Request",
       email,
-      contactUsTemplate(firstName, lastName, email, phone, message)
+      contactUsTemplate(firstName, lastName, email, phone, message),
     );
     return res.status(200).json({ message: "Request Submitted" });
   } catch (error) {
@@ -1532,7 +1532,7 @@ exports.getAllSellerProducts = async (req, res) => {
     const stockData = await Stock.find({ storeId: id }).lean();
 
     const seller = await Store.findOne({ _id: id }).select(
-      "storeName sellerCategories advertisementImages"
+      "storeName sellerCategories advertisementImages",
     );
 
     // 🔥 FETCH & VALIDATE ACTIVE OFFER
@@ -1570,20 +1570,20 @@ exports.getAllSellerProducts = async (req, res) => {
       .lean();
 
     sellerProducts.sort((a, b) =>
-      a.productName.trim().localeCompare(b.productName.trim())
+      a.productName.trim().localeCompare(b.productName.trim()),
     );
 
     const productsWithStock = await Promise.all(
       sellerProducts.map(async (prod) => {
         // Find all stock entries for this product
         const productStockEntries = stockEntries.filter(
-          (s) => s.productId?.toString() === prod._id.toString()
+          (s) => s.productId?.toString() === prod._id.toString(),
         );
 
         // Prepare variants with stock
         const variantsWithStock = (prod.variants || []).map((variant) => {
           const stockEntry = productStockEntries.find(
-            (s) => s.variantId?.toString() === variant._id.toString()
+            (s) => s.variantId?.toString() === variant._id.toString(),
           );
 
           let sellPrice = stockEntry?.price ?? variant.sell_price;
@@ -1600,17 +1600,18 @@ exports.getAllSellerProducts = async (req, res) => {
             discounted_price: Number.isFinite(Number(sellPrice))
               ? Number(sellPrice)
               : 0,
-            sell_price:originalPrice,
-            original_price: activeOffer && Number.isFinite(originalPrice)
-              ? originalPrice
-              : null,
+            sell_price: originalPrice,
+            original_price:
+              activeOffer && Number.isFinite(originalPrice)
+                ? originalPrice
+                : null,
             status: stockEntry?.status ?? false,
           };
         });
 
         const inventoryWithStock = (prod.variants || []).map((variant) => {
           const stockEntry = productStockEntries.find(
-            (s) => s.variantId?.toString() === variant._id.toString()
+            (s) => s.variantId?.toString() === variant._id.toString(),
           );
           return {
             variantId: variant._id,
@@ -1629,7 +1630,7 @@ exports.getAllSellerProducts = async (req, res) => {
           storeId: seller._id,
           storeName: seller.storeName,
         };
-      })
+      }),
     );
     // get and set all categories
     const categoryIds = seller.sellerCategories.map((c) => c.categoryId);
@@ -1700,9 +1701,12 @@ exports.getTopSeller = async (req, res) => {
       const activeOffer = await getActiveStoreOffer(store._id);
 
       // Calculate average rating
+      const ratingCount = ratings.length;
+
       const averageRating =
-        ratings.reduce((sum, rating) => sum + rating.rating, 0) /
-        ratings.length || 0;
+        ratingCount > 0
+          ? ratings.reduce((sum, r) => sum + r.rating, 0) / ratingCount
+          : 5;
 
       // Construct store details with average rating
       storeDetailsWithRatings.push({
@@ -1710,6 +1714,7 @@ exports.getTopSeller = async (req, res) => {
         storeId: store._id,
         image: store.image,
         averageRating: averageRating.toFixed(1),
+        ratingCount: ratingCount,
         isAssured: store.fivliaAssured || false,
         activeOffer: activeOffer?.offer || null,
       });
@@ -1850,7 +1855,7 @@ exports.editBlog = async (req, res) => {
     const blog = await Blog.findByIdAndUpdate(
       id,
       { $set: updateFields },
-      { new: true }
+      { new: true },
     );
 
     if (!blog) {
@@ -1883,7 +1888,7 @@ exports.forwebGetSingleProduct = async (req, res) => {
 
     const allowedStoreIds = matchedStores.map((s) => s._id.toString());
     const storeMap = Object.fromEntries(
-      matchedStores.map((s) => [s._id.toString(), s])
+      matchedStores.map((s) => [s._id.toString(), s]),
     );
 
     // ✅ Step 3: Find product (by ID or slug)
@@ -1944,16 +1949,16 @@ exports.forwebGetSingleProduct = async (req, res) => {
       ...product,
       bestStore: bestOption
         ? {
-          id: bestOption.storeId,
-          name: bestOption.storeName,
-          price: bestOption.price,
-          mrp: bestOption.mrp,
-          distance: bestOption.distance,
-        }
+            id: bestOption.storeId,
+            name: bestOption.storeName,
+            price: bestOption.price,
+            mrp: bestOption.mrp,
+            distance: bestOption.distance,
+          }
         : null,
       inventory: (product.variants || []).map((variant) => {
         const match = variantOptions.find(
-          (v) => v.variantId.toString() === variant._id.toString()
+          (v) => v.variantId.toString() === variant._id.toString(),
         );
         return {
           variantId: variant._id,
@@ -2082,7 +2087,7 @@ exports.updateCharityContent = async (req, res) => {
     const updated = await CharityContent.findByIdAndUpdate(
       req.params.id,
       updates,
-      { new: true }
+      { new: true },
     );
 
     if (!updated) {

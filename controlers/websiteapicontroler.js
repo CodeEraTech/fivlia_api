@@ -1749,7 +1749,7 @@ exports.getTopSeller = async (req, res) => {
       const actualCount = ratings.length;
       const ratingCount = actualCount === 0 ? 10 : actualCount;
 
-      const averageRating =
+      let averageRating =
         ratingCount > 0
           ? ratings.reduce((sum, r) => sum + r.rating, 0) / ratingCount
           : 5;

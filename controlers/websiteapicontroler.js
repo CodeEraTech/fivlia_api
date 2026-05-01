@@ -1754,6 +1754,9 @@ exports.getTopSeller = async (req, res) => {
           ? ratings.reduce((sum, r) => sum + r.rating, 0) / ratingCount
           : 5;
 
+      if (averageRating === 0) {
+        averageRating = 5;
+      }
       // Construct store details with average rating
       storeDetailsWithRatings.push({
         storeName: store.storeName,

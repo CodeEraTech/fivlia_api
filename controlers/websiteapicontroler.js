@@ -1597,10 +1597,7 @@ exports.getAllSellerProducts = async (req, res) => {
             ...variant,
             stock: stockEntry?.quantity ?? 0,
             mrp: stockEntry?.mrp ?? variant.mrp,
-            discounted_price: Number.isFinite(Number(sellPrice))
-              ? Number(sellPrice)
-              : 0,
-            sell_price: originalPrice,
+            sell_price: Number.isFinite(Number(sellPrice)),
             original_price:
               activeOffer && Number.isFinite(originalPrice)
                 ? originalPrice
@@ -1682,6 +1679,52 @@ exports.getTopSeller = async (req, res) => {
       return { error: "No stores found within the radius" };
     }
 
+    const storeIds = allowedStores.map((s) => s._id);
+
+    const offers = await Stock.aggregate([
+      {
+        $match: {
+          storeId: { $in: storeIds },
+        },
+      },
+      {
+        $unwind: "$stock",
+      },
+      {
+        $match: {
+          "stock.mrp": { $gt: 0 },
+          "stock.price": { $gt: 0 },
+        },
+      },
+      {
+        $addFields: {
+          discount: {
+            $multiply: [
+              {
+                $divide: [
+                  { $subtract: ["$stock.mrp", "$stock.price"] },
+                  "$stock.mrp",
+                ],
+              },
+              100,
+            ],
+          },
+        },
+      },
+      {
+        $group: {
+          _id: "$storeId",
+          maxDiscount: { $max: "$discount" },
+        },
+      },
+    ]);
+
+    const offerMap = {};
+
+    offers.forEach((o) => {
+      offerMap[o._id.toString()] = o.maxDiscount.toFixed(1);
+    });
+
     const storeDetailsWithRatings = [];
 
     for (const store of allowedStores) {
@@ -1717,6 +1760,9 @@ exports.getTopSeller = async (req, res) => {
         ratingCount: ratingCount,
         isAssured: store.fivliaAssured || false,
         activeOffer: activeOffer?.offer || null,
+        topProductOffer: offerMap[store._id.toString()]
+          ? `${offerMap[store._id.toString()]}% OFF`
+          : null,
       });
     }
 

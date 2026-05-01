@@ -619,3 +619,4 @@ const assignWithBroadcast = async (order, drivers) => {
 };
 
 module.exports = assignWithBroadcast;
+module.exports.updateDispatchState = updateDispatchState;

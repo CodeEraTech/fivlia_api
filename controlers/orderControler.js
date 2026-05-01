@@ -20,6 +20,9 @@ const Store = require("../modals/store");
 const DriverRating = require("../modals/DriverRating");
 const AdminStaff = require("../modals/roleBase/adminStaff");
 const {
+  updateDispatchState,
+} = require("../config/driverOrderAccept/assignDriver");
+const {
   getStoresWithinRadius,
   isWithinZone,
   getZoneWindowConfig,
@@ -397,7 +400,6 @@ exports.placeOrder = async (req, res) => {
         amount: newOrder.totalPrice,
         paymentMode: "Cash On Delivery",
       });
-
 
       if (sellerDoc) {
         await notifySeller(
@@ -954,6 +956,27 @@ exports.orderStatus = async (req, res) => {
       new: true,
     });
 
+    if (driverId !== undefined) {
+      try {
+        await updateDispatchState(
+          updatedOrder.orderId,
+          {
+            $set: {
+              assigned: true,
+              status: "assigned",
+            },
+          },
+          async (redis, keys) => {
+            await redis.hSet(keys.state, {
+              assigned: "1",
+              status: "assigned",
+            });
+          },
+        );
+      } catch (err) {
+        console.warn("⚠️ Dispatch update failed:", err.message);
+      }
+    }
     await telegramOrderLog("📦 ORDER STATUS UPDATED", {
       orderId: updatedOrder.orderId,
       status,
@@ -965,6 +988,27 @@ exports.orderStatus = async (req, res) => {
         orderId: updatedOrder.orderId,
         orderStatus: "Accepted",
       });
+
+      try {
+        await updateDispatchState(
+          updatedOrder.orderId,
+          {
+            $set: {
+              assigned: false,
+              status: "cancelled",
+            },
+          },
+          async (redis, keys) => {
+            await redis.hSet(keys.state, {
+              assigned: "0",
+              status: "cancelled",
+            });
+          },
+        );
+      } catch (err) {
+        console.warn("⚠️ Cancel dispatch update failed:", err.message);
+      }
+
       console.log(
         `Deleted ${deleteAssignments.deletedCount} Accepted assignments for cancelled order ${updatedOrder.orderId}`,
       );

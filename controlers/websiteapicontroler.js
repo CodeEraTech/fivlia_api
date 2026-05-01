@@ -1767,7 +1767,7 @@ exports.getTopSeller = async (req, res) => {
         isAssured: store.fivliaAssured || false,
         activeOffer: activeOffer?.offer || null,
         topProductOffer: offerMap[store._id.toString()]
-          ? `${offerMap[store._id.toString()]}% OFF`
+          ? `${offerMap[store._id.toString()]}`
           : null,
       });
     }

@@ -1744,7 +1744,8 @@ exports.getTopSeller = async (req, res) => {
       const activeOffer = await getActiveStoreOffer(store._id);
 
       // Calculate average rating
-      const ratingCount = ratings.length;
+      const actualCount = ratings.length;
+      const ratingCount = actualCount === 0 ? 10 : actualCount;
 
       const averageRating =
         ratingCount > 0

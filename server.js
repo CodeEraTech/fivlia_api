@@ -12,8 +12,10 @@ require("./jobs/orderNotificationRetry");
 connectDb();
 
 const app = express();
+app.set("etag", false);
 app.use(cors());
 app.use(express.json());
+
 // const key = fs.readFileSync('/etc/letsencrypt/live/api.fivlia.in/privkey.pem', 'utf8');
 // const cert = fs.readFileSync('/etc/letsencrypt/live/api.fivlia.in/cert.pem', 'utf8');
 // const server = https.createServer({ key, cert }, app);

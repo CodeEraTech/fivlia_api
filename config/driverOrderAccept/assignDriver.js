@@ -383,7 +383,7 @@ const assignWithBroadcast = async (order, drivers) => {
             android: {
               priority: "high",
               notification: {
-                channelId: "delivery_alerts_v3",
+                channel_id: "delivery_alerts_v3",
                 sound: "custom_sound",
                 default_sound: false,
               },

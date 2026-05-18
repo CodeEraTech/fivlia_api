@@ -5,11 +5,9 @@ const http = require("http");
 const socketIo = require("socket.io");
 const registerDriverSocket = require("./socket/socket");
 const cors = require("cors");
-const {resumePendingDispatch} = require("./utils/resumePendingOrders");
+const { resumePendingDispatch } = require("./utils/resumePendingOrders");
 // const { initAgenda } = require('./config/agenda'); // ✅ your agenda setup
 require("./jobs/orderNotificationRetry");
-
-connectDb();
 
 const app = express();
 app.set("etag", false);
@@ -37,7 +35,7 @@ app.use("/fivlia", routes);
 app.use("/", routes);
 
 const startServer = async () => {
-  const mongoConnection = await connectDb();
+  await connectDb();
 
   // const agenda = await initAgenda(mongoConnection);
   // backgroundInvoice(agenda);

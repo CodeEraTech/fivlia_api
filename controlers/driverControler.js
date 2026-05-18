@@ -145,13 +145,18 @@ exports.acceptOrder = async (req, res) => {
     const { orderId, status, driverId } = req.body;
 
     const driverData = await driver.findOne({ _id: driverId });
+    if (!driverData) {
+      return res.status(404).json({ message: "Driver not found" });
+    }
+
     let updatedOrder = null;
     if (status === true) {
+      // Atomic assignment guard to prevent two drivers from accepting the same order.
       updatedOrder = await Order.findOneAndUpdate(
-        { orderId },
+        { orderId, "driver.driverId": { $exists: false } },
         {
           driver: {
-            driverId: driverData.driverId,
+            driverId: String(driverData._id),
             name: driverData.driverName,
             mobileNumber: driverData.address.mobileNo,
           },
@@ -159,6 +164,12 @@ exports.acceptOrder = async (req, res) => {
         },
         { new: true },
       );
+
+      if (!updatedOrder) {
+        return res
+          .status(409)
+          .json({ message: "Order already accepted by another driver" });
+      }
 
       // new socket code of user order status
       await emitUserOrderStatusUpdate(

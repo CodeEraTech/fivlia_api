@@ -3,7 +3,6 @@ const {
   getDynamicRetryCount,
 } = require("../../utils/driverSocketMap");
 const Assign = require("../../modals/driverModals/assignments");
-const Address = require("../../modals/Address");
 const { Order } = require("../../modals/order");
 const Dispatch = require("../../modals/dispatch");
 const admin = require("../../firebase/firebase");
@@ -17,11 +16,16 @@ const {
   DEFAULT_PUSH_SOUND,
 } = require("../../utils/pushSoundConfig");
 const { getRedisClient } = require("../../utils/redisClient");
+const {
+  upsertPendingDriverOffer,
+  removePendingDriverOffer,
+} = require("../../utils/pendingDriverOffers");
 // new socket code of user order status
 const {
   emitUserOrderStatusUpdate,
 } = require("../../utils/emitUserOrderStatusUpdate");
 
+// Tracks the active retry timer for each orderId.
 const orderTimeouts = new Map();
 const DISPATCH_REDIS_TTL_SECONDS = Number(
   process.env.DISPATCH_REDIS_TTL_SECONDS || 24 * 60 * 60,
@@ -33,6 +37,7 @@ const getDispatchRedisKeys = (orderId) => ({
   respondedDrivers: `dispatch:${orderId}:respondedDrivers`,
 });
 
+// Refreshes Redis TTL for all dispatch keys that belong to one order.
 const touchDispatchRedisKeys = async (redis, keys) => {
   if (!redis || !DISPATCH_REDIS_TTL_SECONDS) return;
 
@@ -78,6 +83,7 @@ const cacheRedisDispatchState = async (orderId, state, redisClient = null) => {
   }
 };
 
+// Reads dispatch state from Redis first to reduce repeated DB reads.
 const readRedisDispatchState = async (orderId) => {
   const redis = await getRedisClient();
   if (!redis) return null;
@@ -130,6 +136,7 @@ const createDispatchState = async (orderId) =>
     { upsert: true, new: true },
   ).lean();
 
+// Returns dispatch state by preferring Redis and falling back to MongoDB.
 const getDispatchState = async (orderId) => {
   const redisState = await readRedisDispatchState(orderId);
   if (redisState) return redisState;
@@ -139,6 +146,7 @@ const getDispatchState = async (orderId) => {
   return dispatchState;
 };
 
+// Applies a small Redis-side state update if cache exists.
 const updateRedisDispatchState = async (orderId, updater) => {
   const redis = await getRedisClient();
   if (!redis || !updater) return;
@@ -160,6 +168,7 @@ const updateRedisDispatchState = async (orderId, updater) => {
   }
 };
 
+// Source of truth update for dispatch state in MongoDB and Redis.
 const updateDispatchState = async (orderId, update, redisUpdater = null) => {
   await Dispatch.updateOne(
     { orderId },
@@ -173,8 +182,35 @@ const updateDispatchState = async (orderId, update, redisUpdater = null) => {
 const toStringSet = (values = []) =>
   new Set(values.map((value) => value.toString()));
 
+// Adds and removes order-specific socket listeners safely.
+const registerSocketOrderListeners = (socket, orderKey, handlers) => {
+  if (!socket.__orderListenerRegistry) {
+    socket.__orderListenerRegistry = new Map();
+  }
+
+  const { onAccept, onReject, onDisconnect } = handlers;
+  socket.on("acceptOrder", onAccept);
+  socket.on("rejectOrder", onReject);
+  socket.on("disconnect", onDisconnect);
+
+  socket.__orderListenerRegistry.set(orderKey, handlers);
+};
+
+const removeSocketOrderListeners = (socket, orderKey) => {
+  if (!socket?.__orderListenerRegistry?.has(orderKey)) return;
+
+  const { onAccept, onReject, onDisconnect } =
+    socket.__orderListenerRegistry.get(orderKey);
+  socket.off("acceptOrder", onAccept);
+  socket.off("rejectOrder", onReject);
+  socket.off("disconnect", onDisconnect);
+  socket.__orderListenerRegistry.delete(orderKey);
+};
+
+// Main order broadcast flow with retry, acceptance race protection, and cleanup.
 const assignWithBroadcast = async (order, drivers) => {
   const orderId = order.orderId.toString();
+  const orderKey = `order:${orderId}`;
   const dispatchState = await getDispatchState(orderId);
 
   if (dispatchState?.assigned) {
@@ -195,6 +231,7 @@ const assignWithBroadcast = async (order, drivers) => {
     cancelAfterMinutes,
     10000,
   );
+  const offerTtlSeconds = Math.max(Math.ceil(TIMEOUT_MS / 1000) + 30, 60);
 
   console.log(
     `⚙️ Auto-adjusted retries: ${MAX_RETRY_COUNT} x ${
@@ -255,6 +292,13 @@ const assignWithBroadcast = async (order, drivers) => {
     } catch (e) {
       console.error("⚠️ Auto-cancel push error:", e);
     }
+
+    await Promise.all(
+      drivers.map((driver) =>
+        removePendingDriverOffer(driver._id?.toString(), orderId),
+      ),
+    );
+
     await updateDispatchState(
       orderId,
       {
@@ -285,7 +329,8 @@ const assignWithBroadcast = async (order, drivers) => {
   );
 
   let orderAssigned = false;
-  const respondedDrivers = new Set();
+  const respondedDrivers = toStringSet(dispatchState?.respondedDrivers);
+  const respondedDriversThisCycle = new Set();
 
   const orderStore = await Store.findOne({ _id: order.storeId }).lean();
   const orderUser = await User.findOne({ _id: order.userId }).lean();
@@ -302,13 +347,10 @@ const assignWithBroadcast = async (order, drivers) => {
   }
 
   const cleanupAllListeners = () => {
-    availableDrivers.forEach((driver) => {
+    availableDrivers.forEach(async (driver) => {
       const driverId = driver._id.toString();
       const socket = driverSocketMap.get(driverId);
-      if (socket && typeof socket.__cleanupOrder === "function") {
-        socket.__cleanupOrder();
-        delete socket.__cleanupOrder;
-      }
+      removeSocketOrderListeners(socket, orderKey);
     });
   };
 
@@ -318,7 +360,7 @@ const assignWithBroadcast = async (order, drivers) => {
     );
 
     // 🔹 Step 1: Send FCM to ALL available drivers (socket or not)
-    availableDrivers.forEach((driver) => {
+    availableDrivers.forEach(async (driver) => {
       const driverId = driver._id.toString();
 
       if (driver.fcmToken) {
@@ -330,16 +372,21 @@ const assignWithBroadcast = async (order, drivers) => {
               title: "New Order Request 🚗",
               body: `Order #${orderId} is waiting for your response`,
             },
-            android: {
-              notification: {
-                channelId: "channel_id",
-                sound: "custom_sound",
-              },
-            },
             data: {
+              type: "new_order",
               orderId,
               timeLeft: (TIMEOUT_MS / 1000).toString(),
               screen: "TodayOrderScreen",
+              title: "New Order Request 🚗",
+              body: `Order #${orderId} is waiting for your response`,
+            },
+            android: {
+              priority: "high",
+              notification: {
+                channelId: "delivery_alerts_v3",
+                sound: "custom_sound",
+                default_sound: false,
+              },
             },
           })
           .then(async () => {
@@ -354,22 +401,25 @@ const assignWithBroadcast = async (order, drivers) => {
     });
 
     // 🔹 Step 2: Emit socket event only for online drivers
-    availableDrivers.forEach((driver) => {
+    availableDrivers.forEach(async (driver) => {
       const driverId = driver._id.toString();
       const socket = driverSocketMap.get(driverId);
 
       if (!socket) {
-        console.log(`📱 Driver ${driverId} not connected to socket, push-only mode`);
+        console.log(
+          `📱 Driver ${driverId} not connected to socket, push-only mode`,
+        );
         return;
       }
 
+      const userLocation = orderUser?.location || {};
       const orderWithLocation = {
         ...(order.toObject ? order.toObject() : order),
-        storeName: orderStore.storeName,
-        storeLat: orderStore.Latitude,
-        storeLng: orderStore.Longitude,
-        userLat: orderUser.location.latitude,
-        userLng: orderUser.location.longitude,
+        storeName: orderStore?.storeName || null,
+        storeLat: orderStore?.Latitude || null,
+        storeLng: orderStore?.Longitude || null,
+        userLat: userLocation.latitude || null,
+        userLng: userLocation.longitude || null,
       };
 
       socket.emit("newOrder", {
@@ -377,6 +427,16 @@ const assignWithBroadcast = async (order, drivers) => {
         driverId,
         timeLeft: TIMEOUT_MS / 1000,
       });
+      await upsertPendingDriverOffer(
+        driverId,
+        orderId,
+        {
+          order: orderWithLocation,
+          driverId,
+          timeLeft: TIMEOUT_MS / 1000,
+        },
+        offerTtlSeconds,
+      );
 
       console.log(`✅ Socket order ${orderId} sent to driver ${driverId}`);
 
@@ -426,6 +486,7 @@ const assignWithBroadcast = async (order, drivers) => {
         );
 
         orderAssigned = true;
+        respondedDriversThisCycle.add(driverId);
         await updateDispatchState(
           orderId,
           {
@@ -469,6 +530,11 @@ const assignWithBroadcast = async (order, drivers) => {
             otherSocket.emit("orderTaken", { orderId });
           }
         });
+        await Promise.all(
+          availableDrivers.map((d) =>
+            removePendingDriverOffer(d._id.toString(), orderId),
+          ),
+        );
 
         if (callback) {
           callback({
@@ -494,6 +560,7 @@ const assignWithBroadcast = async (order, drivers) => {
           return;
 
         respondedDrivers.add(driverId);
+        respondedDriversThisCycle.add(driverId);
         rejectedDrivers.add(driverId);
         await updateDispatchState(
           orderId,
@@ -529,28 +596,34 @@ const assignWithBroadcast = async (order, drivers) => {
           driverId,
           driverName: driver.driverName,
         });
+        await removePendingDriverOffer(driverId, orderId);
+
+        // After explicit rejection from this driver, remove listeners for this order.
+        removeSocketOrderListeners(socket, orderKey);
       };
 
-      // Attach Listeners
-      socket.once("acceptOrder", (data, callback) => {
-        handleAccept(data, callback);
-      });
-      socket.once("rejectOrder", handleReject);
-      socket.once("disconnect", () => {
-        socket.__cleanupOrder?.();
-      });
+      const onAccept = (data, callback) => handleAccept(data, callback);
+      const onReject = (data) => handleReject(data);
+      const onDisconnect = () => removeSocketOrderListeners(socket, orderKey);
 
-      socket.__cleanupOrder = () => {
-        socket.off("acceptOrder", handleAccept);
-        socket.off("rejectOrder", handleReject);
-      };
+      registerSocketOrderListeners(socket, orderKey, {
+        onAccept,
+        onReject,
+        onDisconnect,
+      });
     });
   };
 
   broadcastOrder();
 
+  // Ensure only one active retry timer exists for this order.
+  if (orderTimeouts.has(orderId)) {
+    clearTimeout(orderTimeouts.get(orderId));
+    orderTimeouts.delete(orderId);
+  }
+
   const timeout = setTimeout(async () => {
-    orderTimeouts.set(orderId, timeout);
+    orderTimeouts.delete(orderId);
     const existingOrder = await Order.findOne({ orderId }).lean();
 
     if (
@@ -558,6 +631,11 @@ const assignWithBroadcast = async (order, drivers) => {
       existingOrder.orderStatus === "Going to Pickup"
     ) {
       console.log(`🛑 Order ${orderId} already assigned. Skipping retry.`);
+      await Promise.all(
+        availableDrivers.map((d) =>
+          removePendingDriverOffer(d._id.toString(), orderId),
+        ),
+      );
       cleanupAllListeners();
       return;
     }
@@ -569,11 +647,11 @@ const assignWithBroadcast = async (order, drivers) => {
 
     if (isStillUnassigned) {
       const allDriverIds = new Set(drivers.map((d) => d._id.toString()));
-      const allRejectedOrNoResponse =
-        rejectedDrivers.size === allDriverIds.size ||
-        respondedDrivers.size === 0;
+      const allRejected = rejectedDrivers.size === allDriverIds.size;
+      const noResponsesThisCycle = respondedDriversThisCycle.size === 0;
+      const shouldResetRejectedDrivers = allRejected || noResponsesThisCycle;
 
-      if (allRejectedOrNoResponse) {
+      if (shouldResetRejectedDrivers) {
         console.info(
           `🔁 All drivers rejected or no response for order ${orderId}. Retrying with all drivers...`,
         );
@@ -608,14 +686,28 @@ const assignWithBroadcast = async (order, drivers) => {
       }
 
       cleanupAllListeners();
+      await Promise.all(
+        availableDrivers.map((d) =>
+          removePendingDriverOffer(d._id.toString(), orderId),
+        ),
+      );
       //assignWithBroadcast(order, drivers);
       const autoAssignDriver = require("./AutoAssignDriver");
-      autoAssignDriver(existingOrder._id);
+      if (existingOrder?._id) {
+        autoAssignDriver(existingOrder._id);
+      }
     } else {
       console.log(`✅ Order ${orderId} assigned. Cleaning up.`);
+      await Promise.all(
+        availableDrivers.map((d) =>
+          removePendingDriverOffer(d._id.toString(), orderId),
+        ),
+      );
       cleanupAllListeners();
     }
   }, TIMEOUT_MS);
+
+  orderTimeouts.set(orderId, timeout);
 };
 
 module.exports = assignWithBroadcast;

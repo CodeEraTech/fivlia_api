@@ -13,12 +13,14 @@ const BulkOrderRequest = require("../modals/bulkOrderRequest");
 const stock = require("../modals/StoreStock");
 const admin_transaction = require("../modals/adminTranaction");
 const store_transaction = require("../modals/storeTransaction");
+const Transaction = require("../modals/driverModals/transaction");
 const Notification = require("../modals/Notification");
 const Assign = require("../modals/driverModals/assignments");
 const sendNotification = require("../firebase/pushnotification");
 const Store = require("../modals/store");
 const DriverRating = require("../modals/DriverRating");
 const AdminStaff = require("../modals/roleBase/adminStaff");
+const moment = require("moment-timezone");
 const {
   updateDispatchState,
 } = require("../config/driverOrderAccept/assignDriver");
@@ -675,6 +677,10 @@ exports.getOrders = async (req, res) => {
 
     const ordersWithCity = await Promise.all(
       orders.map(async (order) => {
+        order.createdAt = moment(order.createdAt).tz("Asia/Kolkata").format();
+
+        order.updatedAt = moment(order.updatedAt).tz("Asia/Kolkata").format();
+
         // Extract city from address
         let city = "Unknown";
         if (order.addressId?.city) city = order.addressId.city;
@@ -1099,6 +1105,53 @@ exports.orderStatus = async (req, res) => {
             description: "Commission credited to Admin wallet",
           });
         }
+
+        const payout = updatedOrder.deliveryPayout || 0;
+        const deliveryChargeRaw = updatedOrder.deliveryCharges || 0;
+        const taxedAmount = Math.max(0, deliveryChargeRaw - payout);
+
+        if (!payout) {
+          console.warn("problem is drvier payout order status change");
+        }
+
+        // If you have order.driver.driverId, use that for more reliability
+        const updatedDriver = await driver.findOneAndUpdate(
+          { "address.mobileNo": updatedOrder.driver.mobileNumber },
+          { $inc: { wallet: payout } },
+          { new: true },
+        );
+        if (!updatedDriver) {
+          console.warn(
+            "Driver not found while updating driver wallet order status change",
+          );
+        }
+
+        await Transaction.create({
+          driverId: updatedDriver._id,
+          type: "credit",
+          amount: payout,
+          orderId: updatedOrder._id,
+          description: `Payout for Order #${updatedOrder.orderId}`,
+        });
+
+        const lastAmount = await admin_transaction
+          .findById("68ea20d2c05a14a96c12788d")
+          .lean();
+
+        const updatedWallet = await admin_transaction.findByIdAndUpdate(
+          "68ea20d2c05a14a96c12788d",
+          { $inc: { wallet: taxedAmount } },
+          { new: true },
+        );
+
+        await admin_transaction.create({
+          currentAmount: updatedWallet.wallet,
+          lastAmount: lastAmount.wallet,
+          type: "Credit",
+          amount: taxedAmount,
+          orderId: updatedOrder.orderId,
+          description: "Delivery Charge GST credited to Admin wallet",
+        });
 
         let storeInvoiceId;
         let feeInvoiceId;

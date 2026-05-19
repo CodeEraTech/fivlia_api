@@ -29,6 +29,9 @@ const orderSchema = new mongoose.Schema(
     storeInvoiceId: { type: String },
     feeInvoiceId: { type: String },
     thermalInvoice: { type: String },
+    // 1. Store the delivered food-seller tax snapshot for invoice + settlement audit.
+    foodSellerTaxPercent: { type: Number, default: 0 },
+    foodSellerTaxAmount: { type: Number, default: 0 },
     deliveryPayout: Number,
     transactionId: String,
     deliverBy: String,

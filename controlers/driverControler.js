@@ -276,9 +276,21 @@ exports.driverOrderStatus = async (req, res) => {
         const itemTotal = order.items.reduce((sum, item) => {
           return sum + item.price * item.quantity;
         }, 0);
+
+        // 1. Apply the extra 5% tax only for food sellers and keep old commission flow unchanged.
+        const isFoodSellerTaxApplicable =
+          !store.Authorized_Store &&
+          store?.sellFood === true ||
+          String(store?.businessType || "").trim().toUpperCase() === "FSSAI";
+        const foodSellerTaxPercent = isFoodSellerTaxApplicable ? 5 : 0;
+        const foodSellerTaxAmount = isFoodSellerTaxApplicable
+          ? (itemTotal * foodSellerTaxPercent) / 100
+          : 0;
+        const totalAdminDeduction = totalCommission + foodSellerTaxAmount;
+
         let creditToStore = itemTotal;
         if (!store.Authorized_Store) {
-          creditToStore = itemTotal - totalCommission; // deduct commission
+          creditToStore = itemTotal - totalAdminDeduction; // deduct commission + food seller tax
         }
 
         // ===> Update Store Wallet
@@ -297,17 +309,19 @@ exports.driverOrderStatus = async (req, res) => {
           storeId: order.storeId,
           description: store.Authorized_Store
             ? "Full amount credited (Authorized Store)"
-            : `Credited after commission cut (${totalCommission} deducted)`,
+            : foodSellerTaxAmount > 0
+              ? `Credited after commission + food seller tax cut (${totalCommission.toFixed(2)} commission and ${foodSellerTaxAmount.toFixed(2)} tax deducted)`
+              : `Credited after commission cut (${totalCommission.toFixed(2)} deducted)`,
         });
         // console.log(data)
-        // ===> Update Admin Wallet only if commission > 0
-        if (!store.Authorized_Store && totalCommission > 0) {
+        // 2. Credit admin with the old commission plus the new food-seller tax in the same settlement step.
+        if (!store.Authorized_Store && totalAdminDeduction > 0) {
           const lastAmount = await admin_transaction
             .findById("68ea20d2c05a14a96c12788d")
             .lean();
           const updatedWallet = await admin_transaction.findByIdAndUpdate(
             "68ea20d2c05a14a96c12788d",
-            { $inc: { wallet: totalCommission } },
+            { $inc: { wallet: totalAdminDeduction } },
             { new: true },
           );
 
@@ -315,9 +329,12 @@ exports.driverOrderStatus = async (req, res) => {
             currentAmount: updatedWallet.wallet,
             lastAmount: lastAmount.wallet,
             type: "Credit",
-            amount: totalCommission,
+            amount: totalAdminDeduction,
             orderId: order.orderId,
-            description: "Commission credited to Admin wallet",
+            description:
+              foodSellerTaxAmount > 0
+                ? "Commission and food seller tax credited to Admin wallet"
+                : "Commission credited to Admin wallet",
           });
         }
 
@@ -332,6 +349,9 @@ exports.driverOrderStatus = async (req, res) => {
             storeInvoiceId,
             feeInvoiceId,
             deliverStatus: true,
+            // 3. Save the food-seller tax snapshot so seller invoice always matches the delivered settlement.
+            foodSellerTaxPercent,
+            foodSellerTaxAmount,
           },
           { new: true },
         );

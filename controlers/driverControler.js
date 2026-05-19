@@ -267,6 +267,8 @@ exports.driverOrderStatus = async (req, res) => {
         const storeBefore = await Store.findById(order.storeId).lean();
         const store = storeBefore; // just renaming for clarity
 
+        const setting = await SettingAdmin.findOne().lean();
+
         const totalCommission = order.items.reduce((sum, item) => {
           const itemTotal = item.price * item.quantity;
           const commissionAmount = ((item.commision || 0) / 100) * itemTotal;
@@ -280,12 +282,17 @@ exports.driverOrderStatus = async (req, res) => {
         // 1. Apply the extra 5% tax only for food sellers and keep old commission flow unchanged.
         const isFoodSellerTaxApplicable =
           !store.Authorized_Store &&
-          store?.sellFood === true ||
-          String(store?.businessType || "").trim().toUpperCase() === "FSSAI";
-        const foodSellerTaxPercent = isFoodSellerTaxApplicable ? 5 : 0;
+          (store?.sellFood === true ||
+            String(store?.businessType || "")
+              .trim()
+              .toUpperCase() === "FSSAI");
+
+        const foodSellerTaxPercent = Number(setting?.foodSellerTaxPercent || 5);
+
         const foodSellerTaxAmount = isFoodSellerTaxApplicable
           ? (itemTotal * foodSellerTaxPercent) / 100
           : 0;
+
         const totalAdminDeduction = totalCommission + foodSellerTaxAmount;
 
         let creditToStore = itemTotal;

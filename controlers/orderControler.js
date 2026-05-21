@@ -11,9 +11,6 @@ const { SettingAdmin } = require("../modals/setting");
 const Address = require("../modals/Address");
 const BulkOrderRequest = require("../modals/bulkOrderRequest");
 const stock = require("../modals/StoreStock");
-const admin_transaction = require("../modals/adminTranaction");
-const store_transaction = require("../modals/storeTransaction");
-const Transaction = require("../modals/driverModals/transaction");
 const Notification = require("../modals/Notification");
 const Assign = require("../modals/driverModals/assignments");
 const sendNotification = require("../firebase/pushnotification");
@@ -51,6 +48,8 @@ const {
   generateAndSendThermalInvoice,
   generateStoreInvoiceId,
 } = require("../config/invoice");
+const { resolveSellerDeliveryPricing } = require("../utils/sellerDelivery");
+const { settleDeliveredOrder } = require("../utils/orderSettlement");
 const deliveryStatus = require("../modals/deliveryStatus");
 const {
   getNextOrderId,
@@ -224,6 +223,7 @@ exports.placeOrder = async (req, res) => {
     let deliveryGstPercent = chargesData.Delivery_Charges_Gst || 0;
     let totalDeliveryCharge = 0;
     let deliveryDistanceKm = 0;
+    let deliveryBaseCharge = 0;
 
     const itemsTotal = cartItems.reduce((sum, item) => {
       return sum + Number(item.price) * Number(item.quantity);
@@ -276,6 +276,8 @@ exports.placeOrder = async (req, res) => {
     const storeData = await Store.findById(storeId, {
       Latitude: 1,
       Longitude: 1,
+      sellerFreeDeliveryEnabled: 1,
+      sellerFreeDeliveryLimit: 1,
     }).lean();
     const storeLat = parseFloat(storeData?.Latitude);
     const storeLng = parseFloat(storeData?.Longitude);
@@ -315,15 +317,19 @@ exports.placeOrder = async (req, res) => {
       fixedFirstKm,
       perKm,
     });
-    totalDeliveryCharge = deliveryChargeRaw / (1 + deliveryGstPercent / 100);
+    deliveryBaseCharge = deliveryChargeRaw;
+    totalDeliveryCharge = deliveryBaseCharge / (1 + deliveryGstPercent / 100);
 
-    let totalPrice = itemsTotal;
-    if (itemsTotal >= chargesData.freeDeliveryLimit) {
-      totalPrice = itemsTotal + platformFeeAmount;
-      deliveryChargeRaw = 0;
-    } else {
-      totalPrice = itemsTotal + deliveryChargeRaw + platformFeeAmount;
-    }
+    const deliveryPricing = resolveSellerDeliveryPricing({
+      itemsTotal,
+      settings: chargesData,
+      store: storeData,
+      deliveryChargeRaw: deliveryBaseCharge,
+      deliveryPayout: totalDeliveryCharge,
+    });
+
+    deliveryChargeRaw = deliveryPricing.customerDeliveryCharge;
+    const totalPrice = itemsTotal + deliveryChargeRaw + platformFeeAmount;
 
     const userId = cartItems[0].userId;
     const cashOnDelivery = paymentMode === true;
@@ -367,8 +373,14 @@ exports.placeOrder = async (req, res) => {
         storeId,
         deliveryPayout: totalDeliveryCharge,
         deliveryCharges: deliveryChargeRaw,
+        deliveryBaseCharge: deliveryPricing.deliveryBaseCharge,
         deliveryDistanceKm,
         platformFee: chargesData.Platform_Fee,
+        freeDeliveryApplied: deliveryPricing.freeDeliveryApplied,
+        freeDeliverySource: deliveryPricing.freeDeliverySource,
+        freeDeliveryThreshold: deliveryPricing.freeDeliveryThreshold,
+        sellerSponsoredDeliveryPayout:
+          deliveryPricing.sellerSponsoredDeliveryPayout,
       });
 
       console.log(`${nextOrderId} doc created`);
@@ -486,8 +498,14 @@ exports.placeOrder = async (req, res) => {
         cartIds,
         deliveryPayout: totalDeliveryCharge,
         deliveryCharges: deliveryChargeRaw,
+        deliveryBaseCharge: deliveryPricing.deliveryBaseCharge,
         deliveryDistanceKm,
         platformFee: chargesData.Platform_Fee,
+        freeDeliveryApplied: deliveryPricing.freeDeliveryApplied,
+        freeDeliverySource: deliveryPricing.freeDeliverySource,
+        freeDeliveryThreshold: deliveryPricing.freeDeliveryThreshold,
+        sellerSponsoredDeliveryPayout:
+          deliveryPricing.sellerSponsoredDeliveryPayout,
       });
       const payResponse = await createRazorpayOrder(
         totalPrice,
@@ -558,10 +576,15 @@ exports.verifyPayment = async (req, res) => {
       cashOnDelivery: tempOrder.cashOnDelivery,
       totalPrice: tempOrder.totalPrice,
       deliveryCharges: tempOrder.deliveryCharges,
+      deliveryBaseCharge: tempOrder.deliveryBaseCharge,
       platformFee: tempOrder.platformFee,
       gst: tempOrder.gst || "",
       deliveryPayout: tempOrder.deliveryPayout,
       deliveryDistanceKm: tempOrder.deliveryDistanceKm,
+      freeDeliveryApplied: tempOrder.freeDeliveryApplied,
+      freeDeliverySource: tempOrder.freeDeliverySource,
+      freeDeliveryThreshold: tempOrder.freeDeliveryThreshold,
+      sellerSponsoredDeliveryPayout: tempOrder.sellerSponsoredDeliveryPayout,
       storeId: tempOrder.storeId,
       transactionId: transactionId || paymentResult?.raw?.id || "",
       paymentStatus: "Successful",
@@ -772,8 +795,6 @@ exports.getOrderDetails = async (req, res) => {
       .lean();
     const results = [];
 
-    const settings = await SettingAdmin.findOne();
-
     for (const order of userOrders) {
       // 1. Fetch address
       const address = await Address.findById(order.addressId).lean();
@@ -815,6 +836,7 @@ exports.getOrderDetails = async (req, res) => {
         }
       }
       let storeLocation = null;
+      let storeName = "";
       if (order.storeId) {
         const storeData = await Store.findById(order.storeId, {
           Latitude: 1,
@@ -829,10 +851,6 @@ exports.getOrderDetails = async (req, res) => {
           };
           storeName = storeData.storeName;
         }
-      }
-
-      if (settings && order.totalPrice > settings.freeDeliveryLimit) {
-        order.deliveryCharges = 0;
       }
 
       const itemsWithDetails = await Promise.all(
@@ -864,7 +882,13 @@ exports.getOrderDetails = async (req, res) => {
         totalPrice: order.totalPrice,
         cashOnDelivery: order.cashOnDelivery,
         deliveryCharges: order.deliveryCharges,
+        deliveryBaseCharge: order.deliveryBaseCharge || order.deliveryCharges || 0,
         platformFee: order.platformFee,
+        freeDeliveryApplied: order.freeDeliveryApplied || false,
+        freeDeliverySource: order.freeDeliverySource || null,
+        freeDeliveryThreshold: order.freeDeliveryThreshold || 0,
+        sellerSponsoredDeliveryPayout:
+          order.sellerSponsoredDeliveryPayout || 0,
         transactionId: order.transactionId || "",
         items: itemsWithDetails,
         address,
@@ -1047,131 +1071,15 @@ exports.orderStatus = async (req, res) => {
         const storeBefore = await Store.findById(updatedOrder.storeId).lean();
         const store = storeBefore;
 
-        const setting = await SettingAdmin.findOne().lean();
-        // 🧮 Calculate Commission from Items
-        const totalCommission = updatedOrder.items.reduce((sum, item) => {
-          const itemTotal = item.price * item.quantity;
-          const commissionAmount = ((item.commision || 0) / 100) * itemTotal;
-          return sum + commissionAmount;
-        }, 0);
-
-        const itemTotal = updatedOrder.items.reduce((sum, item) => {
-          return sum + item.price * item.quantity;
-        }, 0);
-
-        // 1. Apply the extra 5% tax only for food sellers and keep the existing commission logic as-is.
-        const isFoodSellerTaxApplicable =
-          !store.Authorized_Store &&
-          (store?.sellFood === true ||
-            String(store?.businessType || "")
-              .trim()
-              .toUpperCase() === "FSSAI");
-
-        const foodSellerTaxPercent = Number(setting?.foodSellerTaxPercent || 5);
-
-        const foodSellerTaxAmount = isFoodSellerTaxApplicable
-          ? (itemTotal * foodSellerTaxPercent) / 100
-          : 0;
-
-        const totalAdminDeduction = totalCommission + foodSellerTaxAmount;
-
-        // 🏦 Credit Store Wallet
-        let creditToStore = itemTotal;
-        if (!store.Authorized_Store) {
-          creditToStore = itemTotal - totalAdminDeduction;
-        }
-
-        const storeData = await Store.findByIdAndUpdate(
-          updatedOrder.storeId,
-          { $inc: { wallet: creditToStore } },
-          { new: true },
-        );
-
-        // ➕ Create Store Transaction
-        await store_transaction.create({
-          currentAmount: storeData.wallet,
-          lastAmount: storeBefore.wallet,
-          type: "Credit",
-          amount: creditToStore,
-          orderId: updatedOrder.orderId,
-          storeId: updatedOrder.storeId,
-          description: store.Authorized_Store
-            ? "Full amount credited (Authorized Store)"
-            : foodSellerTaxAmount > 0
-              ? `Credited after commission + food seller tax cut (${totalCommission.toFixed(2)} commission and ${foodSellerTaxAmount.toFixed(2)} tax deducted)`
-              : `Credited after commission cut (${totalCommission.toFixed(2)} deducted)`,
+        const { updatedDriver, settlement } = await settleDeliveredOrder({
+          order: updatedOrder,
         });
 
-        // 2. Credit admin with the old commission plus the new food-seller tax in one delivered settlement.
-        if (!store.Authorized_Store && totalAdminDeduction > 0) {
-          const lastAmount = await admin_transaction
-            .findById("68ea20d2c05a14a96c12788d")
-            .lean();
-          const updatedWallet = await admin_transaction.findByIdAndUpdate(
-            "68ea20d2c05a14a96c12788d",
-            { $inc: { wallet: totalAdminDeduction } },
-            { new: true },
-          );
-
-          await admin_transaction.create({
-            currentAmount: updatedWallet.wallet,
-            lastAmount: lastAmount.wallet,
-            type: "Credit",
-            amount: totalAdminDeduction,
-            orderId: updatedOrder.orderId,
-            description:
-              foodSellerTaxAmount > 0
-                ? "Commission and food seller tax credited to Admin wallet"
-                : "Commission credited to Admin wallet",
-          });
-        }
-
-        const payout = updatedOrder.deliveryPayout || 0;
-        const deliveryChargeRaw = updatedOrder.deliveryCharges || 0;
-        const taxedAmount = Math.max(0, deliveryChargeRaw - payout);
-
-        if (!payout) {
-          console.warn("problem is drvier payout order status change");
-        }
-
-        // If you have order.driver.driverId, use that for more reliability
-        const updatedDriver = await driver.findOneAndUpdate(
-          { "address.mobileNo": updatedOrder.driver.mobileNumber },
-          { $inc: { wallet: payout } },
-          { new: true },
-        );
-        if (!updatedDriver) {
+        if (settlement.payout > 0 && !updatedDriver) {
           console.warn(
             "Driver not found while updating driver wallet order status change",
           );
         }
-
-        await Transaction.create({
-          driverId: updatedDriver._id,
-          type: "credit",
-          amount: payout,
-          orderId: updatedOrder._id,
-          description: `Payout for Order #${updatedOrder.orderId}`,
-        });
-
-        const lastAmount = await admin_transaction
-          .findById("68ea20d2c05a14a96c12788d")
-          .lean();
-
-        const updatedWallet = await admin_transaction.findByIdAndUpdate(
-          "68ea20d2c05a14a96c12788d",
-          { $inc: { wallet: taxedAmount } },
-          { new: true },
-        );
-
-        await admin_transaction.create({
-          currentAmount: updatedWallet.wallet,
-          lastAmount: lastAmount.wallet,
-          type: "Credit",
-          amount: taxedAmount,
-          orderId: updatedOrder.orderId,
-          description: "Delivery Charge GST credited to Admin wallet",
-        });
 
         let storeInvoiceId;
         let feeInvoiceId;
@@ -1192,8 +1100,8 @@ exports.orderStatus = async (req, res) => {
           deliverBy: "admin",
           deliverStatus: true,
           // 3. Save the food-seller tax snapshot so invoice data stays locked after delivery.
-          foodSellerTaxPercent,
-          foodSellerTaxAmount,
+          foodSellerTaxPercent: settlement.foodSellerTaxPercent,
+          foodSellerTaxAmount: settlement.foodSellerTaxAmount,
         });
 
         if (store?.fcmTokenMobile) {
@@ -1247,7 +1155,7 @@ exports.orderStatus = async (req, res) => {
       .status(200)
       .json({ message: "Order Status Updated", update: updatedOrder });
   } catch (error) {
-    console.error("Order status error:", error.message);
+    console.error("Order status error:", error);
     return res
       .status(500)
       .json({ message: "Server Error", error: error.message });

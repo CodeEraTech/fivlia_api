@@ -12,7 +12,6 @@ const { whatsappOtp } = require("../config/whatsappsender");
 const OtpModel = require("../modals/otp");
 const admin = require("../firebase/firebase");
 const admin_transaction = require("../modals/adminTranaction");
-const store_transaction = require("../modals/storeTransaction");
 const { FeeInvoiceId } = require("../config/counter");
 const { sendMessages } = require("../utils/sendMessages");
 // sendDriverLocationToUser intentionally ignored for now
@@ -32,6 +31,7 @@ const {
   DEFAULT_PUSH_SOUND,
 } = require("../utils/pushSoundConfig");
 const Transaction = require("../modals/driverModals/transaction");
+const { settleDeliveredOrder } = require("../utils/orderSettlement");
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
 const order = require("../modals/order");
@@ -266,83 +266,12 @@ exports.driverOrderStatus = async (req, res) => {
 
         const storeBefore = await Store.findById(order.storeId).lean();
         const store = storeBefore; // just renaming for clarity
-
-        const setting = await SettingAdmin.findOne().lean();
-
-        const totalCommission = order.items.reduce((sum, item) => {
-          const itemTotal = item.price * item.quantity;
-          const commissionAmount = ((item.commision || 0) / 100) * itemTotal;
-          return sum + commissionAmount;
-        }, 0);
-
-        const itemTotal = order.items.reduce((sum, item) => {
-          return sum + item.price * item.quantity;
-        }, 0);
-
-        // 1. Apply the extra 5% tax only for food sellers and keep old commission flow unchanged.
-        const isFoodSellerTaxApplicable =
-          !store.Authorized_Store &&
-          (store?.sellFood === true ||
-            String(store?.businessType || "")
-              .trim()
-              .toUpperCase() === "FSSAI");
-
-        const foodSellerTaxPercent = Number(setting?.foodSellerTaxPercent || 5);
-
-        const foodSellerTaxAmount = isFoodSellerTaxApplicable
-          ? (itemTotal * foodSellerTaxPercent) / 100
-          : 0;
-
-        const totalAdminDeduction = totalCommission + foodSellerTaxAmount;
-
-        let creditToStore = itemTotal;
-        if (!store.Authorized_Store) {
-          creditToStore = itemTotal - totalAdminDeduction; // deduct commission + food seller tax
-        }
-
-        // ===> Update Store Wallet
-        const storeData = await Store.findByIdAndUpdate(
-          order.storeId,
-          { $inc: { wallet: creditToStore } },
-          { new: true },
-        );
-        // ===> Update Store Transaction
-        const data = await store_transaction.create({
-          currentAmount: storeData.wallet,
-          lastAmount: storeBefore.wallet,
-          type: "Credit",
-          amount: creditToStore,
-          orderId: order.orderId,
-          storeId: order.storeId,
-          description: store.Authorized_Store
-            ? "Full amount credited (Authorized Store)"
-            : foodSellerTaxAmount > 0
-              ? `Credited after commission + food seller tax cut (${totalCommission.toFixed(2)} commission and ${foodSellerTaxAmount.toFixed(2)} tax deducted)`
-              : `Credited after commission cut (${totalCommission.toFixed(2)} deducted)`,
+        const { settlement, updatedDriver } = await settleDeliveredOrder({
+          order,
         });
-        // console.log(data)
-        // 2. Credit admin with the old commission plus the new food-seller tax in the same settlement step.
-        if (!store.Authorized_Store && totalAdminDeduction > 0) {
-          const lastAmount = await admin_transaction
-            .findById("68ea20d2c05a14a96c12788d")
-            .lean();
-          const updatedWallet = await admin_transaction.findByIdAndUpdate(
-            "68ea20d2c05a14a96c12788d",
-            { $inc: { wallet: totalAdminDeduction } },
-            { new: true },
-          );
 
-          await admin_transaction.create({
-            currentAmount: updatedWallet.wallet,
-            lastAmount: lastAmount.wallet,
-            type: "Credit",
-            amount: totalAdminDeduction,
-            orderId: order.orderId,
-            description:
-              foodSellerTaxAmount > 0
-                ? "Commission and food seller tax credited to Admin wallet"
-                : "Commission credited to Admin wallet",
-          });
+        if (settlement.payout > 0 && !updatedDriver) {
+          console.warn("Driver not found while updating driver wallet");
         }
 
         // ===> Generate Store Invoice ID
@@ -357,8 +286,8 @@ exports.driverOrderStatus = async (req, res) => {
             feeInvoiceId,
             deliverStatus: true,
             // 3. Save the food-seller tax snapshot so seller invoice always matches the delivered settlement.
-            foodSellerTaxPercent,
-            foodSellerTaxAmount,
+            foodSellerTaxPercent: settlement.foodSellerTaxPercent,
+            foodSellerTaxAmount: settlement.foodSellerTaxAmount,
           },
           { new: true },
         );

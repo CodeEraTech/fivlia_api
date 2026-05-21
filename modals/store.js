@@ -75,6 +75,8 @@ const storeScheema = new mongoose.Schema(
     },
     openTime: { type: String },
     closeTime: { type: String },
+    sellerFreeDeliveryEnabled: { type: Boolean, default: false },
+    sellerFreeDeliveryLimit: { type: Number, default: 0 },
     bankDetails: {
       bankName: String,
       accountHolder: String,

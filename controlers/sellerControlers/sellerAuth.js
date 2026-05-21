@@ -19,6 +19,7 @@ const { whatsappOtp } = require("../../config/whatsappsender");
 const { sendMessages } = require("../../utils/sendMessages");
 const mongoose = require("mongoose");
 const { notifyEntity } = require("../../utils/notifyStore");
+const { isTruthyFlag, toNumber } = require("../../utils/sellerDelivery");
 
 exports.addSeller = async (req, res) => {
   try {
@@ -865,6 +866,8 @@ exports.editSellerProfile = async (req, res) => {
       openTime,
       status,
       closeTime,
+      sellerFreeDeliveryEnabled,
+      sellerFreeDeliveryLimit,
       // {bankName, accountHolder, accountNumber, ifsc, branch}
     } = req.body;
 
@@ -912,6 +915,16 @@ exports.editSellerProfile = async (req, res) => {
     if (openTime) updateFields.openTime = openTime;
     if (closeTime) updateFields.closeTime = closeTime;
     if (status !== undefined) updateFields.status = status;
+    if (sellerFreeDeliveryEnabled !== undefined) {
+      updateFields.sellerFreeDeliveryEnabled =
+        isTruthyFlag(sellerFreeDeliveryEnabled);
+    }
+    if (sellerFreeDeliveryLimit !== undefined) {
+      updateFields.sellerFreeDeliveryLimit = Math.max(
+        0,
+        toNumber(sellerFreeDeliveryLimit),
+      );
+    }
     if (bankDetails) {
       // Parse bankDetails if it comes as JSON string (from form-data)
       let parsedBankDetails = bankDetails;

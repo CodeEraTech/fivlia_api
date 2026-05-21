@@ -308,6 +308,9 @@ exports.getSellerReport = async (req, res) => {
           totalPrice: { $first: "$totalPrice" },
           deliveryPayout: { $first: "$deliveryPayout" },
           deliveryCharges: { $first: "$deliveryCharges" },
+          sellerSponsoredDeliveryPayout: {
+            $first: "$sellerSponsoredDeliveryPayout",
+          },
           platformFee: { $first: "$platformFee" },
 
           itemTotal: {
@@ -337,7 +340,10 @@ exports.getSellerReport = async (req, res) => {
 
           sellerPaid: {
             $sum: {
-              $subtract: ["$itemTotal", "$totalCommission"],
+              $subtract: [
+                { $subtract: ["$itemTotal", "$totalCommission"] },
+                { $ifNull: ["$sellerSponsoredDeliveryPayout", 0] },
+              ],
             },
           },
 
@@ -345,7 +351,12 @@ exports.getSellerReport = async (req, res) => {
             $sum: {
               $add: [
                 "$totalCommission",
-                { $subtract: ["$deliveryCharges", "$deliveryPayout"] },
+                {
+                  $add: [
+                    { $subtract: ["$deliveryCharges", "$deliveryPayout"] },
+                    { $ifNull: ["$sellerSponsoredDeliveryPayout", 0] },
+                  ],
+                },
                 {
                   $multiply: [
                     "$itemTotal",

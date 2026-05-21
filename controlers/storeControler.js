@@ -14,6 +14,7 @@ const store_transaction = require("../modals/storeTransaction");
 const { SettingAdmin } = require("../modals/setting");
 const { whatsappOtp } = require("../config/whatsappsender");
 const { sendMessages } = require("../utils/sendMessages");
+const { isTruthyFlag, toNumber } = require("../utils/sellerDelivery");
 // const sendVerificationEmail = require("../config/nodeMailer");
 
 exports.storeLogin = async (req, res) => {
@@ -261,6 +262,8 @@ exports.storeEdit = async (req, res) => {
       openTime,
       closeTime,
       isAssured,
+      sellerFreeDeliveryEnabled,
+      sellerFreeDeliveryLimit,
       Category: categoryInput,
     } = req.body;
 
@@ -352,6 +355,16 @@ exports.storeEdit = async (req, res) => {
     if (closeTime) updateObj.closeTime = closeTime;
     if (status !== undefined) updateObj.status = status;
     if (Description) updateObj.Description = Description;
+    if (sellerFreeDeliveryEnabled !== undefined) {
+      updateObj.sellerFreeDeliveryEnabled =
+        isTruthyFlag(sellerFreeDeliveryEnabled);
+    }
+    if (sellerFreeDeliveryLimit !== undefined) {
+      updateObj.sellerFreeDeliveryLimit = Math.max(
+        0,
+        toNumber(sellerFreeDeliveryLimit),
+      );
+    }
 
     updateObj.gstNumber = gstNumber;
     updateObj.fsiNumber = fsiNumber;

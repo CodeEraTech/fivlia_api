@@ -1247,7 +1247,7 @@ exports.orderStatus = async (req, res) => {
       .status(200)
       .json({ message: "Order Status Updated", update: updatedOrder });
   } catch (error) {
-    console.error("Order status error:", error.message);
+    console.error("Order status error:", error);
     return res
       .status(500)
       .json({ message: "Server Error", error: error.message });

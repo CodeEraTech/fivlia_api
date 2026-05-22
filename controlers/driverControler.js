@@ -345,6 +345,53 @@ exports.driverOrderStatus = async (req, res) => {
           });
         }
 
+        const payout = order.deliveryPayout || 0;
+        const deliveryChargeRaw = order.deliveryCharges || 0;
+        const taxedAmount = Math.max(0, deliveryChargeRaw - payout);
+
+        if (!payout) {
+          console.warn("problem is drvier payout order status change");
+        }
+
+        // If you have order.driver.driverId, use that for more reliability
+        const updatedDriver = await driver.findOneAndUpdate(
+          { "address.mobileNo": order.driver.mobileNumber },
+          { $inc: { wallet: payout } },
+          { new: true },
+        );
+        if (!updatedDriver) {
+          console.warn(
+            "Driver not found while updating driver wallet order status change",
+          );
+        }
+
+        await Transaction.create({
+          driverId: updatedDriver._id,
+          type: "credit",
+          amount: payout,
+          orderId: order._id,
+          description: `Payout for Order #${order.orderId}`,
+        });
+
+        const lastAmount = await admin_transaction
+          .findById("68ea20d2c05a14a96c12788d")
+          .lean();
+
+        const updatedWallet = await admin_transaction.findByIdAndUpdate(
+          "68ea20d2c05a14a96c12788d",
+          { $inc: { wallet: taxedAmount } },
+          { new: true },
+        );
+
+        await admin_transaction.create({
+          currentAmount: updatedWallet.wallet,
+          lastAmount: lastAmount.wallet,
+          type: "Credit",
+          amount: taxedAmount,
+          orderId: order.orderId,
+          description: "Delivery Charge GST credited to Admin wallet",
+        });
+
         // ===> Generate Store Invoice ID
         const storeInvoiceId = await generateStoreInvoiceId(order.storeId);
 

@@ -917,27 +917,29 @@ exports.withdrawalRequest = async (req, res) => {
     }
 
     // Check if a pending withdrawal already exists
-    let withdrawal = await Transaction.findOne({
+    // let withdrawal = await Transaction.findOne({
+    //   driverId: driverData._id,
+    //   status: "Pending",
+    //   type: "debit",
+    // });
+
+    // if (withdrawal) {
+    //   // Update existing pending request
+    //   withdrawal.amount += amount;
+    //   withdrawal.description = `Withdrawal request of ₹${withdrawal.amount} by driver`;
+    //   await withdrawal.save();
+    // } else {
+    // Create new withdrawal request
+    
+    let withdrawal = await Transaction.create({
       driverId: driverData._id,
-      status: "Pending",
+      amount,
       type: "debit",
+      description: `Withdrawal request of ₹${amount} by driver`,
+      status: "Pending",
     });
 
-    if (withdrawal) {
-      // Update existing pending request
-      withdrawal.amount += amount;
-      withdrawal.description = `Withdrawal request of ₹${withdrawal.amount} by driver`;
-      await withdrawal.save();
-    } else {
-      // Create new withdrawal request
-      withdrawal = await Transaction.create({
-        driverId: driverData._id,
-        amount,
-        type: "debit",
-        description: `Withdrawal request of ₹${amount} by driver`,
-        status: "Pending",
-      });
-    }
+    // }
 
     return res.status(200).json({
       message: "Withdrawal request submitted successfully",

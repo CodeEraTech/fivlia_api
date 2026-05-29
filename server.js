@@ -12,6 +12,12 @@ require("./jobs/orderNotificationRetry");
 const app = express();
 app.set("etag", false);
 app.use(cors());
+
+app.use(
+  "/razorpay-webhook",
+  express.raw({ type: "application/json" })
+);
+
 app.use(express.json());
 
 // const key = fs.readFileSync('/etc/letsencrypt/live/api.fivlia.in/privkey.pem', 'utf8');

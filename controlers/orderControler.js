@@ -519,9 +519,12 @@ const crypto = require("crypto");
 
 exports.razorpayWebhook = async (req, res) => {
   try {
+    console.log("🔔 Razorpay webhook received");
     await telegramOrderLog("🕸️ WEBHOOK (Finally I Run)");
 
     const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+
+        console.log("body", req.body);
 
     const signature = req.headers["x-razorpay-signature"];
 
@@ -531,10 +534,11 @@ exports.razorpayWebhook = async (req, res) => {
       .update(req.body)
       .digest("hex");
 
+      console.log("expectedSignature", expectedSignature);
     if (signature !== expectedSignature) {
       console.log("❌ Invalid webhook signature");
 
-      return res.status(400).json({
+      return res.status(200).json({
         success: false,
       });
     }
@@ -546,8 +550,11 @@ exports.razorpayWebhook = async (req, res) => {
 
     // ONLY HANDLE payment.captured
     if (body.event !== "payment.captured") {
+      await telegramOrderLog(`⚠️ Ignored event type: ${body.event}`);
+      console.log(`⚠️ Ignored event type: payment not captured`);
       return res.status(200).json({
         success: true,
+        message: "Event ignored payment not captured",
       });
     }
 

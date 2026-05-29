@@ -519,6 +519,8 @@ const crypto = require("crypto");
 
 exports.razorpayWebhook = async (req, res) => {
   try {
+    await telegramOrderLog("🕸️ WEBHOOK (Finally I Run)");
+
     const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
 
     const signature = req.headers["x-razorpay-signature"];
@@ -578,6 +580,10 @@ exports.razorpayWebhook = async (req, res) => {
     if (existingOrder) {
       console.log("✅ Order already exists");
 
+      await telegramOrderLog(
+        "🕸️ WEBHOOK (I think i need to go my work is over here)",
+      );
+
       return res.status(200).json({
         success: true,
       });
@@ -601,6 +607,8 @@ exports.razorpayWebhook = async (req, res) => {
         },
       }),
     };
+
+    await telegramOrderLog("🕸️ WEBHOOK (Life is good)", { fakeReq, fakeRes });
 
     // CALL EXISTING API FLOW
     await exports.verifyPayment(fakeReq, fakeRes);

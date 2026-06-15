@@ -524,8 +524,6 @@ exports.razorpayWebhook = async (req, res) => {
 
     const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
 
-        console.log("body", req.body);
-
     const signature = req.headers["x-razorpay-signature"];
 
     // VERIFY SIGNATURE
@@ -534,10 +532,8 @@ exports.razorpayWebhook = async (req, res) => {
       .update(req.body)
       .digest("hex");
 
-      console.log("expectedSignature", expectedSignature);
     if (signature !== expectedSignature) {
       console.log("❌ Invalid webhook signature");
-
       return res.status(200).json({
         success: false,
       });
@@ -546,11 +542,9 @@ exports.razorpayWebhook = async (req, res) => {
     // PARSE BODY
     const body = JSON.parse(req.body.toString());
 
-    console.log("✅ Webhook:", body.event);
-
     // ONLY HANDLE payment.captured
     if (body.event !== "payment.captured") {
-      await telegramOrderLog(`⚠️ Ignored event type: ${body.event}`);
+      await telegramOrderLog(`⚠️ Ignored event type (payment.capture is not capture): ${body.event}`);
       console.log(`⚠️ Ignored event type: payment not captured`);
       return res.status(200).json({
         success: true,
@@ -1129,6 +1123,7 @@ exports.orderStatus = async (req, res) => {
         console.warn("⚠️ Dispatch update failed:", err.message);
       }
     }
+    
     await telegramOrderLog("📦 ORDER STATUS UPDATED", {
       orderId: updatedOrder.orderId,
       status,

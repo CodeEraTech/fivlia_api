@@ -15,13 +15,17 @@ async function getNextOrderId(increment = true) {
   }
 }
 
-async function FeeInvoiceId(increment = true) {
+async function FeeInvoiceId(increment = true, session = null) {
   if (increment) {
-    const counter = await Counter.findOneAndUpdate(
+    const query = Counter.findOneAndUpdate(
       { _id: "feeInvoiceId" },
       { $inc: { seq: 1 } },
       { new: true, upsert: true },
     );
+    if (session) {
+      query.session(session);
+    }
+    const counter = await query;
     return `${counter.seq}`;
   } else {
     const counter = await Counter.findById("feeInvoiceId");

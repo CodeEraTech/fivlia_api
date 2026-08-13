@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const { Order, TempOrder } = require("../modals/order");
 const { ZoneData } = require("../modals/cityZone");
 const admin = require("../firebase/firebase");
@@ -68,6 +69,50 @@ const telegramOrderLog = require("../utils/telegram_logs");
 const MAX_DISTANCE_METERS = 5000;
 const MAX_ATTEMPTS = 10; // retry 10 times (for example, every 30s = 5 minutes total)
 const RETRY_INTERVAL = 10000;
+const ADMIN_WALLET_ID = "68ea20d2c05a14a96c12788d";
+
+const recordWalletTransaction = async ({
+  model,
+  walletId,
+  amount,
+  orderId,
+  description,
+  session,
+  extra = {},
+}) => {
+  const walletBefore = await model.findById(walletId).session(session).lean();
+
+  if (!walletBefore) {
+    throw new Error("Wallet record not found");
+  }
+
+  const walletAfter = await model.findByIdAndUpdate(
+    walletId,
+    { $inc: { wallet: amount } },
+    { new: true, session },
+  );
+
+  if (!walletAfter) {
+    throw new Error("Wallet update failed");
+  }
+
+  await model.create(
+    [
+      {
+        currentAmount: walletAfter.wallet,
+        lastAmount: walletBefore.wallet,
+        type: "Credit",
+        amount,
+        orderId,
+        description,
+        ...extra,
+      },
+    ],
+    { session },
+  );
+
+  return walletAfter;
+};
 
 // Helper: send repeated notifications until accepted
 // const repeatNotifyStore = async (orderId, storeDoc, attempt = 1) => {
@@ -544,7 +589,9 @@ exports.razorpayWebhook = async (req, res) => {
 
     // ONLY HANDLE payment.captured
     if (body.event !== "payment.captured") {
-      await telegramOrderLog(`⚠️ Ignored event type (payment.capture is not capture): ${body.event}`);
+      await telegramOrderLog(
+        `⚠️ Ignored event type (payment.capture is not capture): ${body.event}`,
+      );
       console.log(`⚠️ Ignored event type: payment not captured`);
       return res.status(200).json({
         success: true,
@@ -1014,80 +1061,11 @@ exports.getOrderDetails = async (req, res) => {
 };
 
 exports.orderStatus = async (req, res) => {
+  let session;
+
   try {
     const { id } = req.params;
     const { status, driverId } = req.body;
-
-    const updateData = { orderStatus: status };
-
-    if (driverId) {
-      const driverDoc = await driver.findOne({ _id: driverId });
-      if (!driverDoc)
-        return res.status(404).json({ message: "Driver not found" });
-
-      updateData.driver = {
-        driverId: driverDoc._id,
-        name: driverDoc.driverName,
-        mobileNumber: driverDoc.address?.mobileNo || "",
-      };
-
-      if (!status || status === "" || status === undefined) {
-        updateData.orderStatus = "Going to Pickup";
-      }
-      // ✅ Fetch the order before update to get user & store info for notification
-      const orderDoc = await Order.findById(id).lean();
-
-      if (orderDoc) {
-        const user = await User.findById(orderDoc.userId).lean();
-        const storeData = await Store.findById(orderDoc.storeId).lean();
-
-        // 🧠 Notify user that a driver has been assigned
-        if (user?.fcmToken && user.fcmToken !== "null") {
-          try {
-            await sendNotification(
-              user.fcmToken,
-              "🚗 Driver Assigned!",
-              `Your order #${orderDoc.orderId} has been assigned to driver ${driverDoc.driverName}.`,
-              "/dashboard1",
-              {
-                orderId: orderDoc.orderId,
-                driverName: driverDoc.driverName,
-                driverMobile: driverDoc.address?.mobileNo || "",
-                storeName: storeData?.storeName || "Fivlia",
-              },
-              DEFAULT_PUSH_SOUND,
-            );
-          } catch (err) {
-            console.warn(
-              "⚠️ User notification failed order status change:",
-              err.response?.data?.error?.message || err.message,
-            );
-          }
-        }
-
-        // 🧠 Optionally notify the store as well
-        if (storeData?.fcmTokenMobile) {
-          try {
-            await sendNotification(
-              storeData.fcmTokenMobile,
-              "Driver Assigned 🚗",
-              `Driver ${driverDoc.driverName} has been assigned for order #${orderDoc.orderId}.`,
-              "/dashboard1",
-              {
-                orderId: orderDoc.orderId,
-                driverName: driverDoc.driverName,
-              },
-              CUSTOM_PUSH_SOUND,
-            );
-          } catch (err) {
-            console.warn(
-              "⚠️ Store notification failed order status change:",
-              err.response?.data?.error?.message || err.message,
-            );
-          }
-        }
-      }
-    }
 
     const orderOnTheWay = await Order.exists({
       _id: id,
@@ -1097,9 +1075,228 @@ exports.orderStatus = async (req, res) => {
     if (orderOnTheWay && status === "Accepted") {
       return res.status(200).json({ message: "Order Already Accepted" });
     }
-    // 1. Update order status
-    const updatedOrder = await Order.findByIdAndUpdate(id, updateData, {
-      new: true,
+
+    const updateData = { orderStatus: status };
+    let updatedOrder = null;
+    let assignedDriverDoc = null;
+    let cancelledAssignmentsDeleted = 0;
+    let deliverySettlementApplied = false;
+
+    session = await mongoose.startSession();
+
+    await session.withTransaction(async () => {
+      if (driverId) {
+        const driverDoc = await driver
+          .findById(driverId)
+          .session(session)
+          .lean();
+        if (!driverDoc) {
+          const notFoundError = new Error("Driver not found");
+          notFoundError.statusCode = 404;
+          throw notFoundError;
+        }
+
+        assignedDriverDoc = driverDoc;
+        updateData.driver = {
+          driverId: driverDoc._id,
+          name: driverDoc.driverName,
+          mobileNumber: driverDoc.address?.mobileNo || "",
+        };
+
+        if (!status || status === "" || status === undefined) {
+          updateData.orderStatus = "Going to Pickup";
+        }
+      }
+
+      updatedOrder = await Order.findByIdAndUpdate(id, updateData, {
+        new: true,
+        session,
+      });
+
+      if (!updatedOrder) {
+        const notFoundError = new Error("Order not found");
+        notFoundError.statusCode = 404;
+        throw notFoundError;
+      }
+
+      if (status === "Cancelled") {
+        const deleteAssignments = await Assign.deleteMany({
+          orderId: updatedOrder.orderId,
+          orderStatus: "Accepted",
+        }).session(session);
+
+        cancelledAssignmentsDeleted = deleteAssignments.deletedCount || 0;
+      }
+
+      if (status === "Delivered" && updatedOrder.driver?.driverId) {
+        if (updatedOrder.deliverStatus) {
+          console.log(
+            `Order ${updatedOrder.orderId} already processed for delivery.`,
+          );
+        } else {
+          console.log(
+            `Processing delivery logic for order ${updatedOrder.orderId}...`,
+          );
+          await Assign.findOneAndDelete({
+            orderId: updatedOrder.orderId,
+            orderStatus: "Accepted",
+          }).session(session);
+
+          const storeBefore = await Store.findById(updatedOrder.storeId)
+            .session(session)
+            .lean();
+          if (!storeBefore) {
+            const storeError = new Error("Store not found");
+            storeError.statusCode = 404;
+            throw storeError;
+          }
+
+          const setting = await SettingAdmin.findOne().session(session).lean();
+          const totalCommission = updatedOrder.items.reduce((sum, item) => {
+            const itemTotal = item.price * item.quantity;
+            const commissionAmount = ((item.commision || 0) / 100) * itemTotal;
+            return sum + commissionAmount;
+          }, 0);
+
+          const itemTotal = updatedOrder.items.reduce((sum, item) => {
+            return sum + item.price * item.quantity;
+          }, 0);
+
+          const isFoodSellerTaxApplicable =
+            !storeBefore.Authorized_Store &&
+            (storeBefore?.sellFood === true ||
+              String(storeBefore?.businessType || "")
+                .trim()
+                .toUpperCase() === "FSSAI");
+
+          const foodSellerTaxPercent = Number(
+            setting?.foodSellerTaxPercent || 5,
+          );
+          const foodSellerTaxAmount = isFoodSellerTaxApplicable
+            ? (itemTotal * foodSellerTaxPercent) / 100
+            : 0;
+          const totalAdminDeduction = totalCommission + foodSellerTaxAmount;
+
+          let creditToStore = itemTotal;
+          if (!storeBefore.Authorized_Store) {
+            creditToStore = itemTotal - totalAdminDeduction;
+          }
+
+          const storeData = await Store.findByIdAndUpdate(
+            updatedOrder.storeId,
+            { $inc: { wallet: creditToStore } },
+            { new: true, session },
+          );
+          if (!storeData) {
+            const storeUpdateError = new Error("Store wallet update failed");
+            storeUpdateError.statusCode = 500;
+            throw storeUpdateError;
+          }
+
+          await store_transaction.create(
+            [
+              {
+                currentAmount: storeData.wallet,
+                lastAmount: storeBefore.wallet,
+                type: "Credit",
+                amount: creditToStore,
+                orderId: updatedOrder.orderId,
+                storeId: updatedOrder.storeId,
+                description: storeBefore.Authorized_Store
+                  ? "Full amount credited (Authorized Store)"
+                  : foodSellerTaxAmount > 0
+                    ? `Credited after commission + food seller tax cut (${totalCommission.toFixed(2)} commission and ${foodSellerTaxAmount.toFixed(2)} tax deducted)`
+                    : `Credited after commission cut (${totalCommission.toFixed(2)} deducted)`,
+              },
+            ],
+            { session },
+          );
+
+          if (!storeBefore.Authorized_Store && totalAdminDeduction > 0) {
+            await recordWalletTransaction({
+              model: admin_transaction,
+              walletId: ADMIN_WALLET_ID,
+              amount: totalAdminDeduction,
+              orderId: updatedOrder.orderId,
+              description:
+                foodSellerTaxAmount > 0
+                  ? "Commission and food seller tax credited to Admin wallet"
+                  : "Commission credited to Admin wallet",
+              session,
+            });
+          }
+
+          const payout = updatedOrder.deliveryPayout || 0;
+          const deliveryChargeRaw = updatedOrder.deliveryCharges || 0;
+          const taxedAmount = Math.max(0, deliveryChargeRaw - payout);
+
+          if (!payout) {
+            console.warn("problem is drvier payout order status change");
+          }
+
+          const updatedDriver = await driver.findOneAndUpdate(
+            { "address.mobileNo": updatedOrder.driver.mobileNumber },
+            { $inc: { wallet: payout } },
+            { new: true, session },
+          );
+
+          if (!updatedDriver) {
+            const driverUpdateError = new Error(
+              "Driver not found while updating driver wallet order status change",
+            );
+            driverUpdateError.statusCode = 500;
+            throw driverUpdateError;
+          }
+
+          await Transaction.create(
+            [
+              {
+                driverId: updatedDriver._id,
+                type: "credit",
+                amount: payout,
+                orderId: updatedOrder._id,
+                description: `Payout for Order #${updatedOrder.orderId}`,
+              },
+            ],
+            { session },
+          );
+
+          await recordWalletTransaction({
+            model: admin_transaction,
+            walletId: ADMIN_WALLET_ID,
+            amount: taxedAmount,
+            orderId: updatedOrder.orderId,
+            description: "Delivery Charge GST credited to Admin wallet",
+            session,
+          });
+
+          let storeInvoiceId;
+          let feeInvoiceId;
+
+          if (storeBefore.Authorized_Store) {
+            storeInvoiceId = await FeeInvoiceId(true);
+            feeInvoiceId = await FeeInvoiceId(true);
+          } else {
+            storeInvoiceId = await generateStoreInvoiceId(updatedOrder.storeId);
+            feeInvoiceId = await FeeInvoiceId(true);
+          }
+
+          await Order.findByIdAndUpdate(
+            updatedOrder._id,
+            {
+              storeInvoiceId,
+              feeInvoiceId,
+              deliverBy: "admin",
+              deliverStatus: true,
+              foodSellerTaxPercent,
+              foodSellerTaxAmount,
+            },
+            { session },
+          );
+
+          deliverySettlementApplied = true;
+        }
+      }
     });
 
     if (driverId !== undefined) {
@@ -1120,22 +1317,21 @@ exports.orderStatus = async (req, res) => {
           },
         );
       } catch (err) {
-        console.warn("⚠️ Dispatch update failed:", err.message);
+        console.warn("?? Dispatch update failed:", err.message);
       }
     }
-    
-    await telegramOrderLog("📦 ORDER STATUS UPDATED", {
-      orderId: updatedOrder.orderId,
-      status,
-      storeId: updatedOrder.storeId,
-    });
+
+    try {
+      await telegramOrderLog("?? ORDER STATUS UPDATED", {
+        orderId: updatedOrder.orderId,
+        status,
+        storeId: updatedOrder.storeId,
+      });
+    } catch (err) {
+      console.warn("?? Telegram order log failed:", err.message || err);
+    }
 
     if (status === "Cancelled") {
-      const deleteAssignments = await Assign.deleteMany({
-        orderId: updatedOrder.orderId,
-        orderStatus: "Accepted",
-      });
-
       try {
         await updateDispatchState(
           updatedOrder.orderId,
@@ -1153,16 +1349,63 @@ exports.orderStatus = async (req, res) => {
           },
         );
       } catch (err) {
-        console.warn("⚠️ Cancel dispatch update failed:", err.message);
+        console.warn("?? Cancel dispatch update failed:", err.message);
       }
 
       console.log(
-        `Deleted ${deleteAssignments.deletedCount} Accepted assignments for cancelled order ${updatedOrder.orderId}`,
+        `Deleted ${cancelledAssignmentsDeleted} Accepted assignments for cancelled order ${updatedOrder.orderId}`,
       );
     }
 
-    if (!updatedOrder)
-      return res.status(404).json({ message: "Order not found" });
+    if (assignedDriverDoc) {
+      const user = await User.findById(updatedOrder.userId).lean();
+      const storeData = await Store.findById(updatedOrder.storeId).lean();
+
+      if (user?.fcmToken && user.fcmToken !== "null") {
+        try {
+          await sendNotification(
+            user.fcmToken,
+            "?? Driver Assigned!",
+            `Your order #${updatedOrder.orderId} has been assigned to driver ${assignedDriverDoc.driverName}.`,
+            "/dashboard1",
+            {
+              orderId: updatedOrder.orderId,
+              driverName: assignedDriverDoc.driverName,
+              driverMobile: assignedDriverDoc.address?.mobileNo || "",
+              storeName: storeData?.storeName || "Fivlia",
+            },
+            DEFAULT_PUSH_SOUND,
+          );
+        } catch (err) {
+          console.warn(
+            "?? User notification failed order status change:",
+            err.response?.data?.error?.message || err.message,
+          );
+        }
+      }
+
+      if (storeData?.fcmTokenMobile) {
+        try {
+          await sendNotification(
+            storeData.fcmTokenMobile,
+            "Driver Assigned ??",
+            `Driver ${assignedDriverDoc.driverName} has been assigned for order #${updatedOrder.orderId}.`,
+            "/dashboard1",
+            {
+              orderId: updatedOrder.orderId,
+              driverName: assignedDriverDoc.driverName,
+            },
+            CUSTOM_PUSH_SOUND,
+          );
+        } catch (err) {
+          console.warn(
+            "?? Store notification failed order status change:",
+            err.response?.data?.error?.message || err.message,
+          );
+        }
+      }
+    }
+
     if (status === "Accepted") {
       autoAssignDriver(updatedOrder).catch((err) => {
         console.error("Driver assignment failed:", err.message);
@@ -1170,242 +1413,95 @@ exports.orderStatus = async (req, res) => {
     }
 
     if (status === "Delivered" && updatedOrder.driver?.driverId) {
-      if (updatedOrder.deliverStatus) {
+      if (!deliverySettlementApplied) {
         console.log(
           `Order ${updatedOrder.orderId} already processed for delivery.`,
         );
-      } else {
-        console.log(
-          `Processing delivery logic for order ${updatedOrder.orderId}...`,
-        );
-        await Assign.findOneAndDelete({
-          driverId: updatedOrder.driver.driverId,
-          orderId: updatedOrder.orderId,
-          orderStatus: "Accepted",
-        });
+      }
 
-        // 🧮 Commission + Wallet Update Logic (SAME AS driverOrderStatus)
-        const storeBefore = await Store.findById(updatedOrder.storeId).lean();
-        const store = storeBefore;
+      const user = await User.findById(updatedOrder.userId).lean();
+      const statusInfo = await Status.findOne({ statusTitle: status });
+      const store = await Store.findById(updatedOrder.storeId).lean();
 
-        const setting = await SettingAdmin.findOne().lean();
-        // 🧮 Calculate Commission from Items
-        const totalCommission = updatedOrder.items.reduce((sum, item) => {
-          const itemTotal = item.price * item.quantity;
-          const commissionAmount = ((item.commision || 0) / 100) * itemTotal;
-          return sum + commissionAmount;
-        }, 0);
-
-        const itemTotal = updatedOrder.items.reduce((sum, item) => {
-          return sum + item.price * item.quantity;
-        }, 0);
-
-        // 1. Apply the extra 5% tax only for food sellers and keep the existing commission logic as-is.
-        const isFoodSellerTaxApplicable =
-          !store.Authorized_Store &&
-          (store?.sellFood === true ||
-            String(store?.businessType || "")
-              .trim()
-              .toUpperCase() === "FSSAI");
-
-        const foodSellerTaxPercent = Number(setting?.foodSellerTaxPercent || 5);
-
-        const foodSellerTaxAmount = isFoodSellerTaxApplicable
-          ? (itemTotal * foodSellerTaxPercent) / 100
-          : 0;
-
-        const totalAdminDeduction = totalCommission + foodSellerTaxAmount;
-
-        // 🏦 Credit Store Wallet
-        let creditToStore = itemTotal;
-        if (!store.Authorized_Store) {
-          creditToStore = itemTotal - totalAdminDeduction;
-        }
-
-        const storeData = await Store.findByIdAndUpdate(
-          updatedOrder.storeId,
-          { $inc: { wallet: creditToStore } },
-          { new: true },
-        );
-
-        // ➕ Create Store Transaction
-        await store_transaction.create({
-          currentAmount: storeData.wallet,
-          lastAmount: storeBefore.wallet,
-          type: "Credit",
-          amount: creditToStore,
-          orderId: updatedOrder.orderId,
-          storeId: updatedOrder.storeId,
-          description: store.Authorized_Store
-            ? "Full amount credited (Authorized Store)"
-            : foodSellerTaxAmount > 0
-              ? `Credited after commission + food seller tax cut (${totalCommission.toFixed(2)} commission and ${foodSellerTaxAmount.toFixed(2)} tax deducted)`
-              : `Credited after commission cut (${totalCommission.toFixed(2)} deducted)`,
-        });
-
-        // 2. Credit admin with the old commission plus the new food-seller tax in one delivered settlement.
-        if (!store.Authorized_Store && totalAdminDeduction > 0) {
-          const lastAmount = await admin_transaction
-            .findById("68ea20d2c05a14a96c12788d")
-            .lean();
-          const updatedWallet = await admin_transaction.findByIdAndUpdate(
-            "68ea20d2c05a14a96c12788d",
-            { $inc: { wallet: totalAdminDeduction } },
-            { new: true },
-          );
-
-          await admin_transaction.create({
-            currentAmount: updatedWallet.wallet,
-            lastAmount: lastAmount.wallet,
-            type: "Credit",
-            amount: totalAdminDeduction,
-            orderId: updatedOrder.orderId,
-            description:
-              foodSellerTaxAmount > 0
-                ? "Commission and food seller tax credited to Admin wallet"
-                : "Commission credited to Admin wallet",
-          });
-        }
-
-        const payout = updatedOrder.deliveryPayout || 0;
-        const deliveryChargeRaw = updatedOrder.deliveryCharges || 0;
-        const taxedAmount = Math.max(0, deliveryChargeRaw - payout);
-
-        if (!payout) {
-          console.warn("problem is drvier payout order status change");
-        }
-
-        // If you have order.driver.driverId, use that for more reliability
-        const updatedDriver = await driver.findOneAndUpdate(
-          { "address.mobileNo": updatedOrder.driver.mobileNumber },
-          { $inc: { wallet: payout } },
-          { new: true },
-        );
-        if (!updatedDriver) {
-          console.warn(
-            "Driver not found while updating driver wallet order status change",
-          );
-        }
-
-        await Transaction.create({
-          driverId: updatedDriver._id,
-          type: "credit",
-          amount: payout,
-          orderId: updatedOrder._id,
-          description: `Payout for Order #${updatedOrder.orderId}`,
-        });
-
-        const lastAmount = await admin_transaction
-          .findById("68ea20d2c05a14a96c12788d")
-          .lean();
-
-        const updatedWallet = await admin_transaction.findByIdAndUpdate(
-          "68ea20d2c05a14a96c12788d",
-          { $inc: { wallet: taxedAmount } },
-          { new: true },
-        );
-
-        await admin_transaction.create({
-          currentAmount: updatedWallet.wallet,
-          lastAmount: lastAmount.wallet,
-          type: "Credit",
-          amount: taxedAmount,
-          orderId: updatedOrder.orderId,
-          description: "Delivery Charge GST credited to Admin wallet",
-        });
-
-        let storeInvoiceId;
-        let feeInvoiceId;
-        // 🧾 Generate Store Invoice ID
-        if (store.Authorized_Store) {
-          // Authorized store: use global counter for both invoices
-          storeInvoiceId = await FeeInvoiceId(true); // increments counter
-          feeInvoiceId = await FeeInvoiceId(true); // increments counter again
-        } else {
-          // Unauthorized store: local logic
-          storeInvoiceId = await generateStoreInvoiceId(updatedOrder.storeId);
-          feeInvoiceId = await FeeInvoiceId(true); // can still increment global counter
-        }
-
-        await Order.findByIdAndUpdate(updatedOrder._id, {
-          storeInvoiceId,
-          feeInvoiceId,
-          deliverBy: "admin",
-          deliverStatus: true,
-          // 3. Save the food-seller tax snapshot so invoice data stays locked after delivery.
-          foodSellerTaxPercent,
-          foodSellerTaxAmount,
-        });
-
-        if (store?.fcmTokenMobile) {
-          try {
-            await sendNotification(
-              store.fcmTokenMobile,
-              "Order Delivered 🎉",
-              `Driver delivered order #${updatedOrder.orderId}.`,
-              "/dashboard1",
-              { orderId: updatedOrder.orderId },
-              CUSTOM_PUSH_SOUND,
-            );
-          } catch (err) {
-            console.warn(
-              "⚠️ Store delivered notification failed order status change:",
-              err.response?.data?.error?.message || err.message,
-            );
-          }
-        }
-
+      if (
+        user?.fcmToken &&
+        user.fcmToken !== "null" &&
+        statusInfo?.statusTitle
+      ) {
         try {
-          await generateAndSendThermalInvoice(updatedOrder.orderId);
+          await sendNotification(
+            user.fcmToken,
+            `?? Order #${updatedOrder.orderId} - ${statusInfo.statusTitle}`,
+            `Your order is now marked as ${statusInfo.statusTitle} by ${
+              store.storeName || "Fivlia"
+            }`,
+            "/dashboard1",
+            {
+              image: statusInfo.image || "",
+              orderId: updatedOrder.orderId,
+              statusCode: statusInfo.statusCode,
+            },
+            DEFAULT_PUSH_SOUND,
+          );
         } catch (err) {
-          console.error("Error generating thermal invoice:", err);
+          console.warn(
+            "?? User delivered notification failed order status change:",
+            err.response?.data?.error?.message || err.message,
+          );
         }
       }
-    }
-    const user = await User.findById(updatedOrder.userId).lean();
-    const statusInfo = await Status.findOne({ statusTitle: status });
 
-    const store = await Store.findById(updatedOrder.storeId).lean();
-    // 3. Send notification if FCM token valid and status exists
-    if (user?.fcmToken && user.fcmToken !== "null" && statusInfo?.statusTitle) {
+      if (store?.fcmTokenMobile) {
+        try {
+          await sendNotification(
+            store.fcmTokenMobile,
+            "Order Delivered ??",
+            `Driver delivered order #${updatedOrder.orderId}.`,
+            "/dashboard1",
+            { orderId: updatedOrder.orderId },
+            CUSTOM_PUSH_SOUND,
+          );
+        } catch (err) {
+          console.warn(
+            "?? Store delivered notification failed order status change:",
+            err.response?.data?.error?.message || err.message,
+          );
+        }
+      }
+
       try {
-        await sendNotification(
-          user.fcmToken,
-          `📦 Order #${updatedOrder.orderId} - ${statusInfo.statusTitle}`,
-          `Your order is now marked as ${statusInfo.statusTitle} by ${
-            store.storeName || "Fivlia"
-          }`,
-          "/dashboard1",
-          {
-            image: statusInfo.image || "",
-            orderId: updatedOrder.orderId,
-            statusCode: statusInfo.statusCode,
-          },
-          DEFAULT_PUSH_SOUND,
-        );
+        await generateAndSendThermalInvoice(updatedOrder.orderId);
       } catch (err) {
-        console.warn(
-          "⚠️ User delivered notification failed order status change:",
-          err.response?.data?.error?.message || err.message,
-        );
+        console.error("Error generating thermal invoice:", err);
       }
     }
 
-    // new socket code of user order status
-    const socketOrderPayload = await Order.findById(updatedOrder._id).lean();
-    await emitUserOrderStatusUpdate(
-      socketOrderPayload || updatedOrder,
-      "orderControler.orderStatus",
-    );
+    try {
+      const socketOrderPayload = await Order.findById(updatedOrder._id).lean();
+      await emitUserOrderStatusUpdate(
+        socketOrderPayload || updatedOrder,
+        "orderControler.orderStatus",
+      );
+    } catch (err) {
+      console.warn("?? Socket order status emit failed:", err.message || err);
+    }
 
     return res
       .status(200)
       .json({ message: "Order Status Updated", update: updatedOrder });
   } catch (error) {
+    if (error?.statusCode === 404) {
+      return res.status(404).json({ message: error.message });
+    }
+
     console.error("Order status error:", error);
     return res
       .status(500)
       .json({ message: "Server Error", error: error.message });
+  } finally {
+    if (session) {
+      session.endSession();
+    }
   }
 };
 

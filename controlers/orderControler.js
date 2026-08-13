@@ -114,6 +114,14 @@ const recordWalletTransaction = async ({
   return walletAfter;
 };
 
+const clearOrderAssignments = async (orderId, session = null) => {
+  const query = Assign.deleteMany({ orderId });
+  if (session) {
+    query.session(session);
+  }
+  return query;
+};
+
 // Helper: send repeated notifications until accepted
 // const repeatNotifyStore = async (orderId, storeDoc, attempt = 1) => {
 //   try {
@@ -1065,7 +1073,68 @@ exports.orderStatus = async (req, res) => {
 
   try {
     const { id } = req.params;
-    const { status, driverId } = req.body;
+    const { status, driverId, type } = req.body;
+
+    if (type === "admin" && driverId) {
+      const driverDoc = await driver.findById(driverId).lean();
+      if (!driverDoc) {
+        return res.status(404).json({ message: "Driver not found" });
+      }
+
+      const orderDoc = await Order.findById(id).lean();
+      if (!orderDoc) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+
+      const nextStatus = status || "Going to Pickup";
+      const nextMobileNumber = driverDoc.address?.mobileNo || "";
+
+      let statusUpdate = null;
+      session = await mongoose.startSession();
+
+      await session.withTransaction(async () => {
+        await clearOrderAssignments(orderDoc.orderId, session);
+
+        await Assign.create(
+          [
+            {
+              driverId: driverDoc._id,
+              orderId: orderDoc.orderId,
+              orderStatus: "Accepted",
+              currentStatus: "Assigned",
+            },
+          ],
+          { session },
+        );
+
+        statusUpdate = await Order.findByIdAndUpdate(
+          id,
+          {
+            driver: {
+              driverId: String(driverDoc._id),
+              name: driverDoc.driverName,
+              mobileNumber: nextMobileNumber,
+            },
+            orderStatus: nextStatus,
+          },
+          { new: true, session },
+        );
+      });
+
+      try {
+        await emitUserOrderStatusUpdate(
+          statusUpdate,
+          "orderControler.orderStatus:adminReassign",
+        );
+      } catch (err) {
+        console.warn("⚠️ Socket update failed for admin reassign:", err.message);
+      }
+
+      return res.status(200).json({
+        message: "Driver reassigned successfully",
+        update: statusUpdate,
+      });
+    }
 
     const orderOnTheWay = await Order.exists({
       _id: id,
@@ -1120,10 +1189,10 @@ exports.orderStatus = async (req, res) => {
       }
 
       if (status === "Cancelled") {
-        const deleteAssignments = await Assign.deleteMany({
-          orderId: updatedOrder.orderId,
-          orderStatus: "Accepted",
-        }).session(session);
+        const deleteAssignments = await clearOrderAssignments(
+          updatedOrder.orderId,
+          session,
+        );
 
         cancelledAssignmentsDeleted = deleteAssignments.deletedCount || 0;
       }
@@ -1137,10 +1206,7 @@ exports.orderStatus = async (req, res) => {
           console.log(
             `Processing delivery logic for order ${updatedOrder.orderId}...`,
           );
-          await Assign.findOneAndDelete({
-            orderId: updatedOrder.orderId,
-            orderStatus: "Accepted",
-          }).session(session);
+          await clearOrderAssignments(updatedOrder.orderId, session);
 
           const storeBefore = await Store.findById(updatedOrder.storeId)
             .session(session)

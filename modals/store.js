@@ -132,6 +132,9 @@ const storeScheema = new mongoose.Schema(
       },
     ],
     referralCode: { type: String, default: null },
+    referralClaimed: { type: Boolean, default: false },
+    referralClaimedAt: { type: Date, default: null },
+    referralAmount: { type: Number, default: 0 }
   },
   { timestamps: true }
 );
